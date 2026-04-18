@@ -1,0 +1,7 @@
+# request
+string member
+
+---
+# reponse
+string data
+int32 code

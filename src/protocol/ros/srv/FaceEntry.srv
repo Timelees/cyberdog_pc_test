@@ -1,0 +1,25 @@
+
+int32 ADD_FACE = 0
+int32 CANCLE_ADD_FACE = 1
+int32 CONFIRM_LAST_FACE = 2
+int32 UPDATE_FACE_ID = 3
+int32 DELETE_FACE = 4
+int32 GET_ALL_FACES = 5
+
+int32 command
+string username
+string oriname
+bool ishost
+---
+int32 RESULT_SUCCESS = 0
+int32 RESULT_INVALID_ARGS = 5910
+int32 RESULT_UNSUPPORTED = 5908
+int32 RESULT_TIMEOUT = 5907
+int32 RESULT_BUSY = 5911
+int32 RESULT_INVALID_STATE = 5903
+int32 RESULT_INNER_ERROR = 5904
+int32 RESULT_UNDEFINED_ERROR = 5901
+
+int32 result
+string allfaces
+int32 code

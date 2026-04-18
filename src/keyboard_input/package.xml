@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package format="3">
+	<name>keyboard_input</name>
+	<version>0.0.1</version>
+	<description>Cyberdog2 键盘控制节点，通过键盘发布运动步态与方向指令。</description>
+
+	<maintainer email="lee@example.com">lee</maintainer>
+	<license>Apache-2.0</license>
+
+	<buildtool_depend>ament_cmake</buildtool_depend>
+
+	<depend>ament_index_cpp</depend>
+	<depend>rclcpp</depend>
+	<depend>protocol</depend>
+
+	<test_depend>ament_lint_auto</test_depend>
+	<test_depend>ament_lint_common</test_depend>
+
+	<export>
+		<build_type>ament_cmake</build_type>
+	</export>
+</package>

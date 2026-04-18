@@ -1,0 +1,9 @@
+# request
+string client # "BMS";"BLUETOOTH";"AUDIO" ..;
+AudioStatus status
+
+---
+
+# response
+bool result
+int32 code

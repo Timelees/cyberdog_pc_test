@@ -1,0 +1,6 @@
+keyboard_input:
+  ros__parameters:
+    namespace: cyberdog_1
+    step_duration_ms: 250
+    forward_velocity: 0.20
+    lateral_velocity: 0.15

@@ -1,0 +1,5 @@
+bool[] enables
+string uid
+---
+string info
+int32 code

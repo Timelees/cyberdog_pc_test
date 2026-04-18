@@ -1,0 +1,23 @@
+/**:
+  ros__parameters:
+    status_period_sec: 5.0
+    namespace: ["cyberdog_1", "cyberdog_2", "cyberdog_3", "cyberdog_4", "cyberdog_5", "cyberdog_6", "cyberdog_7", "cyberdog_8", "cyberdog_9", "cyberdog_10"]
+    namespace_index: 0
+
+    scan_enabled: true
+    scan_input_topic: /scan
+    scan_output_topic: /scan
+
+    odom_enabled: true
+    odom_input_topic: /odom_out
+    odom_output_topic: /odom
+    odom_publish_tf: true
+    odom_output_frame_id: odom
+    odom_output_child_frame_id: base_link
+
+    pose_text_enabled: true
+    pose_text_topic: /base_link_pose_text
+    pose_text_frame_id: base_link
+    pose_text_z_offset: 0.6
+    pose_text_scale: 0.18
+
