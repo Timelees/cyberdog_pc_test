@@ -1,0 +1,60 @@
+/**:
+  ros__parameters:
+    status_period_sec: 5.0
+    namespace: ["cyberdog_1", "cyberdog_2", "cyberdog_3", "cyberdog_4", "cyberdog_5", "cyberdog_6", "cyberdog_7", "cyberdog_8", "cyberdog_9", "cyberdog_10"]
+    namespace_index: 0
+
+    # 使用实机原始 frame，不做 vodom->world 重命名
+    frame_remap_enabled: false
+    compare_frame_id: odom
+
+    image0_enabled: true
+    image0_input_topic: /vins/image0
+    image0_output_topic: /vins/image0
+
+    image1_enabled: true
+    image1_input_topic: /vins/image1
+    image1_output_topic: /vins/image1
+
+    image2_enabled: true
+    image2_input_topic: /vins/image2
+    image2_output_topic: /vins/image2
+
+    # 腿式里程计: 实机 frame_id=odom, child_frame_id=base_link_leg
+    leg_odom_enabled: true
+    leg_odom_input_topic: /odom_out
+    leg_odom_output_topic: /odom
+    leg_odom_output_frame_id: odom
+    leg_odom_output_child_frame_id: base_link_leg
+    leg_odom_publish_tf: true
+
+    # VINS SLAM 里程计: 实机 frame_id=map, child_frame_id=base_link
+    # 转发后对齐到 odom 坐标系，便于与腿式里程计对比
+    odom_slam_enabled: true
+    odom_slam_input_topic: /odom_slam
+    odom_slam_output_topic: /odom_slam
+    odom_slam_align_enabled: true
+    slam_odom_output_child_frame_id: base_link
+
+    compare_leg_path_topic: /compare/leg_path
+    compare_slam_path_topic: /compare/slam_path
+    compare_path_max_poses: 10000
+
+    # 以下 VINS 调试话题默认关闭，对比视图不需要
+    odometry_enabled: false
+    imuodom_slam_enabled: false
+    odometryleft_enabled: false
+    odometryright_enabled: false
+    reloc_odom_enabled: false
+    path_enabled: false
+    pathleft_enabled: false
+    pathright_enabled: false
+
+    vinsfollowing_transition_enabled: true
+    vinsfollowing_transition_input_topic: /vinsfollowing/transition_event
+
+    vinslocalization_transition_enabled: true
+    vinslocalization_transition_input_topic: /vinslocalization/transition_event
+
+    vinsmapping_transition_enabled: true
+    vinsmapping_transition_input_topic: /vinsmapping/transition_event

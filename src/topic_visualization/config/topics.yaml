@@ -8,16 +8,25 @@
     scan_input_topic: /scan
     scan_output_topic: /scan
 
+    # 机器人 /odom_out: frame_id=odom, child_frame_id=base_link_leg
     odom_enabled: true
     odom_input_topic: /odom_out
     odom_output_topic: /odom
     odom_publish_tf: true
     odom_output_frame_id: odom
-    odom_output_child_frame_id: base_link
+    odom_output_child_frame_id: base_link_leg
 
-    pose_text_enabled: true
+    # 机器人 /odom_slam: frame_id=map, child_frame_id=base_link
+    vins_odom_enabled: true
+    vins_odom_input_topic: /odom_slam
+    vins_odom_output_topic: /odom_slam
+    vins_odom_publish_tf: true
+    vins_odom_output_frame_id: map
+    vins_odom_output_child_frame_id: base_link
+
+    pose_text_enabled: false
     pose_text_topic: /base_link_pose_text
-    pose_text_frame_id: base_link
+    pose_text_frame_id: base_link_leg
     pose_text_z_offset: 0.6
     pose_text_scale: 0.18
 
