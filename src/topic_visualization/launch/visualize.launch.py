@@ -11,7 +11,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
 	package_share = Path(get_package_share_directory("topic_visualization"))
 	default_config = str(package_share / "config" / "topics.yaml")
-	default_rviz = str(package_share / "config" / "config.rviz")
+	default_rviz = str(package_share / "config" / "multi_robot_shared.rviz")
 
 	config_file = LaunchConfiguration("config_file")
 	rviz_config = LaunchConfiguration("rviz_config")

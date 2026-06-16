@@ -1,0 +1,21 @@
+mutil_odom_shared:
+  ros__parameters:
+    status_period_sec: 5.0
+
+    robot_namespaces:
+      - cyberdog_1
+      - cyberdog_2
+
+    # 全局坐标系基准：0 = cyberdog_1，以其启动后首帧 odom_slam 为 shared_odom 原点
+    reference_namespace_index: 0
+
+    odom_slam_enabled: true
+    odom_slam_input_topic: /odom_slam
+    odom_slam_output_topic: /odom_shared
+
+    align_enabled: true
+    shared_odom_frame_id: shared_odom
+    base_frame_name: base_link
+
+    publish_tf: true
+    publish_odom: true

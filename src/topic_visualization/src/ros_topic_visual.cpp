@@ -5,11 +5,13 @@
 #include <iomanip>
 #include <sstream>
 
+#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "rclcpp/executors/single_threaded_executor.hpp"
 #include "tf2/LinearMath/Matrix3x3.h"
 #include "tf2/LinearMath/Quaternion.h"
+#include "tf2_ros/static_transform_broadcaster.h"
 #include "tf2_ros/transform_broadcaster.h"
 
 namespace
@@ -25,8 +27,9 @@ RosTopicVisualNode::RosTopicVisualNode()
 	const auto reliable_qos = rclcpp::QoS(rclcpp::KeepLast(10)).reliable();
 	relay_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 	tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(*this);
+	static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(*this);
 
-	namespaces_ = declare_parameter<std::vector<std::string>>("namespace", std::vector<std::string>{});
+	namespaces_ = load_robot_namespaces();
 	const auto namespace_index = declare_parameter<int>("namespace_index", 0);
 	selected_namespace_ = select_namespace(namespace_index);
 
@@ -86,6 +89,40 @@ RosTopicVisualNode::RosTopicVisualNode()
 		reliable_qos,
 		subscription_options);
 
+	// 多机器人共享坐标系可视化（订阅 mutil_odom_shared 输出的 odom_shared）
+	shared_odom_enabled_ = declare_parameter<bool>("shared_odom_enabled", false);
+	shared_odom_input_topic_ = declare_parameter<std::string>("shared_odom_input_topic", "/odom_shared");
+	shared_odom_relay_topic_prefix_ =
+		declare_parameter<std::string>("shared_odom_relay_topic_prefix", "/viz/shared");
+	shared_path_topic_prefix_ = declare_parameter<std::string>("shared_path_topic_prefix", "/viz/shared");
+	shared_odom_publish_tf_ = declare_parameter<bool>("shared_odom_publish_tf", false);
+	shared_odom_relay_enabled_ = declare_parameter<bool>("shared_odom_relay_enabled", true);
+	shared_path_enabled_ = declare_parameter<bool>("shared_path_enabled", true);
+	shared_pose_text_enabled_ = declare_parameter<bool>("shared_pose_text_enabled", true);
+	shared_robot_marker_enabled_ = declare_parameter<bool>("shared_robot_marker_enabled", true);
+	shared_robot_marker_topic_ =
+		declare_parameter<std::string>("shared_robot_marker_topic", "/viz/shared/robot_markers");
+	shared_pose_text_topic_ =
+		declare_parameter<std::string>("shared_pose_text_topic", "/viz/shared/pose_text");
+	shared_odom_frame_id_ = declare_parameter<std::string>("shared_odom_frame_id", "shared_odom");
+	shared_base_frame_name_ = declare_parameter<std::string>("shared_base_frame_name", "base_link");
+	shared_path_max_poses_ = static_cast<std::size_t>(
+		declare_parameter<int>("shared_path_max_poses", 5000));
+
+	if (shared_pose_text_enabled_ && !shared_pose_text_topic_.empty()) {
+		shared_pose_text_publisher_ = create_publisher<visualization_msgs::msg::Marker>(
+			shared_pose_text_topic_, rclcpp::QoS(10).reliable());
+	}
+	if (shared_robot_marker_enabled_ && !shared_robot_marker_topic_.empty()) {
+		shared_robot_marker_publisher_ = create_publisher<visualization_msgs::msg::Marker>(
+			shared_robot_marker_topic_, rclcpp::QoS(10).reliable());
+	}
+
+	if (shared_odom_enabled_) {
+		publish_shared_odom_frame_anchor();
+		create_shared_odom_visuals(reliable_qos, reliable_qos, subscription_options);
+	}
+
 	const auto status_period_sec = declare_parameter<double>("status_period_sec", 5.0);
 	if (status_period_sec > 0.0) {
 		const auto period = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -102,7 +139,12 @@ RosTopicVisualNode::RosTopicVisualNode()
 		});
 	}
 
-	RCLCPP_INFO(get_logger(), "ros_topic_visual is ready with %zu relay channels", relay_specs_.size());
+	RCLCPP_INFO(
+		get_logger(),
+		"ros_topic_visual is ready: relay_channels=%zu, shared_robots=%zu, shared_odom=%s",
+		relay_specs_.size(),
+		shared_robots_.size(),
+		shared_odom_enabled_ ? "enabled" : "disabled");
 }
 
 RosTopicVisualNode::~RosTopicVisualNode()
@@ -112,6 +154,26 @@ RosTopicVisualNode::~RosTopicVisualNode()
 		status_timer_->cancel();
 		status_timer_.reset();
 	}
+}
+
+std::vector<std::string> RosTopicVisualNode::load_robot_namespaces()
+{
+	auto robot_namespaces = declare_parameter<std::vector<std::string>>(
+		"robot_namespaces",
+		std::vector<std::string>{});
+	if (!robot_namespaces.empty()) {
+		RCLCPP_INFO(get_logger(), "loaded robot_namespaces: %zu robots", robot_namespaces.size());
+		return robot_namespaces;
+	}
+
+	robot_namespaces = declare_parameter<std::vector<std::string>>("namespace", std::vector<std::string>{});
+	if (!robot_namespaces.empty()) {
+		RCLCPP_INFO(get_logger(), "loaded namespace: %zu robots", robot_namespaces.size());
+		return robot_namespaces;
+	}
+
+	RCLCPP_WARN(get_logger(), "robot namespace list is empty");
+	return robot_namespaces;
 }
 
 std::string RosTopicVisualNode::select_namespace(int namespace_index)
@@ -166,6 +228,51 @@ std::string RosTopicVisualNode::build_input_topic(const std::string & base_topic
 	}
 
 	return "/" + normalized_namespace + "/" + normalized_topic;
+}
+
+std::string RosTopicVisualNode::build_namespaced_topic(
+	const std::string & namespace_name,
+	const std::string & base_topic) const
+{
+	const auto normalized_namespace = trim_slashes(namespace_name);
+	const auto normalized_topic = trim_slashes(base_topic);
+
+	if (normalized_namespace.empty()) {
+		return normalized_topic.empty() ? std::string{} : ("/" + normalized_topic);
+	}
+
+	if (normalized_topic.empty()) {
+		return "/" + normalized_namespace;
+	}
+
+	return "/" + normalized_namespace + "/" + normalized_topic;
+}
+
+std::string RosTopicVisualNode::build_shared_child_frame_id(const std::string & namespace_name) const
+{
+	const auto normalized_namespace = trim_slashes(namespace_name);
+	if (normalized_namespace.empty()) {
+		return shared_base_frame_name_;
+	}
+	// 使用下划线连接，避免 TF frame 名称中的 '/' 导致 RViz 解析异常
+	return normalized_namespace + "_" + shared_base_frame_name_;
+}
+
+std::array<float, 4> RosTopicVisualNode::robot_color(std::size_t color_index)
+{
+	static constexpr std::array<std::array<float, 4>, 10> kPalette{{
+		{1.0f, 0.2f, 0.2f, 1.0f},
+		{0.2f, 0.8f, 0.2f, 1.0f},
+		{0.2f, 0.5f, 1.0f, 1.0f},
+		{1.0f, 0.8f, 0.1f, 1.0f},
+		{0.9f, 0.2f, 0.9f, 1.0f},
+		{0.2f, 0.9f, 0.9f, 1.0f},
+		{1.0f, 0.5f, 0.1f, 1.0f},
+		{0.6f, 0.3f, 1.0f, 1.0f},
+		{0.8f, 0.8f, 0.8f, 1.0f},
+		{0.5f, 0.8f, 0.3f, 1.0f},
+	}};
+	return kPalette[color_index % kPalette.size()];
 }
 
 bool RosTopicVisualNode::is_finite(double value)
@@ -359,15 +466,24 @@ void RosTopicVisualNode::handle_odom_message(
 	update_relay_status(relay_name);
 
 	if (enable_pose_text) {
-		publish_pose_text(output);
+		const auto marker_ns = selected_namespace_.empty() ?
+			"base_link_pose_text" :
+			selected_namespace_ + "_base_link_pose_text";
+		publish_pose_text(
+			output,
+			selected_namespace_.empty() ? "default" : selected_namespace_,
+			marker_ns,
+			0,
+			{1.0f, 1.0f, 0.2f, 1.0f});
 	}
 
 	if (publish_tf && !output.header.frame_id.empty() && !output.child_frame_id.empty()) {
 		geometry_msgs::msg::TransformStamped transform;
-		transform.header = output.header;
-		if (transform.header.stamp.sec == 0 && transform.header.stamp.nanosec == 0) {
-			transform.header.stamp = now();
+		if (output.header.stamp.sec == 0 && output.header.stamp.nanosec == 0) {
+			output.header.stamp = now();
 		}
+		transform.header = output.header;
+		transform.header.frame_id = output.header.frame_id;
 		transform.child_frame_id = output.child_frame_id;
 		transform.transform.translation.x = output.pose.pose.position.x;
 		transform.transform.translation.y = output.pose.pose.position.y;
@@ -377,9 +493,17 @@ void RosTopicVisualNode::handle_odom_message(
 	}
 }
 
-void RosTopicVisualNode::publish_pose_text(const nav_msgs::msg::Odometry & odom)
+void RosTopicVisualNode::publish_pose_text(
+	const nav_msgs::msg::Odometry & odom,
+	const std::string & namespace_label,
+	const std::string & marker_namespace,
+	int marker_id,
+	const std::array<float, 4> & color)
 {
-	if (!pose_text_enabled_ || !pose_text_publisher_) {
+	const bool use_shared_publisher = marker_namespace.rfind("shared_", 0) == 0;
+	auto publisher = use_shared_publisher ? shared_pose_text_publisher_ : pose_text_publisher_;
+	const bool enabled = use_shared_publisher ? shared_pose_text_enabled_ : pose_text_enabled_;
+	if (!enabled || !publisher) {
 		return;
 	}
 
@@ -389,13 +513,13 @@ void RosTopicVisualNode::publish_pose_text(const nav_msgs::msg::Odometry & odom)
 	const auto has_rpy = extract_rpy(odom.pose.pose.orientation, roll, pitch, yaw);
 
 	std::ostringstream text_stream;
-	text_stream << std::fixed << std::setprecision(1)
-		<< "[" << (selected_namespace_.empty() ? "default" : selected_namespace_) << "] "
-		<< "position:["
+	text_stream << std::fixed << std::setprecision(2)
+		<< namespace_label << " "
+		<< "pos:["
 		<< odom.pose.pose.position.x << ","
 		<< odom.pose.pose.position.y << ","
-		<< odom.pose.pose.position.z << "], "
-		<< "orientation:[";
+		<< odom.pose.pose.position.z << "] "
+		<< "ypr:[";
 	if (has_rpy) {
 		text_stream << yaw << "," << pitch << "," << roll;
 	} else {
@@ -409,24 +533,292 @@ void RosTopicVisualNode::publish_pose_text(const nav_msgs::msg::Odometry & odom)
 	} else {
 		marker.header.stamp = odom.header.stamp;
 	}
-	marker.header.frame_id = pose_text_frame_id_.empty() ? odom.child_frame_id : pose_text_frame_id_;
-	marker.ns = selected_namespace_.empty() ? "base_link_pose_text" : selected_namespace_ + "_base_link_pose_text";
-	marker.id = 0;
+
+	if (use_shared_publisher) {
+		// shared_odom 下直接使用 odom 位姿作为文本位置
+		marker.header.frame_id = shared_odom_frame_id_.empty() ?
+			odom.header.frame_id :
+			shared_odom_frame_id_;
+		marker.pose.position.x = odom.pose.pose.position.x;
+		marker.pose.position.y = odom.pose.pose.position.y;
+		marker.pose.position.z = odom.pose.pose.position.z + pose_text_z_offset_;
+	} else {
+		marker.header.frame_id = pose_text_frame_id_.empty() ? odom.child_frame_id : pose_text_frame_id_;
+		marker.pose.position.x = 0.0;
+		marker.pose.position.y = 0.0;
+		marker.pose.position.z = pose_text_z_offset_;
+	}
+
+	marker.ns = marker_namespace;
+	marker.id = marker_id;
 	marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
 	marker.action = visualization_msgs::msg::Marker::ADD;
-	marker.pose.position.x = 0.0;
-	marker.pose.position.y = 0.0;
-	marker.pose.position.z = pose_text_z_offset_;
 	marker.pose.orientation.w = 1.0;
 	marker.scale.z = pose_text_scale_;
-	marker.color.r = 1.0f;
-	marker.color.g = 1.0f;
-	marker.color.b = 0.2f;
-	marker.color.a = 1.0f;
-	marker.frame_locked = true;
+	marker.color.r = color[0];
+	marker.color.g = color[1];
+	marker.color.b = color[2];
+	marker.color.a = color[3];
+	marker.frame_locked = !use_shared_publisher;
 	marker.text = text_stream.str();
 
-	pose_text_publisher_->publish(marker);
+	publisher->publish(marker);
+}
+
+void RosTopicVisualNode::append_shared_path(
+	nav_msgs::msg::Path & path,
+	const nav_msgs::msg::Odometry & odom)
+{
+	geometry_msgs::msg::PoseStamped pose;
+	pose.header = odom.header;
+	pose.header.frame_id = shared_odom_frame_id_.empty() ? odom.header.frame_id : shared_odom_frame_id_;
+	pose.pose = odom.pose.pose;
+	path.header = pose.header;
+	path.poses.push_back(std::move(pose));
+
+	if (path.poses.size() > shared_path_max_poses_) {
+		const auto overflow = path.poses.size() - shared_path_max_poses_;
+		path.poses.erase(path.poses.begin(), path.poses.begin() + static_cast<std::ptrdiff_t>(overflow));
+	}
+}
+
+void RosTopicVisualNode::publish_shared_odom_frame_anchor()
+{
+	if (!static_tf_broadcaster_ || shared_odom_frame_id_.empty()) {
+		return;
+	}
+
+	// 发布 map -> shared_odom 静态变换，确保 RViz Fixed Frame 立即可用
+	geometry_msgs::msg::TransformStamped anchor;
+	anchor.header.stamp = now();
+	anchor.header.frame_id = "map";
+	anchor.child_frame_id = shared_odom_frame_id_;
+	anchor.transform.rotation.w = 1.0;
+	static_tf_broadcaster_->sendTransform(anchor);
+	RCLCPP_INFO(
+		get_logger(),
+		"published static TF anchor: map -> %s",
+		shared_odom_frame_id_.c_str());
+}
+
+void RosTopicVisualNode::publish_shared_odom_tf(
+	const nav_msgs::msg::Odometry & odom,
+	const std::string & child_frame_id)
+{
+	if (!shared_odom_publish_tf_ || !tf_broadcaster_ || shared_odom_frame_id_.empty() || child_frame_id.empty()) {
+		return;
+	}
+
+	geometry_msgs::msg::TransformStamped transform;
+	transform.header.stamp = odom.header.stamp;
+	if (transform.header.stamp.sec == 0 && transform.header.stamp.nanosec == 0) {
+		transform.header.stamp = now();
+	}
+	transform.header.frame_id = shared_odom_frame_id_;
+	transform.child_frame_id = child_frame_id;
+	transform.transform.translation.x = odom.pose.pose.position.x;
+	transform.transform.translation.y = odom.pose.pose.position.y;
+	transform.transform.translation.z = odom.pose.pose.position.z;
+	transform.transform.rotation = odom.pose.pose.orientation;
+	tf_broadcaster_->sendTransform(transform);
+}
+
+void RosTopicVisualNode::publish_shared_robot_marker(
+	const nav_msgs::msg::Odometry & odom,
+	const std::string & namespace_name,
+	std::size_t color_index)
+{
+	if (!shared_robot_marker_enabled_ || !shared_robot_marker_publisher_) {
+		return;
+	}
+
+	const auto color = robot_color(color_index);
+	visualization_msgs::msg::Marker marker;
+	marker.header.stamp = odom.header.stamp;
+	if (marker.header.stamp.sec == 0 && marker.header.stamp.nanosec == 0) {
+		marker.header.stamp = now();
+	}
+	marker.header.frame_id = shared_odom_frame_id_.empty() ? odom.header.frame_id : shared_odom_frame_id_;
+	marker.ns = "shared_robot_arrow";
+	marker.id = static_cast<int>(color_index);
+	marker.type = visualization_msgs::msg::Marker::ARROW;
+	marker.action = visualization_msgs::msg::Marker::ADD;
+	marker.pose = odom.pose.pose;
+	marker.scale.x = 0.6;
+	marker.scale.y = 0.12;
+	marker.scale.z = 0.12;
+	marker.color.r = color[0];
+	marker.color.g = color[1];
+	marker.color.b = color[2];
+	marker.color.a = color[3];
+	shared_robot_marker_publisher_->publish(marker);
+}
+
+void RosTopicVisualNode::create_shared_odom_visuals(
+	const rclcpp::QoS & subscribe_qos,
+	const rclcpp::QoS & publish_qos,
+	const rclcpp::SubscriptionOptions & subscription_options)
+{
+	if (namespaces_.empty()) {
+		RCLCPP_WARN(get_logger(), "shared_odom enabled but namespace list is empty");
+		return;
+	}
+
+	const auto relay_prefix = trim_slashes(shared_odom_relay_topic_prefix_);
+	const auto path_prefix = trim_slashes(shared_path_topic_prefix_);
+
+	for (std::size_t index = 0; index < namespaces_.size(); ++index) {
+		const auto namespace_name = trim_slashes(namespaces_[index]);
+		if (namespace_name.empty()) {
+			continue;
+		}
+
+		const auto input_topic = build_namespaced_topic(namespace_name, shared_odom_input_topic_);
+		if (input_topic.empty()) {
+			continue;
+		}
+
+		RobotSharedVisual visual;
+		visual.namespace_name = namespace_name;
+		visual.input_topic = input_topic;
+		visual.color_index = index;
+		visual.child_frame_id = build_shared_child_frame_id(namespace_name);
+		visual.path.header.frame_id = shared_odom_frame_id_;
+
+		if (shared_odom_relay_enabled_ && !relay_prefix.empty()) {
+			visual.output_odom_topic = "/" + relay_prefix + "/" + namespace_name + "/odom";
+			visual.odom_publisher =
+				create_publisher<nav_msgs::msg::Odometry>(visual.output_odom_topic, publish_qos);
+			publishers_.push_back(visual.odom_publisher);
+		}
+
+		if (shared_path_enabled_ && !path_prefix.empty()) {
+			visual.path_topic = "/" + path_prefix + "/" + namespace_name + "/path";
+			visual.path_publisher = create_publisher<nav_msgs::msg::Path>(visual.path_topic, publish_qos);
+			publishers_.push_back(visual.path_publisher);
+		}
+
+		visual.subscription = create_subscription<nav_msgs::msg::Odometry>(
+			input_topic,
+			subscribe_qos,
+			[this, index](nav_msgs::msg::Odometry::SharedPtr message) {
+				if (shutting_down_.load()) {
+					return;
+				}
+				try {
+					handle_shared_odom_message(index, message);
+				} catch (const std::exception & exception) {
+					RCLCPP_ERROR_THROTTLE(
+						get_logger(),
+						*get_clock(),
+						5000,
+						"shared odom callback failed for robot[%zu]: %s",
+						index,
+						exception.what());
+				}
+			},
+			subscription_options);
+
+		relay_specs_.push_back(RelaySpec{
+			"shared_" + namespace_name,
+			input_topic,
+			visual.output_odom_topic.empty() ? visual.path_topic : visual.output_odom_topic});
+
+		shared_robots_.push_back(std::move(visual));
+		subscriptions_.push_back(shared_robots_.back().subscription);
+
+		RCLCPP_INFO(
+			get_logger(),
+			"shared visual: %s subscribe=%s odom=%s path=%s child=%s",
+			namespace_name.c_str(),
+			input_topic.c_str(),
+			shared_robots_.back().output_odom_topic.c_str(),
+			shared_robots_.back().path_topic.c_str(),
+			shared_robots_.back().child_frame_id.c_str());
+	}
+}
+
+void RosTopicVisualNode::handle_shared_odom_message(
+	std::size_t robot_index,
+	const nav_msgs::msg::Odometry::SharedPtr & message)
+{
+	if (!message || robot_index >= shared_robots_.size()) {
+		return;
+	}
+
+	auto & visual = shared_robots_[robot_index];
+	nav_msgs::msg::Odometry output = *message;
+
+	if (!is_finite(output.pose.pose.position.x) ||
+		!is_finite(output.pose.pose.position.y) ||
+		!is_finite(output.pose.pose.position.z))
+	{
+		RCLCPP_WARN_THROTTLE(
+			get_logger(),
+			*get_clock(),
+			5000,
+			"shared odom %s skipped message with invalid position",
+			visual.namespace_name.c_str());
+		return;
+	}
+
+	if (!is_valid_quaternion(output.pose.pose.orientation)) {
+		output.pose.pose.orientation.x = 0.0;
+		output.pose.pose.orientation.y = 0.0;
+		output.pose.pose.orientation.z = 0.0;
+		output.pose.pose.orientation.w = 1.0;
+	} else {
+		output.pose.pose.orientation = normalize_quaternion(output.pose.pose.orientation);
+	}
+
+	if (!shared_odom_frame_id_.empty()) {
+		output.header.frame_id = shared_odom_frame_id_;
+	}
+	output.child_frame_id = visual.child_frame_id;
+	if (output.header.stamp.sec == 0 && output.header.stamp.nanosec == 0) {
+		output.header.stamp = now();
+	}
+
+	if (shared_odom_relay_enabled_ && visual.odom_publisher) {
+		visual.odom_publisher->publish(output);
+	}
+
+	if (shared_path_enabled_ && visual.path_publisher) {
+		append_shared_path(visual.path, output);
+		visual.path_publisher->publish(visual.path);
+	}
+
+	if (shared_pose_text_enabled_) {
+		const auto color = robot_color(visual.color_index);
+		publish_pose_text(
+			output,
+			visual.namespace_name,
+			"shared_" + visual.namespace_name + "_pose_text",
+			static_cast<int>(visual.color_index),
+			color);
+	}
+
+	if (shared_robot_marker_enabled_) {
+		publish_shared_robot_marker(output, visual.namespace_name, visual.color_index);
+	}
+
+	publish_shared_odom_tf(output, visual.child_frame_id);
+
+	static std::unordered_map<std::string, bool> first_message_logged;
+	if (!first_message_logged[visual.namespace_name]) {
+		first_message_logged[visual.namespace_name] = true;
+		RCLCPP_INFO(
+			get_logger(),
+			"shared odom received: %s from %s, pos=[%.3f, %.3f, %.3f], frame=%s",
+			visual.namespace_name.c_str(),
+			visual.input_topic.c_str(),
+			output.pose.pose.position.x,
+			output.pose.pose.position.y,
+			output.pose.pose.position.z,
+			output.header.frame_id.c_str());
+	}
+
+	update_relay_status("shared_" + visual.namespace_name);
 }
 
 template<typename MessageT>

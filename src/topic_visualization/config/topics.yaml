@@ -1,23 +1,23 @@
 /**:
   ros__parameters:
     status_period_sec: 5.0
-    namespace: ["cyberdog_1", "cyberdog_2", "cyberdog_3", "cyberdog_4", "cyberdog_5", "cyberdog_6", "cyberdog_7", "cyberdog_8", "cyberdog_9", "cyberdog_10"]
+
+    # 与 mutil_odom_shared/config/topic.yaml 保持一致，只配置当前在线的机器人
+    robot_namespaces: ["cyberdog_1", "cyberdog_2"]
     namespace_index: 0
 
-    scan_enabled: true
+    scan_enabled: false
     scan_input_topic: /scan
     scan_output_topic: /scan
 
-    # 机器人 /odom_out: frame_id=odom, child_frame_id=base_link_leg
-    odom_enabled: true
+    odom_enabled: false
     odom_input_topic: /odom_out
     odom_output_topic: /odom
     odom_publish_tf: true
     odom_output_frame_id: odom
     odom_output_child_frame_id: base_link_leg
 
-    # 机器人 /odom_slam: frame_id=map, child_frame_id=base_link
-    vins_odom_enabled: true
+    vins_odom_enabled: false
     vins_odom_input_topic: /odom_slam
     vins_odom_output_topic: /odom_slam
     vins_odom_publish_tf: true
@@ -30,3 +30,18 @@
     pose_text_z_offset: 0.6
     pose_text_scale: 0.18
 
+    # 多机器人共享坐标系可视化
+    shared_odom_enabled: true
+    shared_odom_input_topic: /odom_shared
+    shared_odom_frame_id: shared_odom
+    shared_base_frame_name: base_link
+    shared_odom_relay_topic_prefix: /viz/shared
+    shared_path_topic_prefix: /viz/shared
+    shared_odom_relay_enabled: true
+    shared_path_enabled: true
+    shared_pose_text_enabled: true
+    shared_pose_text_topic: /viz/shared/pose_text
+    shared_robot_marker_enabled: true
+    shared_robot_marker_topic: /viz/shared/robot_markers
+    shared_odom_publish_tf: true
+    shared_path_max_poses: 5000

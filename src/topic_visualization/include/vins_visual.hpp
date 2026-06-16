@@ -15,12 +15,14 @@
 #include "nav_msgs/msg/path.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/image.hpp"
+#include "sensor_msgs/msg/point_cloud2.hpp"
 #include "std_msgs/msg/header.hpp"
 #include "tf2/LinearMath/Transform.h"
 
 namespace tf2_ros
 {
 class TransformBroadcaster;
+class StaticTransformBroadcaster;
 }
 
 class VinsVisualNode : public rclcpp::Node
@@ -67,6 +69,19 @@ private:
 		const rclcpp::QoS & subscribe_qos,
 		const rclcpp::QoS & publish_qos,
 		const rclcpp::SubscriptionOptions & subscription_options);
+
+	void create_point_cloud_relay(
+		bool enabled,
+		const std::string & relay_name,
+		const std::string & input_topic,
+		const std::string & output_topic,
+		const rclcpp::QoS & subscribe_qos,
+		const rclcpp::QoS & publish_qos,
+		const rclcpp::SubscriptionOptions & subscription_options,
+		bool remap_frame = false,
+		const std::string & output_frame_id = "");
+
+	void publish_camera_static_tf();
 
 	void create_path_relay(
 		bool enabled,
@@ -119,6 +134,7 @@ private:
 	rclcpp::TimerBase::SharedPtr status_timer_;
 	rclcpp::CallbackGroup::SharedPtr relay_callback_group_;
 	std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+	std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
 	rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr leg_odom_publisher_;
 	rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr slam_odom_publisher_;
 	rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr leg_path_publisher_;
@@ -134,9 +150,13 @@ private:
 	std::string slam_odom_output_child_frame_id_;
 	std::string leg_path_topic_;
 	std::string slam_path_topic_;
+	std::string camera_static_tf_parent_frame_id_;
+	std::string camera_static_tf_child_frame_id_;
+	std::string depth_points_output_frame_id_;
 	bool frame_remap_enabled_{false};
 	bool leg_odom_publish_tf_{true};
 	bool odom_slam_align_enabled_{true};
+	bool camera_static_tf_enabled_{true};
 	bool alignment_initialized_{false};
 	bool leg_odom_received_{false};
 	std::optional<tf2::Transform> pending_slam_transform_;

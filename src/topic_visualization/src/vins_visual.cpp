@@ -7,6 +7,7 @@
 #include "rclcpp/executors/single_threaded_executor.hpp"
 #include "std_msgs/msg/header.hpp"
 #include "tf2/LinearMath/Quaternion.h"
+#include "tf2_ros/static_transform_broadcaster.h"
 #include "tf2_ros/transform_broadcaster.h"
 
 namespace
@@ -21,6 +22,7 @@ VinsVisualNode::VinsVisualNode()
 	const auto reliable_qos = rclcpp::QoS(rclcpp::KeepLast(10)).reliable();
 	relay_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 	tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(*this);
+	static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(*this);
 
 	namespaces_ = declare_parameter<std::vector<std::string>>("namespace", std::vector<std::string>{});
 	const auto namespace_index = declare_parameter<int>("namespace_index", 0);
@@ -40,6 +42,13 @@ VinsVisualNode::VinsVisualNode()
 		declare_parameter<std::string>("slam_odom_output_child_frame_id", "base_link");
 	leg_odom_publish_tf_ = declare_parameter<bool>("leg_odom_publish_tf", true);
 	odom_slam_align_enabled_ = declare_parameter<bool>("odom_slam_align_enabled", true);
+	camera_static_tf_enabled_ = declare_parameter<bool>("camera_static_tf_enabled", true);
+	camera_static_tf_parent_frame_id_ =
+		declare_parameter<std::string>("camera_static_tf_parent_frame_id", "base_link");
+	camera_static_tf_child_frame_id_ =
+		declare_parameter<std::string>("camera_static_tf_child_frame_id", "camera_link");
+	depth_points_output_frame_id_ =
+		declare_parameter<std::string>("depth_points_output_frame_id", "camera_link");
 	leg_path_topic_ = declare_parameter<std::string>("compare_leg_path_topic", "/compare/leg_path");
 	slam_path_topic_ = declare_parameter<std::string>("compare_slam_path_topic", "/compare/slam_path");
 
@@ -75,6 +84,20 @@ VinsVisualNode::VinsVisualNode()
 		sensor_qos,
 		sensor_qos,
 		subscription_options);
+
+	create_point_cloud_relay(
+		declare_parameter<bool>("depth_points_enabled", true),
+		"depth_points",
+		build_input_topic(
+			declare_parameter<std::string>(
+				"depth_points_input_topic", "/camera/depth/color/points")),
+		declare_parameter<std::string>(
+			"depth_points_output_topic", "/camera/depth/color/points"),
+		sensor_qos,
+		sensor_qos,
+		subscription_options,
+		frame_remap_enabled_,
+		depth_points_output_frame_id_);
 
 	create_leg_odom_compare_relay(reliable_qos, reliable_qos, subscription_options);
 	create_odom_slam_compare_relay(reliable_qos, reliable_qos, subscription_options);
@@ -201,6 +224,8 @@ VinsVisualNode::VinsVisualNode()
 			output_frame_id_.c_str());
 	}
 
+	publish_camera_static_tf();
+
 	RCLCPP_INFO(
 		get_logger(),
 		"vins_visual is ready with %zu relay channels, compare frame=%s, odom_slam_align=%s",
@@ -278,6 +303,44 @@ std::string VinsVisualNode::remap_frame_id(const std::string & frame_id) const
 		return frame_id;
 	}
 	return output_frame_id_;
+}
+
+void VinsVisualNode::publish_camera_static_tf()
+{
+	if (!camera_static_tf_enabled_ || !static_tf_broadcaster_) {
+		return;
+	}
+
+	if (camera_static_tf_parent_frame_id_.empty() || camera_static_tf_child_frame_id_.empty()) {
+		RCLCPP_WARN(get_logger(), "skip camera static TF because frame id is empty");
+		return;
+	}
+
+	geometry_msgs::msg::TransformStamped transform;
+	transform.header.stamp = now();
+	transform.header.frame_id = camera_static_tf_parent_frame_id_;
+	transform.child_frame_id = camera_static_tf_child_frame_id_;
+	transform.transform.translation.x = declare_parameter<double>("camera_static_tf_x", 0.26932);
+	transform.transform.translation.y = declare_parameter<double>("camera_static_tf_y", 0.0);
+	transform.transform.translation.z = declare_parameter<double>("camera_static_tf_z", 0.11543);
+
+	tf2::Quaternion rotation;
+	rotation.setRPY(
+		declare_parameter<double>("camera_static_tf_roll", 0.0),
+		declare_parameter<double>("camera_static_tf_pitch", 0.19),
+		declare_parameter<double>("camera_static_tf_yaw", 0.0));
+	rotation.normalize();
+	transform.transform.rotation.x = rotation.x();
+	transform.transform.rotation.y = rotation.y();
+	transform.transform.rotation.z = rotation.z();
+	transform.transform.rotation.w = rotation.w();
+
+	static_tf_broadcaster_->sendTransform(transform);
+	RCLCPP_INFO(
+		get_logger(),
+		"camera static TF published: %s -> %s",
+		camera_static_tf_parent_frame_id_.c_str(),
+		camera_static_tf_child_frame_id_.c_str());
 }
 
 tf2::Transform VinsVisualNode::odometry_to_transform(const nav_msgs::msg::Odometry & odom)
@@ -590,6 +653,66 @@ void VinsVisualNode::create_image_relay(
 			}
 			try {
 				publisher->publish(*message);
+				update_relay_status(relay_name);
+			} catch (const std::exception & exception) {
+				RCLCPP_ERROR_THROTTLE(
+					get_logger(),
+					*get_clock(),
+					5000,
+					"relay %s callback failed: %s",
+					relay_name.c_str(),
+					exception.what());
+			}
+		},
+		subscription_options);
+
+	publishers_.push_back(publisher);
+	subscriptions_.push_back(subscription);
+	relay_specs_.push_back(RelaySpec{relay_name, input_topic, output_topic});
+}
+
+void VinsVisualNode::create_point_cloud_relay(
+	bool enabled,
+	const std::string & relay_name,
+	const std::string & input_topic,
+	const std::string & output_topic,
+	const rclcpp::QoS & subscribe_qos,
+	const rclcpp::QoS & publish_qos,
+	const rclcpp::SubscriptionOptions & subscription_options,
+	bool remap_frame,
+	const std::string & output_frame_id)
+{
+	if (!enabled) {
+		RCLCPP_INFO(get_logger(), "skip disabled relay: %s", relay_name.c_str());
+		return;
+	}
+
+	if (input_topic.empty() || output_topic.empty()) {
+		RCLCPP_WARN(
+			get_logger(),
+			"skip relay %s because topic name is empty",
+			relay_name.c_str());
+		return;
+	}
+
+	auto publisher = create_publisher<sensor_msgs::msg::PointCloud2>(output_topic, publish_qos);
+	auto subscription = create_subscription<sensor_msgs::msg::PointCloud2>(
+		input_topic,
+		subscribe_qos,
+		[this, publisher, relay_name, remap_frame, output_frame_id](
+			sensor_msgs::msg::PointCloud2::SharedPtr message) {
+			if (shutting_down_.load() || !message || !publisher) {
+				return;
+			}
+			try {
+				auto output = *message;
+				if (remap_frame) {
+					output.header.frame_id = remap_frame_id(output.header.frame_id);
+				}
+				if (!output_frame_id.empty()) {
+					output.header.frame_id = output_frame_id;
+				}
+				publisher->publish(output);
 				update_relay_status(relay_name);
 			} catch (const std::exception & exception) {
 				RCLCPP_ERROR_THROTTLE(
