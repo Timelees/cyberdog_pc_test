@@ -1,0 +1,18 @@
+CompileFlags:
+  CompilationDatabase: /home/lee/code/cyberdog2_pc_ws/src
+  Add:
+    - -I/home/lee/code/cyberdog2_pc_ws/src/.vscode/clangd-stubs
+    - -include/home/lee/code/cyberdog2_pc_ws/src/.vscode/clangd_stubs.hpp
+    - -I/home/lee/code/cyberdog2_pc_ws/src/src/mutil_odom_shared/include
+    - -I/home/lee/code/cyberdog2_pc_ws/src/src/topic_visualization/include
+    - -I/home/lee/code/cyberdog2_pc_ws/src/src/keyboard_input/include
+    - -isystem/home/lee/code/cyberdog2_pc_ws/install/protocol/include
+    - -std=gnu++17
+    - -DDEFAULT_RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+    - -DRCUTILS_ENABLE_FAULT_INJECTION
+
+Index:
+  Background: Build
+
+Diagnostics:
+  UnusedIncludes: None

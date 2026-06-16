@@ -13,6 +13,7 @@ Panels:
         - /OdomSlam1
         - /LegOdom1
         - /Image1/Topic1
+        - /PointCloud21
         - /PointCloud21/Topic1
       Splitter Ratio: 0.5049833655357361
     Tree Height: 591
@@ -275,6 +276,46 @@ Visualization Manager:
       Show Axes: true
       Show Names: false
       Tree:
+        map:
+          vodom:
+            base_link:
+              camera_link:
+                camera_accel_frame:
+                  camera_accel_optical_frame:
+                    {}
+                camera_aligned_depth_to_infra1_frame:
+                  camera_infra1_optical_frame:
+                    {}
+                camera_depth_frame:
+                  camera_depth_optical_frame:
+                    {}
+                camera_gyro_frame:
+                  camera_gyro_optical_frame:
+                    {}
+                camera_infra1_frame:
+                  {}
+                camera_infra2_frame:
+                  camera_infra2_optical_frame:
+                    {}
+              laser_frame:
+                {}
+              left_head:
+                {}
+              left_rear:
+                {}
+              right_head:
+                {}
+              right_rear:
+                {}
+              uwb:
+                head_tof:
+                  {}
+                head_uwb:
+                  {}
+                rear_tof:
+                  {}
+                rear_uwb:
+                  {}
         odom:
           base_link_leg:
             {}
@@ -297,14 +338,14 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
+        Max Value: 4
+        Min Value: 0
         Value: true
       Axis: Z
       Channel Name: rgb
       Class: rviz_default_plugins/PointCloud2
       Color: 255; 255; 255
-      Color Transformer: RGB8
+      Color Transformer: AxisColor
       Decay Time: 0
       Enabled: true
       Invert Rainbow: false
@@ -317,7 +358,7 @@ Visualization Manager:
       Selectable: true
       Size (Pixels): 5
       Size (m): 0.029999999329447746
-      Style: Flat Squares
+      Style: Boxes
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -331,7 +372,7 @@ Visualization Manager:
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: odom
+    Fixed Frame: camera_aligned_depth_to_infra1_frame
     Frame Rate: 30
   Name: root
   Tools:
@@ -374,15 +415,15 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/ThirdPersonFollower
-      Distance: 7.926799774169922
+      Distance: 9.556761741638184
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 2.1685945987701416
-        Y: 2.1631574630737305
+        X: 0.6955995559692383
+        Y: -0.11261844635009766
         Z: -1.430511474609375e-06
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806

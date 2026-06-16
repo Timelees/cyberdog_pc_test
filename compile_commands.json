@@ -1,0 +1,22 @@
+[
+  {
+    "directory": "/home/lee/code/cyberdog2_pc_ws/build/mutil_odom_shared",
+    "command": "/usr/bin/c++ -DDEFAULT_RMW_IMPLEMENTATION=rmw_cyclonedds_cpp -DRCUTILS_ENABLE_FAULT_INJECTION -I/home/lee/code/cyberdog2_pc_ws/src/.vscode/clangd-stubs -include/home/lee/code/cyberdog2_pc_ws/src/.vscode/clangd_stubs.hpp -isystem/home/lee/code/cyberdog2_pc_ws/install/protocol/include -std=gnu++17 -I/home/lee/code/cyberdog2_pc_ws/src/src/mutil_odom_shared/include -c /home/lee/code/cyberdog2_pc_ws/src/src/mutil_odom_shared/src/odom_shared.cpp",
+    "file": "/home/lee/code/cyberdog2_pc_ws/src/src/mutil_odom_shared/src/odom_shared.cpp"
+  },
+  {
+    "directory": "/home/lee/code/cyberdog2_pc_ws/build/topic_visualization",
+    "command": "/usr/bin/c++ -DDEFAULT_RMW_IMPLEMENTATION=rmw_cyclonedds_cpp -DRCUTILS_ENABLE_FAULT_INJECTION -I/home/lee/code/cyberdog2_pc_ws/src/.vscode/clangd-stubs -include/home/lee/code/cyberdog2_pc_ws/src/.vscode/clangd_stubs.hpp -isystem/home/lee/code/cyberdog2_pc_ws/install/protocol/include -std=gnu++17 -I/home/lee/code/cyberdog2_pc_ws/src/src/topic_visualization/include -c /home/lee/code/cyberdog2_pc_ws/src/src/topic_visualization/src/ros_topic_visual.cpp",
+    "file": "/home/lee/code/cyberdog2_pc_ws/src/src/topic_visualization/src/ros_topic_visual.cpp"
+  },
+  {
+    "directory": "/home/lee/code/cyberdog2_pc_ws/build/topic_visualization",
+    "command": "/usr/bin/c++ -DDEFAULT_RMW_IMPLEMENTATION=rmw_cyclonedds_cpp -DRCUTILS_ENABLE_FAULT_INJECTION -I/home/lee/code/cyberdog2_pc_ws/src/.vscode/clangd-stubs -include/home/lee/code/cyberdog2_pc_ws/src/.vscode/clangd_stubs.hpp -isystem/home/lee/code/cyberdog2_pc_ws/install/protocol/include -std=gnu++17 -I/home/lee/code/cyberdog2_pc_ws/src/src/topic_visualization/include -c /home/lee/code/cyberdog2_pc_ws/src/src/topic_visualization/src/vins_visual.cpp",
+    "file": "/home/lee/code/cyberdog2_pc_ws/src/src/topic_visualization/src/vins_visual.cpp"
+  },
+  {
+    "directory": "/home/lee/code/cyberdog2_pc_ws/build/keyboard_input",
+    "command": "/usr/bin/c++ -DDEFAULT_RMW_IMPLEMENTATION=rmw_cyclonedds_cpp -DRCUTILS_ENABLE_FAULT_INJECTION -I/home/lee/code/cyberdog2_pc_ws/src/.vscode/clangd-stubs -include/home/lee/code/cyberdog2_pc_ws/src/.vscode/clangd_stubs.hpp -isystem/home/lee/code/cyberdog2_pc_ws/install/protocol/include -std=gnu++17 -I/home/lee/code/cyberdog2_pc_ws/src/src/keyboard_input/include -c /home/lee/code/cyberdog2_pc_ws/src/src/keyboard_input/src/keyBoardInput.cpp",
+    "file": "/home/lee/code/cyberdog2_pc_ws/src/src/keyboard_input/src/keyBoardInput.cpp"
+  }
+]

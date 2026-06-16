@@ -23,13 +23,18 @@
     # 深度相机彩色点云: 实机话题 /cyberdog_N/camera/depth/color/points
     depth_points_enabled: true
     depth_points_input_topic: /camera/depth/color/points
-    depth_points_output_topic: /depth_points
-    depth_points_output_frame_id: camera_link
+    depth_points_output_topic: /camera/depth/color/points
+    # 保留实机点云原始 frame_id，通过 TF 树转换到 odom
+    depth_points_output_frame_id: ""
+    # 可视化使用本机当前时间，避免远端时间戳/网络延迟导致 RViz 等待 TF
+    depth_points_stamp_mode: now
+    dynamic_tf_stamp_mode: now
 
-    # 给深度点云补齐 RViz 需要的 odom -> base_link -> camera_link TF 链
+    # 给深度点云补齐 RViz 需要的 odom -> base_link -> camera_link -> camera_* TF 链
     camera_static_tf_enabled: true
     camera_static_tf_parent_frame_id: base_link
     camera_static_tf_child_frame_id: camera_link
+    camera_sensor_static_tf_enabled: true
     camera_static_tf_x: 0.26932
     camera_static_tf_y: 0.0
     camera_static_tf_z: 0.11543
@@ -44,6 +49,9 @@
     leg_odom_output_frame_id: odom
     leg_odom_output_child_frame_id: base_link_leg
     leg_odom_publish_tf: true
+    # 点云显示使用腿式里程计的高频 odom -> base_link，刷新更稳定
+    leg_odom_publish_base_tf: true
+    leg_odom_base_child_frame_id: base_link
 
     # VINS SLAM 里程计: 实机 frame_id=map, child_frame_id=base_link
     # 转发后对齐到 odom 坐标系，便于与腿式里程计对比
@@ -52,6 +60,8 @@
     odom_slam_output_topic: /odom_slam
     odom_slam_align_enabled: true
     slam_odom_output_child_frame_id: base_link
+    # 避免和腿式里程计同时发布 odom -> base_link
+    odom_slam_publish_tf: false
 
     compare_leg_path_topic: /compare/leg_path
     compare_slam_path_topic: /compare/slam_path

@@ -1,0 +1,11 @@
+{
+  "clangd.enable": true,
+  "clangd.arguments": [
+    "--background-index",
+    "--compile-commands-dir=/home/lee/code/cyberdog2_pc_ws/src",
+    "--header-insertion=never"
+  ],
+  "C_Cpp.intelliSenseEngine": "disabled",
+  "C_Cpp.autocomplete": "disabled",
+  "editor.gotoLocation.multipleDefinitions": "goto"
+}

@@ -54,6 +54,8 @@ private:
 		const std_msgs::msg::Header & header,
 		const std::string & frame_id);
 	void append_path_pose(nav_msgs::msg::Path & path, geometry_msgs::msg::PoseStamped pose);
+	void apply_header_stamp_mode(std_msgs::msg::Header & header, const std::string & stamp_mode) const;
+	void publish_odometry_tf(const nav_msgs::msg::Odometry & odom);
 	void try_initialize_alignment(
 		const tf2::Transform & leg_transform,
 		const tf2::Transform & slam_transform);
@@ -147,14 +149,19 @@ private:
 	std::string compare_frame_id_;
 	std::string leg_odom_output_frame_id_;
 	std::string leg_odom_output_child_frame_id_;
+	std::string leg_odom_base_child_frame_id_;
 	std::string slam_odom_output_child_frame_id_;
 	std::string leg_path_topic_;
 	std::string slam_path_topic_;
 	std::string camera_static_tf_parent_frame_id_;
 	std::string camera_static_tf_child_frame_id_;
 	std::string depth_points_output_frame_id_;
+	std::string depth_points_stamp_mode_;
+	std::string dynamic_tf_stamp_mode_;
 	bool frame_remap_enabled_{false};
 	bool leg_odom_publish_tf_{true};
+	bool leg_odom_publish_base_tf_{true};
+	bool odom_slam_publish_tf_{true};
 	bool odom_slam_align_enabled_{true};
 	bool camera_static_tf_enabled_{true};
 	bool alignment_initialized_{false};

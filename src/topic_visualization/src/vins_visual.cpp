@@ -1,6 +1,7 @@
 #include "vins_visual.hpp"
 
 #include <chrono>
+#include <utility>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
@@ -13,6 +14,46 @@
 namespace
 {
 constexpr double kQuaternionNormEpsilon = 1e-6;
+constexpr double kOpticalFrameRoll = -1.5707963267948966;
+constexpr double kOpticalFramePitch = 0.0;
+constexpr double kOpticalFrameYaw = -1.5707963267948966;
+
+std::string normalize_stamp_mode(const std::string & stamp_mode, const std::string & fallback)
+{
+	if (stamp_mode == "original" || stamp_mode == "now" || stamp_mode == "zero") {
+		return stamp_mode;
+	}
+	return fallback;
+}
+
+geometry_msgs::msg::TransformStamped make_static_transform(
+	const rclcpp::Time & stamp,
+	const std::string & parent_frame_id,
+	const std::string & child_frame_id,
+	double x,
+	double y,
+	double z,
+	double roll,
+	double pitch,
+	double yaw)
+{
+	geometry_msgs::msg::TransformStamped transform;
+	transform.header.stamp = stamp;
+	transform.header.frame_id = parent_frame_id;
+	transform.child_frame_id = child_frame_id;
+	transform.transform.translation.x = x;
+	transform.transform.translation.y = y;
+	transform.transform.translation.z = z;
+
+	tf2::Quaternion rotation;
+	rotation.setRPY(roll, pitch, yaw);
+	rotation.normalize();
+	transform.transform.rotation.x = rotation.x();
+	transform.transform.rotation.y = rotation.y();
+	transform.transform.rotation.z = rotation.z();
+	transform.transform.rotation.w = rotation.w();
+	return transform;
+}
 }
 
 VinsVisualNode::VinsVisualNode()
@@ -38,9 +79,13 @@ VinsVisualNode::VinsVisualNode()
 	leg_odom_output_frame_id_ = declare_parameter<std::string>("leg_odom_output_frame_id", "odom");
 	leg_odom_output_child_frame_id_ =
 		declare_parameter<std::string>("leg_odom_output_child_frame_id", "base_link_leg");
+	leg_odom_base_child_frame_id_ =
+		declare_parameter<std::string>("leg_odom_base_child_frame_id", "base_link");
 	slam_odom_output_child_frame_id_ =
 		declare_parameter<std::string>("slam_odom_output_child_frame_id", "base_link");
 	leg_odom_publish_tf_ = declare_parameter<bool>("leg_odom_publish_tf", true);
+	leg_odom_publish_base_tf_ = declare_parameter<bool>("leg_odom_publish_base_tf", true);
+	odom_slam_publish_tf_ = declare_parameter<bool>("odom_slam_publish_tf", true);
 	odom_slam_align_enabled_ = declare_parameter<bool>("odom_slam_align_enabled", true);
 	camera_static_tf_enabled_ = declare_parameter<bool>("camera_static_tf_enabled", true);
 	camera_static_tf_parent_frame_id_ =
@@ -48,7 +93,13 @@ VinsVisualNode::VinsVisualNode()
 	camera_static_tf_child_frame_id_ =
 		declare_parameter<std::string>("camera_static_tf_child_frame_id", "camera_link");
 	depth_points_output_frame_id_ =
-		declare_parameter<std::string>("depth_points_output_frame_id", "camera_link");
+		declare_parameter<std::string>("depth_points_output_frame_id", "");
+	depth_points_stamp_mode_ = normalize_stamp_mode(
+		declare_parameter<std::string>("depth_points_stamp_mode", "now"),
+		"now");
+	dynamic_tf_stamp_mode_ = normalize_stamp_mode(
+		declare_parameter<std::string>("dynamic_tf_stamp_mode", "now"),
+		"now");
 	leg_path_topic_ = declare_parameter<std::string>("compare_leg_path_topic", "/compare/leg_path");
 	slam_path_topic_ = declare_parameter<std::string>("compare_slam_path_topic", "/compare/slam_path");
 
@@ -316,31 +367,70 @@ void VinsVisualNode::publish_camera_static_tf()
 		return;
 	}
 
-	geometry_msgs::msg::TransformStamped transform;
-	transform.header.stamp = now();
-	transform.header.frame_id = camera_static_tf_parent_frame_id_;
-	transform.child_frame_id = camera_static_tf_child_frame_id_;
-	transform.transform.translation.x = declare_parameter<double>("camera_static_tf_x", 0.26932);
-	transform.transform.translation.y = declare_parameter<double>("camera_static_tf_y", 0.0);
-	transform.transform.translation.z = declare_parameter<double>("camera_static_tf_z", 0.11543);
-
-	tf2::Quaternion rotation;
-	rotation.setRPY(
+	const auto stamp = now();
+	std::vector<geometry_msgs::msg::TransformStamped> transforms;
+	transforms.push_back(make_static_transform(
+		stamp,
+		camera_static_tf_parent_frame_id_,
+		camera_static_tf_child_frame_id_,
+		declare_parameter<double>("camera_static_tf_x", 0.26932),
+		declare_parameter<double>("camera_static_tf_y", 0.0),
+		declare_parameter<double>("camera_static_tf_z", 0.11543),
 		declare_parameter<double>("camera_static_tf_roll", 0.0),
 		declare_parameter<double>("camera_static_tf_pitch", 0.19),
-		declare_parameter<double>("camera_static_tf_yaw", 0.0));
-	rotation.normalize();
-	transform.transform.rotation.x = rotation.x();
-	transform.transform.rotation.y = rotation.y();
-	transform.transform.rotation.z = rotation.z();
-	transform.transform.rotation.w = rotation.w();
+		declare_parameter<double>("camera_static_tf_yaw", 0.0)));
 
-	static_tf_broadcaster_->sendTransform(transform);
+	if (declare_parameter<bool>("camera_sensor_static_tf_enabled", true)) {
+		const std::vector<std::pair<std::string, std::string>> sensor_frames = {
+			{"camera_depth_frame", "camera_depth_optical_frame"},
+			{"camera_infra1_frame", "camera_infra1_optical_frame"},
+			{"camera_infra2_frame", "camera_infra2_optical_frame"},
+			{"camera_accel_frame", "camera_accel_optical_frame"},
+			{"camera_gyro_frame", "camera_gyro_optical_frame"},
+		};
+
+		for (const auto & [sensor_frame, optical_frame] : sensor_frames) {
+			transforms.push_back(make_static_transform(
+				stamp,
+				camera_static_tf_child_frame_id_,
+				sensor_frame,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0));
+			transforms.push_back(make_static_transform(
+				stamp,
+				sensor_frame,
+				optical_frame,
+				0.0,
+				0.0,
+				0.0,
+				kOpticalFrameRoll,
+				kOpticalFramePitch,
+				kOpticalFrameYaw));
+		}
+
+		transforms.push_back(make_static_transform(
+			stamp,
+			camera_static_tf_child_frame_id_,
+			"camera_aligned_depth_to_infra1_frame",
+			0.0,
+			0.0,
+			0.0,
+			0.0,
+			0.0,
+			0.0));
+	}
+
+	static_tf_broadcaster_->sendTransform(transforms);
 	RCLCPP_INFO(
 		get_logger(),
-		"camera static TF published: %s -> %s",
+		"camera static TF published: %s -> %s and %zu camera sensor frames",
 		camera_static_tf_parent_frame_id_.c_str(),
-		camera_static_tf_child_frame_id_.c_str());
+		camera_static_tf_child_frame_id_.c_str(),
+		transforms.size() - 1);
 }
 
 tf2::Transform VinsVisualNode::odometry_to_transform(const nav_msgs::msg::Odometry & odom)
@@ -412,6 +502,41 @@ void VinsVisualNode::append_path_pose(nav_msgs::msg::Path & path, geometry_msgs:
 		const auto overflow = path.poses.size() - compare_path_max_poses_;
 		path.poses.erase(path.poses.begin(), path.poses.begin() + static_cast<std::ptrdiff_t>(overflow));
 	}
+}
+
+void VinsVisualNode::apply_header_stamp_mode(
+	std_msgs::msg::Header & header,
+	const std::string & stamp_mode) const
+{
+	if (stamp_mode == "now") {
+		header.stamp = now();
+		return;
+	}
+
+	if (stamp_mode == "zero") {
+		header.stamp.sec = 0;
+		header.stamp.nanosec = 0;
+	}
+}
+
+void VinsVisualNode::publish_odometry_tf(const nav_msgs::msg::Odometry & odom)
+{
+	if (!tf_broadcaster_ || odom.header.frame_id.empty() || odom.child_frame_id.empty()) {
+		return;
+	}
+
+	geometry_msgs::msg::TransformStamped transform;
+	transform.header = odom.header;
+	apply_header_stamp_mode(transform.header, dynamic_tf_stamp_mode_);
+	if (transform.header.stamp.sec == 0 && transform.header.stamp.nanosec == 0) {
+		transform.header.stamp = now();
+	}
+	transform.child_frame_id = odom.child_frame_id;
+	transform.transform.translation.x = odom.pose.pose.position.x;
+	transform.transform.translation.y = odom.pose.pose.position.y;
+	transform.transform.translation.z = odom.pose.pose.position.z;
+	transform.transform.rotation = odom.pose.pose.orientation;
+	tf_broadcaster_->sendTransform(transform);
 }
 
 void VinsVisualNode::try_initialize_alignment(
@@ -526,18 +651,14 @@ void VinsVisualNode::create_leg_odom_compare_relay(
 					update_relay_status("leg_path");
 				}
 
-				if (leg_odom_publish_tf_ && tf_broadcaster_) {
-					geometry_msgs::msg::TransformStamped transform;
-					transform.header = output.header;
-					if (transform.header.stamp.sec == 0 && transform.header.stamp.nanosec == 0) {
-						transform.header.stamp = now();
-					}
-					transform.child_frame_id = output.child_frame_id;
-					transform.transform.translation.x = output.pose.pose.position.x;
-					transform.transform.translation.y = output.pose.pose.position.y;
-					transform.transform.translation.z = output.pose.pose.position.z;
-					transform.transform.rotation = output.pose.pose.orientation;
-					tf_broadcaster_->sendTransform(transform);
+				if (leg_odom_publish_tf_) {
+					publish_odometry_tf(output);
+				}
+
+				if (leg_odom_publish_base_tf_) {
+					auto base_output = output;
+					base_output.child_frame_id = leg_odom_base_child_frame_id_;
+					publish_odometry_tf(base_output);
 				}
 			} catch (const std::exception & exception) {
 				RCLCPP_ERROR_THROTTLE(
@@ -594,6 +715,10 @@ void VinsVisualNode::create_odom_slam_compare_relay(
 
 				slam_odom_publisher_->publish(aligned_output);
 				update_relay_status("odom_slam");
+
+				if (odom_slam_publish_tf_) {
+					publish_odometry_tf(aligned_output);
+				}
 
 				if (slam_path_publisher_) {
 					const auto aligned_transform = odometry_to_transform(aligned_output);
@@ -712,6 +837,7 @@ void VinsVisualNode::create_point_cloud_relay(
 				if (!output_frame_id.empty()) {
 					output.header.frame_id = output_frame_id;
 				}
+				apply_header_stamp_mode(output.header, depth_points_stamp_mode_);
 				publisher->publish(output);
 				update_relay_status(relay_name);
 			} catch (const std::exception & exception) {
