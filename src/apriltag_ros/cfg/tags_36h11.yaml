@@ -1,0 +1,30 @@
+/**:
+    ros__parameters:
+        image_transport: raw    # image format
+        family: 36h11           # tag family name
+        size: 0.127             # tag edge size in meter
+        max_hamming: 0          # maximum allowed hamming distance (corrected bits)
+        qos_profile: sensor_data    # optional qos_profile, "sensor_data", "default", or "system_default"
+
+        # see "apriltag.h" 'struct apriltag_detector' for more documentation on these optional parameters
+        detector:
+            threads: 2          # number of threads
+            decimate: 2.0       # decimate resolution for quad detection
+            blur: 0.0           # sigma of Gaussian blur for quad detection
+            refine: true        # snap to strong gradients
+            sharpening: 0.25    # sharpening of decoded images
+            debug: false        # write additional debugging images to current working directory
+
+
+        pose_estimation_method: "pnp"   # method for estimating the tag pose
+
+        # 首次看到 tag 后锁定其位姿作为全局坐标系，并在 tag 不可见时持续发布。
+        latch_first_tag_pose: true
+        publish_latched_when_lost: true
+        use_first_pose_as_global: true
+
+        # optional list of tags
+        tag:
+            ids: [0]            # tag ID
+            frames: [base]  # optional frame name
+            sizes: [0.127]   # optional tag-specific edge size

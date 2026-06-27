@@ -1,0 +1,23 @@
+/**:
+    ros__parameters:
+        image_transport: raw
+        family: Standard41h12
+        size: 0.3
+        max_hamming: 0
+        qos_profile: sensor_data   # 低延迟，丢弃旧帧而非积压
+        profile: false
+
+        # 高速模式：优先帧率，tag 在画面中需 >= ~40px
+        detector:
+            threads: 4
+            decimate: 2.0
+            blur: 0.0
+            refine: false
+            sharpening: 0.25
+            debug: false
+
+        pose_estimation_method: "homography"   # 关闭位姿估计；需要 TF 时改为 homography
+
+        tag:
+            ids: [1]
+            frames: [base]
