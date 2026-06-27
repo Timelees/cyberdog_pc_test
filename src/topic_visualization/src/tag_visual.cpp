@@ -1,15 +1,24 @@
-#include "vins_visual.hpp"
+#include "tag_visual.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <memory>
 #include <utility>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
-#include "rclcpp/executors/single_threaded_executor.hpp"
+#include "apriltag_msgs/msg/april_tag_detection_array.hpp"
+#include "sensor_msgs/msg/camera_info.hpp"
+#include "rclcpp/executors/multi_threaded_executor.hpp"
 #include "std_msgs/msg/header.hpp"
 #include "tf2/LinearMath/Quaternion.h"
+#include "tf2/exceptions.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.h"
+#include "tf2_msgs/msg/tf_message.hpp"
 #include "tf2_ros/static_transform_broadcaster.h"
 #include "tf2_ros/transform_broadcaster.h"
+
+#include <opencv2/calib3d.hpp>
 
 namespace
 {
@@ -59,9 +68,18 @@ geometry_msgs::msg::TransformStamped make_static_transform(
 VinsVisualNode::VinsVisualNode()
 : Node("vins_visual")
 {
-	const auto sensor_qos = rclcpp::SensorDataQoS();
-	const auto reliable_qos = rclcpp::QoS(rclcpp::KeepLast(10)).reliable();
+	const auto sensor_qos = rclcpp::SensorDataQoS().keep_last(1);
+	const auto reliable_qos = rclcpp::QoS(rclcpp::KeepLast(5)).reliable();
+	const auto viz_odom_sub_qos = declare_parameter<bool>("odom_slam_subscribe_best_effort", true)
+		? rclcpp::SensorDataQoS().keep_last(1)
+		: reliable_qos;
+	const auto viz_odom_pub_qos = declare_parameter<bool>("odom_slam_publish_best_effort", true)
+		? rclcpp::SensorDataQoS().keep_last(1)
+		: reliable_qos;
 	relay_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+	image_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+	odom_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::Reentrant);
+	point_cloud_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 	tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(*this);
 	static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(*this);
 
@@ -72,9 +90,49 @@ VinsVisualNode::VinsVisualNode()
 	frame_remap_enabled_ = declare_parameter<bool>("frame_remap_enabled", false);
 	input_frame_id_ = declare_parameter<std::string>("input_frame_id", "vodom");
 	output_frame_id_ = declare_parameter<std::string>("output_frame_id", "vodom");
+	tag_align_enabled_ = declare_parameter<bool>("tag_align_enabled", false);
+	tag_frame_id_ = declare_parameter<std::string>("tag_frame_id", "base");
+	tag_align_output_child_frame_id_ =
+		declare_parameter<std::string>("tag_align_output_child_frame_id", "");
+	tag_align_namespace_child_frame_ =
+		declare_parameter<bool>("tag_align_namespace_child_frame", true);
+	tag_align_compose_from_detection_ =
+		declare_parameter<bool>("tag_align_compose_from_detection", false);
+	tag_align_recalibrate_on_tag_update_ =
+		declare_parameter<bool>("tag_align_recalibrate_on_tag_update", false);
+	tag_global_to_tag_ = make_transform(
+		declare_parameter<double>("tag_global_to_tag_x", 0.0),
+		declare_parameter<double>("tag_global_to_tag_y", 0.0),
+		declare_parameter<double>("tag_global_to_tag_z", 0.0),
+		declare_parameter<double>("tag_global_to_tag_roll", 0.0),
+		declare_parameter<double>("tag_global_to_tag_pitch", 0.0),
+		declare_parameter<double>("tag_global_to_tag_yaw", 0.0));
+	tag_edge_size_ = declare_parameter<double>("tag_edge_size", 0.3);
+	tag_detection_id_ = declare_parameter<int>("tag_detection_id", 0);
+	tag_optical_frame_id_ =
+		declare_parameter<std::string>("tag_optical_frame_id", "camera_infra1_optical_frame");
+	tag_detection_topic_ =
+		declare_parameter<std::string>("tag_detection_topic", "/apriltag/detections");
+	tag_camera_info_topic_ = declare_parameter<std::string>(
+		"tag_camera_info_topic", "/camera/infra1/camera_info");
 	compare_frame_id_ = declare_parameter<std::string>("compare_frame_id", "odom");
+	if (tag_align_enabled_) {
+		compare_frame_id_ = tag_frame_id_;
+	}
 	compare_path_max_poses_ = static_cast<std::size_t>(
-		declare_parameter<int>("compare_path_max_poses", 10000));
+		declare_parameter<int>("compare_path_max_poses", 2000));
+	executor_threads_ = declare_parameter<int>("executor_threads", 6);
+	image_publish_max_hz_ = declare_parameter<double>("image_publish_max_hz", 15.0);
+	point_cloud_publish_max_hz_ = declare_parameter<double>("point_cloud_publish_max_hz", 5.0);
+	path_publish_max_hz_ = declare_parameter<double>("path_publish_max_hz", 5.0);
+	image_publish_decimation_ = declare_parameter<int>("image_publish_decimation", 1);
+	if (image_publish_decimation_ < 1) {
+		image_publish_decimation_ = 1;
+	}
+	point_cloud_publish_decimation_ = declare_parameter<int>("point_cloud_publish_decimation", 2);
+	if (point_cloud_publish_decimation_ < 1) {
+		point_cloud_publish_decimation_ = 1;
+	}
 
 	leg_odom_output_frame_id_ = declare_parameter<std::string>("leg_odom_output_frame_id", "odom");
 	leg_odom_output_child_frame_id_ =
@@ -97,6 +155,9 @@ VinsVisualNode::VinsVisualNode()
 	depth_points_stamp_mode_ = normalize_stamp_mode(
 		declare_parameter<std::string>("depth_points_stamp_mode", "now"),
 		"now");
+	image_stamp_mode_ = normalize_stamp_mode(
+		declare_parameter<std::string>("image_stamp_mode", "now"),
+		"now");
 	dynamic_tf_stamp_mode_ = normalize_stamp_mode(
 		declare_parameter<std::string>("dynamic_tf_stamp_mode", "now"),
 		"now");
@@ -109,6 +170,15 @@ VinsVisualNode::VinsVisualNode()
 	rclcpp::SubscriptionOptions subscription_options;
 	subscription_options.callback_group = relay_callback_group_;
 
+	rclcpp::SubscriptionOptions image_subscription_options;
+	image_subscription_options.callback_group = image_callback_group_;
+
+	rclcpp::SubscriptionOptions odom_subscription_options;
+	odom_subscription_options.callback_group = odom_callback_group_;
+
+	rclcpp::SubscriptionOptions point_cloud_subscription_options;
+	point_cloud_subscription_options.callback_group = point_cloud_callback_group_;
+
 	create_image_relay(
 		declare_parameter<bool>("image0_enabled", true),
 		"image0",
@@ -116,7 +186,7 @@ VinsVisualNode::VinsVisualNode()
 		declare_parameter<std::string>("image0_output_topic", "/vins/image0"),
 		sensor_qos,
 		sensor_qos,
-		subscription_options);
+		image_subscription_options);
 
 	create_image_relay(
 		declare_parameter<bool>("image1_enabled", true),
@@ -125,7 +195,7 @@ VinsVisualNode::VinsVisualNode()
 		declare_parameter<std::string>("image1_output_topic", "/vins/image1"),
 		sensor_qos,
 		sensor_qos,
-		subscription_options);
+		image_subscription_options);
 
 	create_image_relay(
 		declare_parameter<bool>("image2_enabled", true),
@@ -134,7 +204,7 @@ VinsVisualNode::VinsVisualNode()
 		declare_parameter<std::string>("image2_output_topic", "/vins/image2"),
 		sensor_qos,
 		sensor_qos,
-		subscription_options);
+		image_subscription_options);
 
 	create_point_cloud_relay(
 		declare_parameter<bool>("depth_points_enabled", true),
@@ -146,12 +216,16 @@ VinsVisualNode::VinsVisualNode()
 			"depth_points_output_topic", "/camera/depth/color/points"),
 		sensor_qos,
 		sensor_qos,
-		subscription_options,
+		point_cloud_subscription_options,
 		frame_remap_enabled_,
 		depth_points_output_frame_id_);
 
-	create_leg_odom_compare_relay(reliable_qos, reliable_qos, subscription_options);
-	create_odom_slam_compare_relay(reliable_qos, reliable_qos, subscription_options);
+	create_leg_odom_compare_relay(viz_odom_sub_qos, viz_odom_pub_qos, odom_subscription_options);
+	create_odom_slam_compare_relay(viz_odom_sub_qos, viz_odom_pub_qos, odom_subscription_options);
+
+	if (tag_align_enabled_) {
+		create_tag_align_subscribers(subscription_options);
+	}
 
 	create_odom_relay(
 		declare_parameter<bool>("odometry_enabled", false),
@@ -275,14 +349,27 @@ VinsVisualNode::VinsVisualNode()
 			output_frame_id_.c_str());
 	}
 
+	if (tag_align_enabled_) {
+		RCLCPP_INFO(
+			get_logger(),
+			"tag_align compose mode: optical=%s, detection_topic=%s",
+			tag_optical_frame_id_.c_str(),
+			tag_detection_topic_.c_str());
+	}
+
 	publish_camera_static_tf();
+
+	if (tag_align_enabled_) {
+		update_base_link_to_optical_transform();
+	}
 
 	RCLCPP_INFO(
 		get_logger(),
-		"vins_visual is ready with %zu relay channels, compare frame=%s, odom_slam_align=%s",
+		"vins_visual is ready with %zu relay channels, compare frame=%s, odom_slam_align=%s, tag_align=%s",
 		relay_specs_.size(),
 		compare_frame_id_.c_str(),
-		odom_slam_align_enabled_ ? "true" : "false");
+		odom_slam_align_enabled_ ? "true" : "false",
+		tag_align_enabled_ ? tag_frame_id_.c_str() : "disabled");
 }
 
 VinsVisualNode::~VinsVisualNode()
@@ -380,7 +467,13 @@ void VinsVisualNode::publish_camera_static_tf()
 		declare_parameter<double>("camera_static_tf_pitch", 0.19),
 		declare_parameter<double>("camera_static_tf_yaw", 0.0)));
 
-	if (declare_parameter<bool>("camera_sensor_static_tf_enabled", true)) {
+	const auto sensor_static_enabled =
+		declare_parameter<bool>("camera_sensor_static_tf_enabled", true);
+	const auto minimal_for_tag_align =
+		tag_align_enabled_ &&
+		declare_parameter<bool>("camera_static_tf_minimal_for_tag_align", true);
+
+	if (sensor_static_enabled && !minimal_for_tag_align) {
 		const std::vector<std::pair<std::string, std::string>> sensor_frames = {
 			{"camera_depth_frame", "camera_depth_optical_frame"},
 			{"camera_infra1_frame", "camera_infra1_optical_frame"},
@@ -411,26 +504,40 @@ void VinsVisualNode::publish_camera_static_tf()
 				kOpticalFramePitch,
 				kOpticalFrameYaw));
 		}
+	}
 
+	transforms.push_back(make_static_transform(
+		stamp,
+		camera_static_tf_child_frame_id_,
+		"camera_aligned_depth_to_infra1_frame",
+		0.0,
+		0.0,
+		0.0,
+		0.0,
+		0.0,
+		0.0));
+
+	if (minimal_for_tag_align) {
 		transforms.push_back(make_static_transform(
 			stamp,
-			camera_static_tf_child_frame_id_,
 			"camera_aligned_depth_to_infra1_frame",
+			tag_optical_frame_id_.empty() ? "camera_infra1_optical_frame" : tag_optical_frame_id_,
 			0.0,
 			0.0,
 			0.0,
-			0.0,
-			0.0,
-			0.0));
+			kOpticalFrameRoll,
+			kOpticalFramePitch,
+			kOpticalFrameYaw));
 	}
 
 	static_tf_broadcaster_->sendTransform(transforms);
 	RCLCPP_INFO(
 		get_logger(),
-		"camera static TF published: %s -> %s and %zu camera sensor frames",
+		"camera static TF published: %s -> %s (%zu transforms, minimal_for_tag_align=%s)",
 		camera_static_tf_parent_frame_id_.c_str(),
 		camera_static_tf_child_frame_id_.c_str(),
-		transforms.size() - 1);
+		transforms.size(),
+		minimal_for_tag_align ? "true" : "false");
 }
 
 tf2::Transform VinsVisualNode::odometry_to_transform(const nav_msgs::msg::Odometry & odom)
@@ -519,6 +626,41 @@ void VinsVisualNode::apply_header_stamp_mode(
 	}
 }
 
+bool VinsVisualNode::should_publish_at_max_hz(
+	double max_hz,
+	rclcpp::Time & last_publish_time)
+{
+	if (max_hz <= 0.0) {
+		return true;
+	}
+
+	const auto current_time = now();
+	if (last_publish_time.nanoseconds() == 0) {
+		last_publish_time = current_time;
+		return true;
+	}
+
+	const auto min_interval = 1.0 / max_hz;
+	if ((current_time - last_publish_time).seconds() >= min_interval) {
+		last_publish_time = current_time;
+		return true;
+	}
+
+	return false;
+}
+
+bool VinsVisualNode::should_publish_decimated(
+	int decimation,
+	std::uint64_t & counter)
+{
+	if (decimation <= 1) {
+		return true;
+	}
+
+	++counter;
+	return counter % static_cast<std::uint64_t>(decimation) == 0U;
+}
+
 void VinsVisualNode::publish_odometry_tf(const nav_msgs::msg::Odometry & odom)
 {
 	if (!tf_broadcaster_ || odom.header.frame_id.empty() || odom.child_frame_id.empty()) {
@@ -562,6 +704,10 @@ bool VinsVisualNode::apply_slam_alignment(
 	const nav_msgs::msg::Odometry & input,
 	nav_msgs::msg::Odometry & output)
 {
+	if (tag_align_enabled_) {
+		return apply_tag_alignment(input, output);
+	}
+
 	const auto slam_transform = odometry_to_transform(input);
 
 	{
@@ -590,6 +736,299 @@ bool VinsVisualNode::apply_slam_alignment(
 		slam_odom_output_child_frame_id_);
 	output.header.frame_id = compare_frame_id_;
 	return true;
+}
+
+std::string VinsVisualNode::resolve_tag_align_child_frame_id(
+	const std::string & input_child_frame_id) const
+{
+	if (!tag_align_output_child_frame_id_.empty()) {
+		return tag_align_output_child_frame_id_;
+	}
+
+	const auto & child_frame_id = slam_odom_output_child_frame_id_.empty()
+		? input_child_frame_id
+		: slam_odom_output_child_frame_id_;
+
+	if (tag_align_namespace_child_frame_ && !selected_namespace_.empty()) {
+		const auto normalized_namespace = trim_slashes(selected_namespace_);
+		if (!normalized_namespace.empty()) {
+			return normalized_namespace + "/" + child_frame_id;
+		}
+	}
+
+	return child_frame_id;
+}
+
+bool VinsVisualNode::apply_tag_alignment(
+	const nav_msgs::msg::Odometry & input,
+	nav_msgs::msg::Odometry & output)
+{
+	if (input.child_frame_id.empty()) {
+		RCLCPP_WARN_THROTTLE(
+			get_logger(),
+			*get_clock(),
+			5000,
+			"skip tag_align because odom child_frame_id is empty");
+		return false;
+	}
+
+	tf2::Transform tag_optical_to_tag;
+	tf2::Transform base_link_to_optical;
+	std::uint64_t tag_pose_sequence = 0;
+	{
+		std::lock_guard<std::mutex> lock(tag_pose_mutex_);
+		if (!tag_pose_valid_) {
+			RCLCPP_WARN_THROTTLE(
+				get_logger(),
+				*get_clock(),
+				5000,
+				"skip tag_align because tag pose is unavailable (need visible tag on %s)",
+				tag_detection_topic_.c_str());
+			return false;
+		}
+		tag_optical_to_tag = tag_optical_to_tag_;
+		base_link_to_optical = base_link_to_optical_;
+		tag_pose_sequence = tag_pose_sequence_;
+	}
+
+	const auto vio_to_base_link = odometry_to_transform(input);
+	const auto observed_tag_to_base_link =
+		tag_global_to_tag_ * tag_optical_to_tag.inverse() * base_link_to_optical.inverse();
+
+	tf2::Transform tag_to_vio_frame;
+	{
+		std::lock_guard<std::mutex> lock(tag_pose_mutex_);
+		if (!tag_vio_alignment_valid_ ||
+			(tag_align_recalibrate_on_tag_update_ &&
+			consumed_tag_pose_sequence_ != tag_pose_sequence))
+		{
+			tag_to_vio_frame_ = observed_tag_to_base_link * vio_to_base_link.inverse();
+			consumed_tag_pose_sequence_ = tag_pose_sequence;
+			tag_vio_alignment_valid_ = true;
+			RCLCPP_INFO(
+				get_logger(),
+				"tag_align calibrated %s -> %s from tag observation, translation=[%.3f, %.3f, %.3f]",
+				input.header.frame_id.c_str(),
+				tag_frame_id_.c_str(),
+				tag_to_vio_frame_.getOrigin().x(),
+				tag_to_vio_frame_.getOrigin().y(),
+				tag_to_vio_frame_.getOrigin().z());
+		}
+		tag_to_vio_frame = tag_to_vio_frame_;
+	}
+
+	const auto aligned_tag_to_base_link = tag_to_vio_frame * vio_to_base_link;
+	output = transform_to_odometry(
+		aligned_tag_to_base_link,
+		input.header,
+		resolve_tag_align_child_frame_id(input.child_frame_id));
+	output.header.frame_id = tag_frame_id_;
+	apply_header_stamp_mode(output.header, dynamic_tf_stamp_mode_);
+	if (output.header.stamp.sec == 0 && output.header.stamp.nanosec == 0) {
+		output.header.stamp = now();
+	}
+	return true;
+}
+
+tf2::Transform VinsVisualNode::make_transform(
+	double x,
+	double y,
+	double z,
+	double roll,
+	double pitch,
+	double yaw)
+{
+	tf2::Transform transform;
+	transform.setOrigin(tf2::Vector3(x, y, z));
+	tf2::Quaternion rotation;
+	rotation.setRPY(roll, pitch, yaw);
+	rotation.normalize();
+	transform.setRotation(rotation);
+	return transform;
+}
+
+void VinsVisualNode::update_base_link_to_optical_transform()
+{
+	const auto base_to_camera = make_transform(
+		get_parameter("camera_static_tf_x").as_double(),
+		get_parameter("camera_static_tf_y").as_double(),
+		get_parameter("camera_static_tf_z").as_double(),
+		get_parameter("camera_static_tf_roll").as_double(),
+		get_parameter("camera_static_tf_pitch").as_double(),
+		get_parameter("camera_static_tf_yaw").as_double());
+	const auto camera_to_aligned = make_transform(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+	const auto aligned_to_optical = make_transform(
+		0.0,
+		0.0,
+		0.0,
+		kOpticalFrameRoll,
+		kOpticalFramePitch,
+		kOpticalFrameYaw);
+
+	std::lock_guard<std::mutex> lock(tag_pose_mutex_);
+	base_link_to_optical_ = base_to_camera * camera_to_aligned * aligned_to_optical;
+}
+
+bool VinsVisualNode::update_tag_optical_to_tag_from_detection(
+	const apriltag_msgs::msg::AprilTagDetectionArray & detections)
+{
+	if (!camera_intrinsics_valid_) {
+		return false;
+	}
+
+	const apriltag_msgs::msg::AprilTagDetection * selected_detection = nullptr;
+	for (const auto & detection : detections.detections) {
+		if (detection.id == tag_detection_id_) {
+			selected_detection = &detection;
+			break;
+		}
+	}
+
+	if (selected_detection == nullptr) {
+		return false;
+	}
+
+	const std::vector<cv::Point3d> object_points{
+		{-tag_edge_size_ / 2, -tag_edge_size_ / 2, 0},
+		{+tag_edge_size_ / 2, -tag_edge_size_ / 2, 0},
+		{+tag_edge_size_ / 2, +tag_edge_size_ / 2, 0},
+		{-tag_edge_size_ / 2, +tag_edge_size_ / 2, 0},
+	};
+	const std::vector<cv::Point2d> image_points{
+		{selected_detection->corners[0].x, selected_detection->corners[0].y},
+		{selected_detection->corners[1].x, selected_detection->corners[1].y},
+		{selected_detection->corners[2].x, selected_detection->corners[2].y},
+		{selected_detection->corners[3].x, selected_detection->corners[3].y},
+	};
+
+	cv::Matx33d camera_matrix = cv::Matx33d::eye();
+	camera_matrix(0, 0) = camera_intrinsics_[0];
+	camera_matrix(1, 1) = camera_intrinsics_[1];
+	camera_matrix(0, 2) = camera_intrinsics_[2];
+	camera_matrix(1, 2) = camera_intrinsics_[3];
+
+	cv::Mat rvec;
+	cv::Mat tvec;
+	if (!cv::solvePnP(object_points, image_points, camera_matrix, {}, rvec, tvec)) {
+		return false;
+	}
+
+	cv::Mat rotation_matrix;
+	cv::Rodrigues(rvec, rotation_matrix);
+
+	tf2::Matrix3x3 rotation(
+		rotation_matrix.at<double>(0, 0),
+		rotation_matrix.at<double>(0, 1),
+		rotation_matrix.at<double>(0, 2),
+		rotation_matrix.at<double>(1, 0),
+		rotation_matrix.at<double>(1, 1),
+		rotation_matrix.at<double>(1, 2),
+		rotation_matrix.at<double>(2, 0),
+		rotation_matrix.at<double>(2, 1),
+		rotation_matrix.at<double>(2, 2));
+	tf2::Quaternion quaternion;
+	rotation.getRotation(quaternion);
+	quaternion.normalize();
+
+	tf2::Transform optical_to_tag;
+	optical_to_tag.setOrigin(tf2::Vector3(
+		tvec.at<double>(0),
+		tvec.at<double>(1),
+		tvec.at<double>(2)));
+	optical_to_tag.setRotation(quaternion);
+
+	std::lock_guard<std::mutex> lock(tag_pose_mutex_);
+	tag_optical_to_tag_ = optical_to_tag;
+	tag_pose_valid_ = true;
+	++tag_pose_sequence_;
+	return true;
+}
+
+void VinsVisualNode::on_tag_tf_message(const tf2_msgs::msg::TFMessage::SharedPtr message)
+{
+	if (!message) {
+		return;
+	}
+
+	for (const auto & transform : message->transforms) {
+		if (transform.header.frame_id != tag_optical_frame_id_ ||
+			transform.child_frame_id != tag_frame_id_)
+		{
+			continue;
+		}
+
+		tf2::Transform optical_to_tag;
+		tf2::convert(transform.transform, optical_to_tag);
+		std::lock_guard<std::mutex> lock(tag_pose_mutex_);
+		tag_optical_to_tag_ = optical_to_tag;
+		tag_pose_valid_ = true;
+		++tag_pose_sequence_;
+	}
+}
+
+void VinsVisualNode::create_tag_align_subscribers(
+	const rclcpp::SubscriptionOptions & subscription_options)
+{
+	const auto reliable_qos = rclcpp::QoS(rclcpp::KeepLast(10)).reliable();
+	std::string camera_info_topic;
+
+	if (tag_align_compose_from_detection_) {
+		auto detection_subscription = create_subscription<apriltag_msgs::msg::AprilTagDetectionArray>(
+			tag_detection_topic_,
+			reliable_qos,
+			[this](const apriltag_msgs::msg::AprilTagDetectionArray::SharedPtr message) {
+				if (shutting_down_.load() || !message) {
+					return;
+				}
+				if (update_tag_optical_to_tag_from_detection(*message)) {
+					update_relay_status("tag_detection");
+				}
+			},
+			subscription_options);
+		subscriptions_.push_back(detection_subscription);
+		relay_specs_.push_back(RelaySpec{"tag_detection", tag_detection_topic_, ""});
+
+		camera_info_topic = build_input_topic(tag_camera_info_topic_);
+		auto camera_info_subscription = create_subscription<sensor_msgs::msg::CameraInfo>(
+			camera_info_topic,
+			reliable_qos,
+			[this](const sensor_msgs::msg::CameraInfo::SharedPtr message) {
+				if (shutting_down_.load() || !message) {
+					return;
+				}
+				if (message->width == 0 || message->height == 0 ||
+					message->p[0] == 0.0 || message->p[5] == 0.0)
+				{
+					return;
+				}
+				std::lock_guard<std::mutex> lock(tag_pose_mutex_);
+				camera_intrinsics_[0] = message->p[0];
+				camera_intrinsics_[1] = message->p[5];
+				camera_intrinsics_[2] = message->p[2];
+				camera_intrinsics_[3] = message->p[6];
+				camera_intrinsics_valid_ = true;
+			},
+			subscription_options);
+		subscriptions_.push_back(camera_info_subscription);
+		relay_specs_.push_back(RelaySpec{"tag_camera_info", camera_info_topic, ""});
+	}
+
+	auto tf_subscription = create_subscription<tf2_msgs::msg::TFMessage>(
+		"/tf",
+		rclcpp::QoS(10),
+		[this](const tf2_msgs::msg::TFMessage::SharedPtr message) {
+			on_tag_tf_message(message);
+		},
+		subscription_options);
+	subscriptions_.push_back(tf_subscription);
+	relay_specs_.push_back(RelaySpec{"tag_tf", "/tf", ""});
+
+	RCLCPP_INFO(
+		get_logger(),
+		"tag_align subscribers ready: tf=/tf, compose_from_detection=%s, detection=%s, camera_info=%s",
+		tag_align_compose_from_detection_ ? "true" : "false",
+		tag_detection_topic_.c_str(),
+		camera_info_topic.c_str());
 }
 
 void VinsVisualNode::create_leg_odom_compare_relay(
@@ -647,8 +1086,10 @@ void VinsVisualNode::create_leg_odom_compare_relay(
 						output.header,
 						compare_frame_id_);
 					append_path_pose(leg_compare_path_, std::move(pose));
-					leg_path_publisher_->publish(leg_compare_path_);
-					update_relay_status("leg_path");
+					if (should_publish_at_max_hz(path_publish_max_hz_, last_leg_path_publish_time_)) {
+						leg_path_publisher_->publish(leg_compare_path_);
+						update_relay_status("leg_path");
+					}
 				}
 
 				if (leg_odom_publish_tf_) {
@@ -727,8 +1168,10 @@ void VinsVisualNode::create_odom_slam_compare_relay(
 						aligned_output.header,
 						compare_frame_id_);
 					append_path_pose(slam_compare_path_, std::move(pose));
-					slam_path_publisher_->publish(slam_compare_path_);
-					update_relay_status("slam_path");
+					if (should_publish_at_max_hz(path_publish_max_hz_, last_slam_path_publish_time_)) {
+						slam_path_publisher_->publish(slam_compare_path_);
+						update_relay_status("slam_path");
+					}
 				}
 			} catch (const std::exception & exception) {
 				RCLCPP_ERROR_THROTTLE(
@@ -777,7 +1220,30 @@ void VinsVisualNode::create_image_relay(
 				return;
 			}
 			try {
-				publisher->publish(*message);
+				auto & image_counter = image_publish_counters_[relay_name];
+				if (!should_publish_decimated(image_publish_decimation_, image_counter)) {
+					return;
+				}
+
+				auto & last_publish_time = last_image_publish_times_[relay_name];
+				if (!should_publish_at_max_hz(image_publish_max_hz_, last_publish_time)) {
+					return;
+				}
+
+				if (image_stamp_mode_ == "original") {
+					publisher->publish(*message);
+				} else {
+					auto output = std::make_unique<sensor_msgs::msg::Image>();
+					output->header = message->header;
+					output->height = message->height;
+					output->width = message->width;
+					output->encoding = message->encoding;
+					output->is_bigendian = message->is_bigendian;
+					output->step = message->step;
+					output->data = message->data;
+					apply_header_stamp_mode(output->header, image_stamp_mode_);
+					publisher->publish(std::move(output));
+				}
 				update_relay_status(relay_name);
 			} catch (const std::exception & exception) {
 				RCLCPP_ERROR_THROTTLE(
@@ -830,15 +1296,33 @@ void VinsVisualNode::create_point_cloud_relay(
 				return;
 			}
 			try {
-				auto output = *message;
-				if (remap_frame) {
-					output.header.frame_id = remap_frame_id(output.header.frame_id);
+				if (!should_publish_decimated(
+						point_cloud_publish_decimation_,
+						point_cloud_publish_counter_) ||
+					!should_publish_at_max_hz(
+						point_cloud_publish_max_hz_,
+						last_point_cloud_publish_time_))
+				{
+					return;
 				}
-				if (!output_frame_id.empty()) {
-					output.header.frame_id = output_frame_id;
+
+				const bool needs_copy = remap_frame ||
+					!output_frame_id.empty() ||
+					depth_points_stamp_mode_ != "original";
+				if (!needs_copy) {
+					publisher->publish(*message);
+				} else {
+					auto output = std::make_unique<sensor_msgs::msg::PointCloud2>();
+					*output = *message;
+					if (remap_frame) {
+						output->header.frame_id = remap_frame_id(output->header.frame_id);
+					}
+					if (!output_frame_id.empty()) {
+						output->header.frame_id = output_frame_id;
+					}
+					apply_header_stamp_mode(output->header, depth_points_stamp_mode_);
+					publisher->publish(std::move(output));
 				}
-				apply_header_stamp_mode(output.header, depth_points_stamp_mode_);
-				publisher->publish(output);
 				update_relay_status(relay_name);
 			} catch (const std::exception & exception) {
 				RCLCPP_ERROR_THROTTLE(
@@ -1074,6 +1558,22 @@ void VinsVisualNode::log_status()
 			static_cast<unsigned long long>(count),
 			age_text.c_str());
 	}
+
+	if (tag_align_enabled_) {
+		bool tag_pose_valid = false;
+		bool camera_intrinsics_valid = false;
+		{
+			std::lock_guard<std::mutex> lock(tag_pose_mutex_);
+			tag_pose_valid = tag_pose_valid_;
+			camera_intrinsics_valid = camera_intrinsics_valid_;
+		}
+		RCLCPP_INFO(
+			get_logger(),
+			"tag_align status: pose_valid=%s, camera_intrinsics_valid=%s, output_frame=%s",
+			tag_pose_valid ? "true" : "false",
+			camera_intrinsics_valid ? "true" : "false",
+			tag_frame_id_.c_str());
+	}
 }
 
 int main(int argc, char ** argv)
@@ -1082,7 +1582,8 @@ int main(int argc, char ** argv)
 	try {
 		rclcpp::init(argc, argv);
 		auto node = std::make_shared<VinsVisualNode>();
-		rclcpp::executors::SingleThreadedExecutor executor;
+		rclcpp::executors::MultiThreadedExecutor executor(
+			rclcpp::ExecutorOptions(), std::max(2, node->get_executor_threads()));
 		executor.add_node(node);
 		executor.spin();
 	} catch (const std::exception & exception) {

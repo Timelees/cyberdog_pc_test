@@ -46,3 +46,40 @@ ros2 launch topic_visualization visualize.launch.py
 6. 重新编译：`colcon build --packages-select mutil_odom_shared topic_visualization --symlink-install`
 
 单机器人模式可将 `shared_odom_enabled` 设为 `false`，并使用 `config/config.rviz`。
+
+## Mivins + AprilTag 全局坐标可视化
+
+以 apriltag 配置的 tag frame（默认 `base`）作为 RViz Fixed Frame，将 VIO `/odom_slam` 转换到 tag 坐标系下发布，便于多机对齐。
+
+```bash
+# 必须在 galactic docker 内，且配置好多机 DDS（ROS_DOMAIN_ID=42）
+source /opt/ros/galactic/setup.bash
+source /home/lee/code/cyberdog2_pc_ws/install/setup.bash
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+export CYCLONEDDS_URI=file:///home/lee/.cyclonedds.xml
+export ROS_DOMAIN_ID=42
+
+ros2 launch topic_visualization vins_visualize.launch.py
+```
+
+### 实机前置条件
+
+1. Mivins 定位已启动，有 `/cyberdog_N/odom_slam`
+2. apriltag 已启动，且 tag 在相机视野内（`/apriltag/detections` 有数据）
+3. `tags_36h11.yaml` 中 `pose_estimation_method` 非空，`tag.frames` 与 `tag_frame_id` 一致（默认 `base`）
+
+### 验证
+
+```bash
+# 应在 docker 内执行，不要在未配置 DDS 的宿主机 shell 里直接跑
+ros2 topic echo /odom_slam --field header.frame_id    # 应为 base
+ros2 run tf2_ros tf2_echo base cyberdog_2/base_link   # tag 可见时有输出
+```
+
+### 无法显示时排查
+
+1. `vins_visual` 日志中 `tag_align status: pose_valid=true`（需要 tag 可见）
+2. `relay tag_detection` count > 0（apriltag 在运行）
+3. `relay odom_slam` count > 0（Mivins 在发布）
+4. RViz Fixed Frame 设为 **base**
+5. PC 端收不到实机 `/tf_static` 是正常的；节点会在本机发布 `base_link -> optical` 静态链

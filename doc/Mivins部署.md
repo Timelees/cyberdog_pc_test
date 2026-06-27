@@ -12,6 +12,8 @@ DepsNav2LifecycleNodes = []
 DepsLifecycleNodes = ["camera/camera", "stereo_camera", "mivinslocalization"]
 ```
 
+vins必须依赖camera/camera这个生命周期节点
+
 **部署编译的包**
 ```
 scp -r install/lib/vins mi@192.168.44.1:/home/mi/
@@ -34,19 +36,19 @@ sudo reboot
 realsense相机驱动必须启动，这个有开机自启动节点，设置生命周期时需要加namespace
 
 ```
-ros2 launch realsense2_camera on_dog.py # 开机自启动
+# ros2 launch realsense2_camera on_dog.py # 开机自启动
 
-ros2 lifecycle set /camera/camera_align configure
+ros2 lifecycle set /cyberdog_1/camera/camera configure
 
-ros2 lifecycle set /camera/camera_align activate
+ros2 lifecycle set /cyberdog_1/camera/camera activate
 ```
 
 启动
 ```
-ros2 launch vins dog_d430i_stereo_odometry_localization.py use_miloc:=false # 开机自启动
+# ros2 launch vins dog_d430i_stereo_odometry_localization.py use_miloc:=false # 开机自启动
 
-ros2 lifecycle set /vinslocalization configure
+ros2 lifecycle set /cyberdog_1/vinslocalization configure
 
-ros2 lifecycle set /vinslocalization activate
+ros2 lifecycle set /cyberdog_1/vinslocalization activate
 ```
 

@@ -10,6 +10,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(tf2 REQUIRED)
+find_package(tf2_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 
 add_executable(mutil_odom_shared_node
@@ -28,6 +29,7 @@ ament_target_dependencies(mutil_odom_shared_node
 	nav_msgs
 	rclcpp
 	tf2
+	tf2_msgs
 	tf2_ros
 )
 

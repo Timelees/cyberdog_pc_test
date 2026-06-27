@@ -12,6 +12,7 @@ Panels:
         - /Marker2/Namespaces1
         - /OdomSlam1
         - /LegOdom1
+        - /TF1
         - /Image1/Topic1
         - /PointCloud21
         - /PointCloud21/Topic1
@@ -215,109 +216,109 @@ Visualization Manager:
       Enabled: true
       Frame Timeout: 15
       Frames:
-        All Enabled: true
+        All Enabled: false
+        base:
+          Value: true
         base_link:
-          Value: true
-        base_link_leg:
-          Value: true
+          Value: false
         camera_accel_frame:
-          Value: true
+          Value: false
         camera_accel_optical_frame:
-          Value: true
+          Value: false
         camera_aligned_depth_to_infra1_frame:
-          Value: true
+          Value: false
         camera_depth_frame:
-          Value: true
+          Value: false
         camera_depth_optical_frame:
-          Value: true
+          Value: false
         camera_gyro_frame:
-          Value: true
+          Value: false
         camera_gyro_optical_frame:
-          Value: true
+          Value: false
         camera_infra1_frame:
-          Value: true
+          Value: false
         camera_infra1_optical_frame:
-          Value: true
+          Value: false
         camera_infra2_frame:
-          Value: true
+          Value: false
         camera_infra2_optical_frame:
-          Value: true
+          Value: false
         camera_link:
+          Value: false
+        cyberdog_1/base_link:
           Value: true
         head_tof:
-          Value: true
+          Value: false
         head_uwb:
-          Value: true
+          Value: false
         laser_frame:
-          Value: true
+          Value: false
         left_head:
-          Value: true
+          Value: false
         left_rear:
-          Value: true
+          Value: false
         map:
           Value: true
-        odom:
-          Value: true
         rear_tof:
-          Value: true
+          Value: false
         rear_uwb:
-          Value: true
+          Value: false
         right_head:
-          Value: true
+          Value: false
         right_rear:
-          Value: true
+          Value: false
         uwb:
-          Value: true
+          Value: false
         vodom:
           Value: true
       Marker Scale: 0.800000011920929
       Name: TF
       Show Arrows: true
       Show Axes: true
-      Show Names: false
+      Show Names: true
       Tree:
+        base_link:
+          camera_link:
+            camera_accel_frame:
+              camera_accel_optical_frame:
+                {}
+            camera_aligned_depth_to_infra1_frame:
+              camera_infra1_optical_frame:
+                base:
+                  cyberdog_1/base_link:
+                    {}
+            camera_depth_frame:
+              camera_depth_optical_frame:
+                {}
+            camera_gyro_frame:
+              camera_gyro_optical_frame:
+                {}
+            camera_infra1_frame:
+              {}
+            camera_infra2_frame:
+              camera_infra2_optical_frame:
+                {}
+          laser_frame:
+            {}
+          left_head:
+            {}
+          left_rear:
+            {}
+          right_head:
+            {}
+          right_rear:
+            {}
+          uwb:
+            head_tof:
+              {}
+            head_uwb:
+              {}
+            rear_tof:
+              {}
+            rear_uwb:
+              {}
         map:
           vodom:
-            base_link:
-              camera_link:
-                camera_accel_frame:
-                  camera_accel_optical_frame:
-                    {}
-                camera_aligned_depth_to_infra1_frame:
-                  camera_infra1_optical_frame:
-                    {}
-                camera_depth_frame:
-                  camera_depth_optical_frame:
-                    {}
-                camera_gyro_frame:
-                  camera_gyro_optical_frame:
-                    {}
-                camera_infra1_frame:
-                  {}
-                camera_infra2_frame:
-                  camera_infra2_optical_frame:
-                    {}
-              laser_frame:
-                {}
-              left_head:
-                {}
-              left_rear:
-                {}
-              right_head:
-                {}
-              right_rear:
-                {}
-              uwb:
-                head_tof:
-                  {}
-                head_uwb:
-                  {}
-                rear_tof:
-                  {}
-                rear_uwb:
-                  {}
-        odom:
-          base_link_leg:
             {}
       Update Interval: 0
       Value: true
@@ -338,8 +339,8 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 4
-        Min Value: 0
+        Max Value: 5.0951972007751465
+        Min Value: -1.8308392763137817
         Value: true
       Axis: Z
       Channel Name: rgb
@@ -365,14 +366,14 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Best Effort
-        Value: /depth_points
+        Value: /camera/depth/color/points
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: camera_aligned_depth_to_infra1_frame
+    Fixed Frame: base
     Frame Rate: 30
   Name: root
   Tools:
@@ -415,25 +416,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/ThirdPersonFollower
-      Distance: 9.556761741638184
+      Distance: 4.567607402801514
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.6955995559692383
-        Y: -0.11261844635009766
-        Z: -1.430511474609375e-06
+        X: 2.504302740097046
+        Y: -0.9415738582611084
+        Z: -3.7648205761797726e-05
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7853981852531433
+      Pitch: 0.5603986382484436
       Target Frame: base_link_leg
       Value: ThirdPersonFollower (rviz)
-      Yaw: 0.7853981852531433
+      Yaw: 5.773588180541992
     Saved: ~
 Window Geometry:
   Displays:
