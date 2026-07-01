@@ -4,47 +4,16 @@
     namespace: ["cyberdog_1", "cyberdog_2", "cyberdog_3", "cyberdog_4", "cyberdog_5", "cyberdog_6", "cyberdog_7", "cyberdog_8", "cyberdog_9", "cyberdog_10"]
     namespace_index: 0
 
-    # 使用实机原始 frame，不做 vodom->world 重命名
     frame_remap_enabled: false
 
-    # 以 AprilTag 配置的 tag frame（apriltag tags_36h11.yaml 里 frames: [base]）作为全局坐标系，
-    # 将 VIO /odom_slam 位姿通过实机 TF 树转换到 tag frame 下发布，便于多机位姿对齐。
-    tag_align_enabled: true
-    tag_frame_id: base
-    tag_align_namespace_child_frame: true
-    # 默认使用 apriltag_ros 发布的 /tf: camera_infra1_optical_frame -> base。
-    # 只有调试 /tf 不可用时才打开 detection PnP 备用路径。
-    tag_align_compose_from_detection: false
-    # 默认只用首次 tag 观测标定 VIO/map -> tag(base)，之后保持 VIO 的相对运动。
-    # 若设 true，每次 tag 观测更新都会重标定，轨迹可能随 tag 噪声跳动。
-    tag_align_recalibrate_on_tag_update: false
-    # 墙面 AprilTag 坐标优化：
-    # AprilTag 原始轴按检测库约定：X 沿纸面向右，Y 沿纸面向下，Z 垂直纸面向外。
-    # 机器人面对 tag 时，全局 X 指向墙面(tag 的 -Z)，全局 Y 向右(tag 的 +X)，全局 Z 向上(tag 的 -Y)。
-    # 即 X_global=-Z_tag, Y_global=X_tag, Z_global=-Y_tag。
-    tag_global_to_tag_x: 0.0
-    tag_global_to_tag_y: 0.0
-    tag_global_to_tag_z: 0.0
-    tag_global_to_tag_roll: -1.5707963267948966
-    tag_global_to_tag_pitch: 0.0
-    tag_global_to_tag_yaw: 1.5707963267948966
-    tag_edge_size: 0.3
-    tag_detection_id: 0
-    tag_optical_frame_id: camera_infra1_optical_frame
-    tag_detection_topic: /apriltag/detections
-    tag_camera_info_topic: /camera/infra1/camera_info
-    compare_frame_id: base
-
-    # 可视化性能：降低 RViz 卡顿
-    executor_threads: 6
-    image_publish_max_hz: 15.0
-    point_cloud_publish_max_hz: 5.0
-    path_publish_max_hz: 5.0
-    image_publish_decimation: 1
-    point_cloud_publish_decimation: 2
+    # 直接显示 VINS 原始 map 坐标；若要与腿式里程计对比，设 align=true 且 compare_frame_id=odom
+    compare_frame_id: odom
     compare_path_max_poses: 2000
     odom_slam_subscribe_best_effort: true
-    odom_slam_publish_best_effort: true
+    odom_slam_publish_best_effort: false
+    leg_odom_subscribe_best_effort: true
+    odom_slam_stamp_mode: now
+    dynamic_tf_stamp_mode: now
 
     image0_enabled: false
     image0_input_topic: /vins/image0
@@ -58,20 +27,13 @@
     image2_input_topic: /vins/image2
     image2_output_topic: /vins/image2
 
-    # 深度点云体积大，默认关闭；需要时再打开
     depth_points_enabled: false
     depth_points_input_topic: /camera/depth/color/points
     depth_points_output_topic: /camera/depth/color/points
-    # 保留实机点云原始 frame_id，通过 TF 树转换到 odom
     depth_points_output_frame_id: ""
-    # 可视化使用本机当前时间，避免远端时间戳/网络延迟导致 RViz 等待 TF
     depth_points_stamp_mode: now
-    image_stamp_mode: now
-    dynamic_tf_stamp_mode: now
 
-    # 本机补齐 base_link -> optical 静态链；实机 /tf_static 通常到不了 PC
     camera_static_tf_enabled: true
-    camera_static_tf_minimal_for_tag_align: true
     camera_static_tf_parent_frame_id: base_link
     camera_static_tf_child_frame_id: camera_link
     camera_sensor_static_tf_enabled: true
@@ -82,30 +44,26 @@
     camera_static_tf_pitch: 0.19
     camera_static_tf_yaw: 0.0
 
-    # 腿式里程计仍在 odom 下，与 tag 全局系不同，tag 对齐模式下默认关闭
-    leg_odom_enabled: false
+    leg_odom_enabled: true
     leg_odom_input_topic: /odom_out
     leg_odom_output_topic: /odom
     leg_odom_output_frame_id: odom
     leg_odom_output_child_frame_id: base_link_leg
     leg_odom_publish_tf: true
-    # 点云显示使用腿式里程计的高频 odom -> base_link，刷新更稳定
     leg_odom_publish_base_tf: true
     leg_odom_base_child_frame_id: base_link
 
-    # VINS SLAM 里程计: 实机 frame_id=map, child_frame_id=base_link
-    # tag_align_enabled 时通过 TF 转到 tag frame（base）发布
     odom_slam_enabled: true
     odom_slam_input_topic: /odom_slam
     odom_slam_output_topic: /odom_slam
-    odom_slam_align_enabled: false
+    odom_slam_align_enabled: true
+    odom_slam_require_leg_for_align: false
     slam_odom_output_child_frame_id: base_link
     odom_slam_publish_tf: true
 
     compare_leg_path_topic: /compare/leg_path
     compare_slam_path_topic: /compare/slam_path
 
-    # 以下 VINS 调试话题默认关闭，对比视图不需要
     odometry_enabled: false
     imuodom_slam_enabled: false
     odometryleft_enabled: false

@@ -11,11 +11,8 @@ Panels:
         - /Marker2/Topic1
         - /Marker2/Namespaces1
         - /OdomSlam1
-        - /LegOdom1
         - /TF1
         - /Image1/Topic1
-        - /PointCloud21
-        - /PointCloud21/Topic1
       Splitter Ratio: 0.5049833655357361
     Tree Height: 591
   - Class: rviz_common/Selection
@@ -110,7 +107,7 @@ Visualization Manager:
       Buffer Length: 1
       Class: rviz_default_plugins/Path
       Color: 0; 170; 255
-      Enabled: true
+      Enabled: false
       Head Diameter: 0.10000000149011612
       Head Length: 0.10000000149011612
       Length: 0.30000001192092896
@@ -132,8 +129,8 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /compare/slam_path
-      Value: true
+        Value: /cyberdog_1/path_base
+      Value: false
     - Angle Tolerance: 0.05000000074505806
       Class: rviz_default_plugins/Odometry
       Covariance:
@@ -171,7 +168,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /odom_slam
+        Value: /cyberdog_1/odom_base
       Value: true
     - Angle Tolerance: 0.05000000074505806
       Class: rviz_default_plugins/Odometry
@@ -190,7 +187,7 @@ Visualization Manager:
           Scale: 1
           Value: false
         Value: false
-      Enabled: true
+      Enabled: false
       Keep: 1
       Name: LegOdom
       Position Tolerance: 0.05000000074505806
@@ -211,14 +208,14 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /odom
-      Value: true
+      Value: false
     - Class: rviz_default_plugins/TF
       Enabled: true
       Frame Timeout: 15
       Frames:
         All Enabled: false
         base:
-          Value: true
+          Value: false
         base_link:
           Value: false
         camera_accel_frame:
@@ -245,7 +242,7 @@ Visualization Manager:
           Value: false
         camera_link:
           Value: false
-        cyberdog_1/base_link:
+        cyberdog_1_base_link_tag:
           Value: true
         head_tof:
           Value: false
@@ -257,8 +254,6 @@ Visualization Manager:
           Value: false
         left_rear:
           Value: false
-        map:
-          Value: true
         rear_tof:
           Value: false
         rear_uwb:
@@ -267,37 +262,21 @@ Visualization Manager:
           Value: false
         right_rear:
           Value: false
+        tag_map:
+          Value: true
         uwb:
           Value: false
-        vodom:
-          Value: true
       Marker Scale: 0.800000011920929
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
       Tree:
-        base_link:
-          camera_link:
-            camera_accel_frame:
-              camera_accel_optical_frame:
-                {}
-            camera_aligned_depth_to_infra1_frame:
-              camera_infra1_optical_frame:
-                base:
-                  cyberdog_1/base_link:
-                    {}
-            camera_depth_frame:
-              camera_depth_optical_frame:
-                {}
-            camera_gyro_frame:
-              camera_gyro_optical_frame:
-                {}
-            camera_infra1_frame:
+        base:
+          tag_map:
+            cyberdog_1_base_link_tag:
               {}
-            camera_infra2_frame:
-              camera_infra2_optical_frame:
-                {}
+        base_link:
           laser_frame:
             {}
           left_head:
@@ -317,9 +296,24 @@ Visualization Manager:
               {}
             rear_uwb:
               {}
-        map:
-          vodom:
+        camera_link:
+          camera_accel_frame:
+            camera_accel_optical_frame:
+              {}
+          camera_aligned_depth_to_infra1_frame:
+            camera_infra1_optical_frame:
+              {}
+          camera_depth_frame:
+            camera_depth_optical_frame:
+              {}
+          camera_gyro_frame:
+            camera_gyro_optical_frame:
+              {}
+          camera_infra1_frame:
             {}
+          camera_infra2_frame:
+            camera_infra2_optical_frame:
+              {}
       Update Interval: 0
       Value: true
     - Class: rviz_default_plugins/Image
@@ -336,44 +330,10 @@ Visualization Manager:
         Reliability Policy: Best Effort
         Value: /vins/image1
       Value: true
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 5.0951972007751465
-        Min Value: -1.8308392763137817
-        Value: true
-      Axis: Z
-      Channel Name: rgb
-      Class: rviz_default_plugins/PointCloud2
-      Color: 255; 255; 255
-      Color Transformer: AxisColor
-      Decay Time: 0
-      Enabled: true
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Max Intensity: 60
-      Min Color: 0; 0; 0
-      Min Intensity: 0
-      Name: PointCloud2
-      Position Transformer: XYZ
-      Selectable: true
-      Size (Pixels): 5
-      Size (m): 0.029999999329447746
-      Style: Boxes
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Best Effort
-        Value: /camera/depth/color/points
-      Use Fixed Frame: true
-      Use rainbow: true
-      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: base
+    Fixed Frame: tag_map
     Frame Rate: 30
   Name: root
   Tools:
@@ -416,25 +376,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/ThirdPersonFollower
-      Distance: 4.567607402801514
+      Distance: 4.121060371398926
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 2.504302740097046
-        Y: -0.9415738582611084
-        Z: -3.7648205761797726e-05
+        X: 0.6553891897201538
+        Y: 0.752743661403656
+        Z: -3.621769428718835e-05
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5603986382484436
+      Pitch: 0.37039870023727417
       Target Frame: base_link_leg
       Value: ThirdPersonFollower (rviz)
-      Yaw: 5.773588180541992
+      Yaw: 6.09360408782959
     Saved: ~
 Window Geometry:
   Displays:

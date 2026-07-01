@@ -158,11 +158,13 @@ private:
 	std::string depth_points_output_frame_id_;
 	std::string depth_points_stamp_mode_;
 	std::string dynamic_tf_stamp_mode_;
+	std::string odom_slam_stamp_mode_;
 	bool frame_remap_enabled_{false};
 	bool leg_odom_publish_tf_{true};
 	bool leg_odom_publish_base_tf_{true};
 	bool odom_slam_publish_tf_{true};
 	bool odom_slam_align_enabled_{true};
+	bool odom_slam_require_leg_for_align_{false};
 	bool camera_static_tf_enabled_{true};
 	bool alignment_initialized_{false};
 	bool leg_odom_received_{false};

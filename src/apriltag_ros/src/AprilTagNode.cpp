@@ -21,8 +21,10 @@
 #include <thread>
 #include <unordered_map>
 #ifdef tf2_ros_NODE_INTERFACE
+#include <tf2_ros/static_transform_broadcaster.hpp>
 #include <tf2_ros/transform_broadcaster.hpp>
 #else
+#include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
 #endif
 
@@ -150,6 +152,7 @@ private:
 #endif
     const rclcpp::Publisher<apriltag_msgs::msg::AprilTagDetectionArray>::SharedPtr pub_detections;
     tf2_ros::TransformBroadcaster tf_broadcaster;
+    tf2_ros::StaticTransformBroadcaster static_tf_broadcaster;
 
     pose_estimation_f estimate_pose = nullptr;
 
@@ -173,6 +176,7 @@ private:
                       const std::string& parent_frame_id,
                       const std::string& child_frame_id,
                       const geometry_msgs::msg::Transform& transform);
+    void publishLatchedStaticTransform(const LatchedTagPose& latched);
     std::optional<geometry_msgs::msg::TransformStamped> makeTagTransform(
         const std_msgs::msg::Header& header,
         int tag_id,
@@ -220,6 +224,13 @@ AprilTagNode::AprilTagNode(const rclcpp::NodeOptions& options)
     tf_broadcaster(
 #ifdef tf2_ros_NODE_INTERFACE
         tf2_ros::TransformBroadcaster::RequiredInterfaces { *this }
+#else
+        this
+#endif
+    ),
+    static_tf_broadcaster(
+#ifdef tf2_ros_NODE_INTERFACE
+        tf2_ros::StaticTransformBroadcaster::RequiredInterfaces { *this }
 #else
         this
 #endif
@@ -380,6 +391,27 @@ void AprilTagNode::latchTagPose(int tag_id,
         latched.transform.translation.x,
         latched.transform.translation.y,
         latched.transform.translation.z);
+
+  // Latched tag pose is fixed; publish once on /tf_static instead of flooding /tf
+  // at camera rate, which can congest DDS and block other TF (e.g. base_link tree).
+  if(use_first_pose_as_global_) {
+      publishLatchedStaticTransform(latched);
+  }
+}
+
+void AprilTagNode::publishLatchedStaticTransform(const LatchedTagPose& latched)
+{
+    geometry_msgs::msg::TransformStamped tf;
+    tf.header.stamp = get_clock()->now();
+    tf.header.frame_id = latched.parent_frame_id;
+    tf.child_frame_id = latched.child_frame_id;
+    tf.transform = latched.transform;
+    static_tf_broadcaster.sendTransform(tf);
+    RCLCPP_INFO(
+        get_logger(),
+        "published latched tag TF on /tf_static: %s -> %s",
+        latched.parent_frame_id.c_str(),
+        latched.child_frame_id.c_str());
 }
 
 std::optional<geometry_msgs::msg::TransformStamped> AprilTagNode::makeTagTransform(
@@ -530,11 +562,15 @@ void AprilTagNode::processImage(const sensor_msgs::msg::Image::ConstSharedPtr& m
         }
     }
 
-    appendLatchedTagTransforms(msg_img->header, tfs);
+    const bool use_static_latched_tf = latch_first_tag_pose_ && use_first_pose_as_global_;
+    if(!use_static_latched_tf) {
+        appendLatchedTagTransforms(msg_img->header, tfs);
+    }
 
     pub_detections->publish(msg_detections);
 
-    if(estimate_pose != nullptr && !tfs.empty()) {
+    // When latched pose is published on /tf_static, skip high-rate /tf output.
+    if(estimate_pose != nullptr && !tfs.empty() && !use_static_latched_tf) {
         tf_broadcaster.sendTransform(tfs);
     }
 

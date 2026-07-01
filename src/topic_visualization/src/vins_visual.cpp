@@ -61,6 +61,16 @@ VinsVisualNode::VinsVisualNode()
 {
 	const auto sensor_qos = rclcpp::SensorDataQoS();
 	const auto reliable_qos = rclcpp::QoS(rclcpp::KeepLast(10)).reliable();
+	const auto viz_odom_sub_qos = declare_parameter<bool>("odom_slam_subscribe_best_effort", true)
+		? rclcpp::SensorDataQoS()
+		: reliable_qos;
+	// RViz Odometry/Path 默认使用 Reliable，发布端必须匹配
+	const auto viz_odom_pub_qos = declare_parameter<bool>("odom_slam_publish_best_effort", false)
+		? rclcpp::SensorDataQoS()
+		: reliable_qos;
+	const auto leg_odom_sub_qos = declare_parameter<bool>("leg_odom_subscribe_best_effort", true)
+		? rclcpp::SensorDataQoS()
+		: reliable_qos;
 	relay_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 	tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(*this);
 	static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(*this);
@@ -74,7 +84,7 @@ VinsVisualNode::VinsVisualNode()
 	output_frame_id_ = declare_parameter<std::string>("output_frame_id", "vodom");
 	compare_frame_id_ = declare_parameter<std::string>("compare_frame_id", "odom");
 	compare_path_max_poses_ = static_cast<std::size_t>(
-		declare_parameter<int>("compare_path_max_poses", 10000));
+		declare_parameter<int>("compare_path_max_poses", 2000));
 
 	leg_odom_output_frame_id_ = declare_parameter<std::string>("leg_odom_output_frame_id", "odom");
 	leg_odom_output_child_frame_id_ =
@@ -86,7 +96,9 @@ VinsVisualNode::VinsVisualNode()
 	leg_odom_publish_tf_ = declare_parameter<bool>("leg_odom_publish_tf", true);
 	leg_odom_publish_base_tf_ = declare_parameter<bool>("leg_odom_publish_base_tf", true);
 	odom_slam_publish_tf_ = declare_parameter<bool>("odom_slam_publish_tf", true);
-	odom_slam_align_enabled_ = declare_parameter<bool>("odom_slam_align_enabled", true);
+	odom_slam_align_enabled_ = declare_parameter<bool>("odom_slam_align_enabled", false);
+	odom_slam_require_leg_for_align_ =
+		declare_parameter<bool>("odom_slam_require_leg_for_align", false);
 	camera_static_tf_enabled_ = declare_parameter<bool>("camera_static_tf_enabled", true);
 	camera_static_tf_parent_frame_id_ =
 		declare_parameter<std::string>("camera_static_tf_parent_frame_id", "base_link");
@@ -99,6 +111,9 @@ VinsVisualNode::VinsVisualNode()
 		"now");
 	dynamic_tf_stamp_mode_ = normalize_stamp_mode(
 		declare_parameter<std::string>("dynamic_tf_stamp_mode", "now"),
+		"now");
+	odom_slam_stamp_mode_ = normalize_stamp_mode(
+		declare_parameter<std::string>("odom_slam_stamp_mode", "now"),
 		"now");
 	leg_path_topic_ = declare_parameter<std::string>("compare_leg_path_topic", "/compare/leg_path");
 	slam_path_topic_ = declare_parameter<std::string>("compare_slam_path_topic", "/compare/slam_path");
@@ -150,8 +165,8 @@ VinsVisualNode::VinsVisualNode()
 		frame_remap_enabled_,
 		depth_points_output_frame_id_);
 
-	create_leg_odom_compare_relay(reliable_qos, reliable_qos, subscription_options);
-	create_odom_slam_compare_relay(reliable_qos, reliable_qos, subscription_options);
+	create_leg_odom_compare_relay(leg_odom_sub_qos, viz_odom_pub_qos, subscription_options);
+	create_odom_slam_compare_relay(viz_odom_sub_qos, viz_odom_pub_qos, subscription_options);
 
 	create_odom_relay(
 		declare_parameter<bool>("odometry_enabled", false),
@@ -564,23 +579,31 @@ bool VinsVisualNode::apply_slam_alignment(
 {
 	const auto slam_transform = odometry_to_transform(input);
 
+	if (!odom_slam_align_enabled_) {
+		output = input;
+		if (!slam_odom_output_child_frame_id_.empty()) {
+			output.child_frame_id = slam_odom_output_child_frame_id_;
+		}
+		return true;
+	}
+
 	{
 		std::lock_guard<std::mutex> lock(compare_mutex_);
 		if (!alignment_initialized_) {
 			if (leg_odom_received_ && last_leg_transform_.has_value()) {
 				try_initialize_alignment(last_leg_transform_.value(), slam_transform);
-			} else {
+			} else if (odom_slam_require_leg_for_align_) {
 				pending_slam_transform_ = slam_transform;
 				return false;
+			} else {
+				odom_to_slam_origin_ = slam_transform.inverse();
+				alignment_initialized_ = true;
+				RCLCPP_WARN_ONCE(
+					get_logger(),
+					"odom_slam aligned without leg odom, using first VINS pose as %s origin",
+					compare_frame_id_.c_str());
 			}
 		}
-	}
-
-	if (!odom_slam_align_enabled_) {
-		output = input;
-		output.header.frame_id = compare_frame_id_;
-		output.child_frame_id = slam_odom_output_child_frame_id_;
-		return true;
 	}
 
 	const auto aligned_transform = odom_to_slam_origin_ * slam_transform;
@@ -713,6 +736,7 @@ void VinsVisualNode::create_odom_slam_compare_relay(
 					return;
 				}
 
+				apply_header_stamp_mode(aligned_output.header, odom_slam_stamp_mode_);
 				slam_odom_publisher_->publish(aligned_output);
 				update_relay_status("odom_slam");
 
@@ -725,7 +749,7 @@ void VinsVisualNode::create_odom_slam_compare_relay(
 					auto pose = transform_to_pose_stamped(
 						aligned_transform,
 						aligned_output.header,
-						compare_frame_id_);
+						aligned_output.header.frame_id);
 					append_path_pose(slam_compare_path_, std::move(pose));
 					slam_path_publisher_->publish(slam_compare_path_);
 					update_relay_status("slam_path");

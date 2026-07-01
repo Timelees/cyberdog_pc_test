@@ -1,0 +1,38 @@
+/**:
+  ros__parameters:
+    status_period_sec: 5.0
+    namespace: ["cyberdog_1"]
+    namespace_index: 0
+
+    # global_alignment_node 输出，节点会自动拼成 /cyberdog_1/odom_base 与 /cyberdog_1/path_base
+    input_odom_topic: /odom_base
+    input_path_topic: /path_base
+
+    # RViz Fixed Frame 设为 tag_map，z 轴朝上。
+    target_frame_id: tag_map
+    output_child_frame_id: cyberdog_1_base_link_tag
+    output_topic_prefix: /viz/tags
+
+    subscribe_best_effort: true
+    publish_best_effort: false
+    publish_tf: true
+    tf_publish_every_n: 1
+
+    # tags_visual 自己从 odom 生成轻量轨迹；不再重复转发 global_alignment 的整条 path。
+    input_path_relay_enabled: false
+    path_max_poses: 1000
+    path_publish_every_n: 5
+
+    pose_text_enabled: true
+    pose_text_topic: /viz/tags/pose_text
+    pose_text_z_offset: 0.6
+    pose_text_scale: 0.18
+    marker_publish_every_n: 5
+
+    robot_marker_enabled: true
+    robot_marker_topic: /viz/tags/robot_marker
+
+    # RViz 配置中的 Image 默认订阅 /vins/image1。
+    image_enabled: true
+    image_input_topic: /camera/infra1/image_rect_raw
+    image_output_topic: /vins/image1

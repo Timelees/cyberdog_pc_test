@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="3">
-	<name>mutil_odom_shared</name>
+	<name>global_alignment_node</name>
 	<version>0.0.1</version>
-	<description>多机器人 odom_slam 共享坐标系节点，以可配置基准机器人的首帧 odom 为全局原点。</description>
+	<description>Convert VIO odometry into the AprilTag base global frame.</description>
 
 	<maintainer email="lee@example.com">lee</maintainer>
 	<license>Apache-2.0</license>

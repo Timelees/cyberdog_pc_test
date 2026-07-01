@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(mutil_odom_shared)
+project(global_alignment_node)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	add_compile_options(-Wall -Wextra -Wpedantic)
@@ -13,18 +13,18 @@ find_package(tf2 REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 
-add_executable(mutil_odom_shared_node
-	src/odom_shared.cpp
+add_executable(global_alignment_node
+	src/global_alignment.cpp
 )
 
-target_include_directories(mutil_odom_shared_node PUBLIC
+target_include_directories(global_alignment_node PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 	$<INSTALL_INTERFACE:include>
 )
 
-target_compile_features(mutil_odom_shared_node PUBLIC cxx_std_17)
+target_compile_features(global_alignment_node PUBLIC cxx_std_17)
 
-ament_target_dependencies(mutil_odom_shared_node
+ament_target_dependencies(global_alignment_node
 	geometry_msgs
 	nav_msgs
 	rclcpp
@@ -34,7 +34,7 @@ ament_target_dependencies(mutil_odom_shared_node
 )
 
 install(
-	TARGETS mutil_odom_shared_node
+	TARGETS global_alignment_node
 	DESTINATION lib/${PROJECT_NAME}
 )
 

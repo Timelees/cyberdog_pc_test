@@ -1,0 +1,30 @@
+/**:
+  ros__parameters:
+    input_odom_topic: /cyberdog_1/odom_slam
+    output_odom_topic: /cyberdog_1/odom_base
+    output_path_topic: /cyberdog_1/path_base
+
+    # AprilTag 配置中 tag id 0 的 frame 名为 base，以它作为现实全局坐标系。
+    target_frame_id: base
+    # tag 贴墙时 base.z 垂直墙面；输出到 z-up 的 RViz 世界系 tag_map。
+    output_frame_id: tag_map
+    use_wall_tag_z_up_frame: true
+    publish_output_frame_tf: true
+
+    # 留空时使用 odom_slam.header.frame_id；如果实机消息缺 frame，可显式设为 map 或 vodom。
+    source_frame_id: ""
+    # odom_slam 表示的机器人本体坐标系。
+    # 节点只在首帧可用时用 base <- base_link 与 odom_slam 求一次 tag_map <- map/vodom，
+    # 后续无论 tag 是否可见，都使用这条锁存的固定变换转换 /odom_slam。
+    robot_frame_id: base_link
+    output_child_frame_id: base_link
+
+    subscribe_best_effort: true
+    publish_best_effort: false
+    use_current_time: true
+    path_max_poses: 1000
+    path_publish_every_n: 5
+
+    # 默认不发布 base -> base_link，避免与现有 map->vodom->base_link->camera->base 链路形成 TF 环。
+    publish_tf: false
+    tf_child_frame_id: base_link_global
