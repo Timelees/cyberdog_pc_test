@@ -18,13 +18,16 @@
 
         pose_estimation_method: "pnp"   # method for estimating the tag pose
 
-        # 首次看到 tag 后锁定其位姿作为全局坐标系，并在 tag 不可见时持续发布。
-        latch_first_tag_pose: true
-        publish_latched_when_lost: true
-        use_first_pose_as_global: true
+        # global_alignment_node needs live camera->tag observations. The tag
+        # itself is used as the global anchor when solving tag_map->odom.
+        latch_first_tag_pose: false
+        publish_latched_when_lost: false
+        use_first_pose_as_global: false
 
         # optional list of tags
         tag:
             ids: [0]            # tag ID
-            frames: [base]  # optional frame name
+            # Must match global_alignment_node tag_observation_frame_id, e.g. cyberdog_1/tag_0_observation.
+            # apriltag_36h11.launch.py overrides this at runtime.
+            frames: [cyberdog_1/tag_0_observation]
             sizes: [0.127]   # optional tag-specific edge size

@@ -12,6 +12,7 @@ Panels:
         - /Marker2/Namespaces1
         - /OdomSlam1
         - /TF1
+        - /TF1/Frames1
         - /Image1/Topic1
       Splitter Ratio: 0.5049833655357361
     Tree Height: 591
@@ -50,7 +51,7 @@ Visualization Manager:
       Reference Frame: <Fixed Frame>
       Value: true
     - Class: rviz_default_plugins/Marker
-      Enabled: false
+      Enabled: true
       Name: Marker
       Namespaces:
         {}
@@ -61,7 +62,7 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Best Effort
         Value: /points
-      Value: false
+      Value: true
     - Class: rviz_default_plugins/Marker
       Enabled: false
       Name: Marker
@@ -129,7 +130,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /cyberdog_1/path_base
+        Value: /viz/tags/path
       Value: false
     - Angle Tolerance: 0.05000000074505806
       Class: rviz_default_plugins/Odometry
@@ -168,7 +169,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /cyberdog_1/odom_base
+        Value: /cyberdog_1/odom_global
       Value: true
     - Angle Tolerance: 0.05000000074505806
       Class: rviz_default_plugins/Odometry
@@ -214,10 +215,8 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        base:
-          Value: false
         base_link:
-          Value: false
+          Value: true
         camera_accel_frame:
           Value: false
         camera_accel_optical_frame:
@@ -242,8 +241,6 @@ Visualization Manager:
           Value: false
         camera_link:
           Value: false
-        cyberdog_1_base_link_tag:
-          Value: true
         head_tof:
           Value: false
         head_uwb:
@@ -254,6 +251,8 @@ Visualization Manager:
           Value: false
         left_rear:
           Value: false
+        map:
+          Value: true
         rear_tof:
           Value: false
         rear_uwb:
@@ -262,58 +261,61 @@ Visualization Manager:
           Value: false
         right_rear:
           Value: false
-        tag_map:
+        tag_0_observation:
+          Value: false
+        tag_global:
           Value: true
         uwb:
           Value: false
+        vodom:
+          Value: true
       Marker Scale: 0.800000011920929
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
       Tree:
-        base:
-          tag_map:
-            cyberdog_1_base_link_tag:
+        tag_global:
+          base_link:
+            camera_link:
+              camera_accel_frame:
+                camera_accel_optical_frame:
+                  {}
+              camera_aligned_depth_to_infra1_frame:
+                camera_infra1_optical_frame:
+                  {}
+              camera_depth_frame:
+                camera_depth_optical_frame:
+                  {}
+              camera_gyro_frame:
+                camera_gyro_optical_frame:
+                  {}
+              camera_infra1_frame:
+                {}
+              camera_infra2_frame:
+                camera_infra2_optical_frame:
+                  {}
+            laser_frame:
               {}
-        base_link:
-          laser_frame:
+            left_head:
+              {}
+            left_rear:
+              {}
+            right_head:
+              {}
+            right_rear:
+              {}
+            uwb:
+              head_tof:
+                {}
+              head_uwb:
+                {}
+              rear_tof:
+                {}
+              rear_uwb:
+                {}
+          tag_0_observation:
             {}
-          left_head:
-            {}
-          left_rear:
-            {}
-          right_head:
-            {}
-          right_rear:
-            {}
-          uwb:
-            head_tof:
-              {}
-            head_uwb:
-              {}
-            rear_tof:
-              {}
-            rear_uwb:
-              {}
-        camera_link:
-          camera_accel_frame:
-            camera_accel_optical_frame:
-              {}
-          camera_aligned_depth_to_infra1_frame:
-            camera_infra1_optical_frame:
-              {}
-          camera_depth_frame:
-            camera_depth_optical_frame:
-              {}
-          camera_gyro_frame:
-            camera_gyro_optical_frame:
-              {}
-          camera_infra1_frame:
-            {}
-          camera_infra2_frame:
-            camera_infra2_optical_frame:
-              {}
       Update Interval: 0
       Value: true
     - Class: rviz_default_plugins/Image
@@ -333,7 +335,7 @@ Visualization Manager:
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: tag_map
+    Fixed Frame: tag_global
     Frame Rate: 30
   Name: root
   Tools:
@@ -376,25 +378,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/ThirdPersonFollower
-      Distance: 4.121060371398926
+      Distance: 3.3429181575775146
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.6553891897201538
-        Y: 0.752743661403656
-        Z: -3.621769428718835e-05
+        X: 1.8950862884521484
+        Y: -0.7097420692443848
+        Z: -3.245157495257445e-05
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.37039870023727417
-      Target Frame: base_link_leg
+      Pitch: 0.730398416519165
+      Target Frame: cyberdog_1_base_link_tag
       Value: ThirdPersonFollower (rviz)
-      Yaw: 6.09360408782959
+      Yaw: 5.8335981369018555
     Saved: ~
 Window Geometry:
   Displays:

@@ -25,7 +25,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "rviz_config",
             default_value=default_rviz,
-            description="RViz 配置文件，Fixed Frame 需设为 tag_map"),
+            description="RViz 配置文件，Fixed Frame 需设为 tag_0_observation"),
         DeclareLaunchArgument(
             "use_rviz",
             default_value="true",

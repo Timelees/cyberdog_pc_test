@@ -20,6 +20,7 @@
 #include <optional>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #ifdef tf2_ros_NODE_INTERFACE
 #include <tf2_ros/static_transform_broadcaster.hpp>
 #include <tf2_ros/transform_broadcaster.hpp>
@@ -167,6 +168,7 @@ private:
     bool use_first_pose_as_global_{true};
     mutable std::mutex latched_pose_mutex_;
     std::unordered_map<int, LatchedTagPose> latched_tag_poses_;
+    std::unordered_set<int> logged_tag_pose_ids_;
 
     void processingLoop();
     void processImage(const sensor_msgs::msg::Image::ConstSharedPtr& msg_img,
@@ -550,6 +552,21 @@ void AprilTagNode::processImage(const sensor_msgs::msg::Image::ConstSharedPtr& m
                 : std::string(det->family->name) + ":" + std::to_string(det->id);
             const double size = tag_sizes.count(det->id) ? tag_sizes.at(det->id) : tag_edge_size;
             const geometry_msgs::msg::Transform transform = estimate_pose(det, intrinsics, size);
+            if(logged_tag_pose_ids_.insert(det->id).second) {
+                RCLCPP_INFO(
+                    get_logger(),
+                    "tag pose id=%d: %s -> %s, t=[%.3f, %.3f, %.3f], q=[%.4f, %.4f, %.4f, %.4f]",
+                    det->id,
+                    msg_img->header.frame_id.c_str(),
+                    child_frame_id.c_str(),
+                    transform.translation.x,
+                    transform.translation.y,
+                    transform.translation.z,
+                    transform.rotation.x,
+                    transform.rotation.y,
+                    transform.rotation.z,
+                    transform.rotation.w);
+            }
 
             if(latch_first_tag_pose_) {
                 latchTagPose(det->id, msg_img->header.frame_id, child_frame_id, transform);

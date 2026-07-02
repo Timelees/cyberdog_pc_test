@@ -1,587 +1,331 @@
-#include <array>
-#include <atomic>
-#include <algorithm>
+#include "tag_visual.hpp"
+
 #include <chrono>
-#include <cstddef>
-#include <cmath>
-#include <cstdint>
-#include <iomanip>
-#include <memory>
-#include <mutex>
-#include <sstream>
-#include <string>
 #include <utility>
-#include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
-#include "nav_msgs/msg/odometry.hpp"
-#include "nav_msgs/msg/path.hpp"
 #include "rclcpp/executors/single_threaded_executor.hpp"
-#include "rclcpp/rclcpp.hpp"
-#include "sensor_msgs/msg/image.hpp"
-#include "tf2/LinearMath/Matrix3x3.h"
 #include "tf2/LinearMath/Quaternion.h"
+#include "tf2_ros/static_transform_broadcaster.h"
 #include "tf2_ros/transform_broadcaster.h"
-#include "visualization_msgs/msg/marker.hpp"
 
 namespace
 {
-
-constexpr double kQuaternionNormEpsilon = 1e-12;
-
-std::string trim_slashes(const std::string & value)
-{
-	auto begin = value.find_first_not_of('/');
-	if (begin == std::string::npos) {
-		return "";
-	}
-	auto end = value.find_last_not_of('/');
-	return value.substr(begin, end - begin + 1);
-}
-
-std::string build_topic(const std::string & prefix, const std::string & suffix)
-{
-	const auto clean_prefix = trim_slashes(prefix);
-	const auto clean_suffix = trim_slashes(suffix);
-	if (clean_prefix.empty()) {
-		return clean_suffix.empty() ? "" : "/" + clean_suffix;
-	}
-	if (clean_suffix.empty()) {
-		return "/" + clean_prefix;
-	}
-	return "/" + clean_prefix + "/" + clean_suffix;
-}
-
-bool is_valid_quaternion(const geometry_msgs::msg::Quaternion & quaternion)
-{
-	const auto norm =
-		quaternion.x * quaternion.x +
-		quaternion.y * quaternion.y +
-		quaternion.z * quaternion.z +
-		quaternion.w * quaternion.w;
-	return std::isfinite(norm) && norm > kQuaternionNormEpsilon;
-}
-
-geometry_msgs::msg::Quaternion normalize_quaternion(
-	const geometry_msgs::msg::Quaternion & quaternion)
-{
-	geometry_msgs::msg::Quaternion normalized = quaternion;
-	const auto norm = std::sqrt(
-		quaternion.x * quaternion.x +
-		quaternion.y * quaternion.y +
-		quaternion.z * quaternion.z +
-		quaternion.w * quaternion.w);
-	normalized.x /= norm;
-	normalized.y /= norm;
-	normalized.z /= norm;
-	normalized.w /= norm;
-	return normalized;
-}
-
-bool extract_rpy(
-	const geometry_msgs::msg::Quaternion & quaternion,
-	double & roll,
-	double & pitch,
-	double & yaw)
-{
-	if (!is_valid_quaternion(quaternion)) {
-		return false;
-	}
-
-	const auto normalized = normalize_quaternion(quaternion);
-	tf2::Quaternion tf_quaternion(
-		normalized.x,
-		normalized.y,
-		normalized.z,
-		normalized.w);
-	tf2::Matrix3x3(tf_quaternion).getRPY(roll, pitch, yaw);
-	return true;
-}
-
+constexpr double kQuaternionNormEpsilon = 1e-6;
 }  // namespace
 
-class TagsVisualNode : public rclcpp::Node
+TagsVisualNode::TagsVisualNode()
+: Node("tags_visual")
 {
-public:
-	TagsVisualNode()
-	: Node("tags_visual")
-	{
-		const auto reliable_qos = rclcpp::QoS(rclcpp::KeepLast(10)).reliable();
-		const auto subscribe_qos = declare_parameter<bool>("subscribe_best_effort", true)
-			? rclcpp::SensorDataQoS()
-			: reliable_qos;
-		const auto publish_qos = declare_parameter<bool>("publish_best_effort", false)
-			? rclcpp::QoS(rclcpp::KeepLast(10)).best_effort()
-			: reliable_qos;
+  const auto reliable_qos = rclcpp::QoS(rclcpp::KeepLast(10)).reliable();
+  const auto sensor_qos = rclcpp::SensorDataQoS();
 
-		namespaces_ = declare_parameter<std::vector<std::string>>(
-			"namespace",
-			std::vector<std::string>{"cyberdog_1"});
-		const auto namespace_index = declare_parameter<int>("namespace_index", 0);
-		selected_namespace_ = select_namespace(namespace_index);
+  status_period_sec_ = declare_parameter<double>("status_period_sec", 5.0);
+  namespaces_ = declare_parameter<std::vector<std::string>>("namespace", std::vector<std::string>{});
+  selected_namespace_ = select_namespace(declare_parameter<int>("namespace_index", 0));
 
-		target_frame_id_ = declare_parameter<std::string>("target_frame_id", "base");
-		input_odom_topic_ = build_input_topic(
-			declare_parameter<std::string>("input_odom_topic", "/odom_base"));
-		input_path_topic_ = build_input_topic(
-			declare_parameter<std::string>("input_path_topic", "/path_base"));
-		const auto output_prefix =
-			declare_parameter<std::string>("output_topic_prefix", "/viz/tags");
-		output_odom_topic_ = build_topic(output_prefix, selected_namespace_ + "/odom");
-		output_path_topic_ = build_topic(output_prefix, selected_namespace_ + "/path");
-		output_input_path_topic_ =
-			build_topic(output_prefix, selected_namespace_ + "/global_alignment_path");
-		pose_text_topic_ =
-			declare_parameter<std::string>("pose_text_topic", build_topic(output_prefix, "pose_text"));
-		robot_marker_topic_ =
-			declare_parameter<std::string>("robot_marker_topic", build_topic(output_prefix, "robot_marker"));
-		image_enabled_ = declare_parameter<bool>("image_enabled", true);
-		image_input_topic_ = build_input_topic(
-			declare_parameter<std::string>("image_input_topic", "/camera/infra1/image_rect_raw"));
-		image_output_topic_ = declare_parameter<std::string>("image_output_topic", "/vins/image1");
+  input_odom_topic_ = declare_parameter<std::string>("input_odom_topic", "/odom_global");
+  target_frame_id_ = declare_parameter<std::string>("target_frame_id", "tag_0_observation");
+  output_child_frame_id_ = declare_parameter<std::string>("output_child_frame_id", "base_link");
+  output_topic_prefix_ = declare_parameter<std::string>("output_topic_prefix", "/viz/tags");
 
-		output_child_frame_id_ =
-			declare_parameter<std::string>("output_child_frame_id", selected_namespace_ + "_base_link_tag");
-		publish_tf_ = declare_parameter<bool>("publish_tf", true);
-		pose_text_enabled_ = declare_parameter<bool>("pose_text_enabled", true);
-		robot_marker_enabled_ = declare_parameter<bool>("robot_marker_enabled", true);
-		input_path_relay_enabled_ = declare_parameter<bool>("input_path_relay_enabled", true);
-		const auto path_max_poses = declare_parameter<int>("path_max_poses", 5000);
-		path_max_poses_ = path_max_poses > 0 ? static_cast<std::size_t>(path_max_poses) : 0U;
-		path_publish_every_n_ = clamp_publish_every_n(
-			declare_parameter<int>("path_publish_every_n", 5));
-		marker_publish_every_n_ = clamp_publish_every_n(
-			declare_parameter<int>("marker_publish_every_n", 5));
-		tf_publish_every_n_ = clamp_publish_every_n(
-			declare_parameter<int>("tf_publish_every_n", 1));
-		pose_text_z_offset_ = declare_parameter<double>("pose_text_z_offset", 0.6);
-		pose_text_scale_ = declare_parameter<double>("pose_text_scale", 0.18);
-		status_period_sec_ = declare_parameter<double>("status_period_sec", 5.0);
+  subscribe_best_effort_ = declare_parameter<bool>("subscribe_best_effort", true);
+  publish_best_effort_ = declare_parameter<bool>("publish_best_effort", false);
+  publish_tf_ = declare_parameter<bool>("publish_tf", true);
+  tf_publish_every_n_ = declare_parameter<int>("tf_publish_every_n", 1);
 
-		odom_publisher_ = create_publisher<nav_msgs::msg::Odometry>(output_odom_topic_, publish_qos);
-		path_publisher_ = create_publisher<nav_msgs::msg::Path>(output_path_topic_, publish_qos);
-		if (input_path_relay_enabled_ && !input_path_topic_.empty()) {
-			input_path_publisher_ =
-				create_publisher<nav_msgs::msg::Path>(output_input_path_topic_, publish_qos);
-		}
-		if (pose_text_enabled_ && !pose_text_topic_.empty()) {
-			pose_text_publisher_ =
-				create_publisher<visualization_msgs::msg::Marker>(pose_text_topic_, reliable_qos);
-		}
-		if (robot_marker_enabled_ && !robot_marker_topic_.empty()) {
-			robot_marker_publisher_ =
-				create_publisher<visualization_msgs::msg::Marker>(robot_marker_topic_, reliable_qos);
-		}
-		if (publish_tf_) {
-			tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(*this);
-		}
-		if (image_enabled_ && !image_input_topic_.empty() && !image_output_topic_.empty()) {
-			image_publisher_ = create_publisher<sensor_msgs::msg::Image>(
-				image_output_topic_,
-				rclcpp::SensorDataQoS());
-		}
+  path_enabled_ = declare_parameter<bool>("path_enabled", true);
+  path_max_poses_ = static_cast<std::size_t>(declare_parameter<int>("path_max_poses", 2000));
+  path_publish_every_n_ = declare_parameter<int>("path_publish_every_n", 5);
 
-		odom_subscription_ = create_subscription<nav_msgs::msg::Odometry>(
-			input_odom_topic_,
-			subscribe_qos,
-			[this](nav_msgs::msg::Odometry::SharedPtr message) {
-				handle_odom(message);
-			});
+  // Marker visuals are intentionally omitted here to keep this node compatible with
+  // lightweight clangd stubs used in this workspace. RViz can visualize TF + Path directly.
 
-		if (input_path_publisher_) {
-			path_subscription_ = create_subscription<nav_msgs::msg::Path>(
-				input_path_topic_,
-				subscribe_qos,
-				[this](nav_msgs::msg::Path::SharedPtr message) {
-					handle_input_path(message);
-				});
-		}
+  tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(*this);
+  static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(*this);
 
-		if (image_publisher_) {
-			image_subscription_ = create_subscription<sensor_msgs::msg::Image>(
-				image_input_topic_,
-				rclcpp::SensorDataQoS(),
-				[this](sensor_msgs::msg::Image::SharedPtr message) {
-					handle_image(message);
-				});
-		}
+  const auto sub_qos = subscribe_best_effort_ ? sensor_qos : reliable_qos;
+  const auto pub_qos = publish_best_effort_ ? sensor_qos : reliable_qos;
 
-		if (status_period_sec_ > 0.0) {
-			status_timer_ = create_wall_timer(
-				std::chrono::duration_cast<std::chrono::nanoseconds>(
-					std::chrono::duration<double>(status_period_sec_)),
-				[this]() {
-					log_status();
-				});
-		}
+  const auto input_topic = build_input_topic(input_odom_topic_);
+  const auto relay_odom_topic = build_output_topic("odom");
+  const auto relay_path_topic = build_output_topic("path");
 
-		RCLCPP_INFO(
-			get_logger(),
-			"tags_visual ready: input=%s, odom=%s, path=%s, fixed_frame=%s",
-			input_odom_topic_.c_str(),
-			output_odom_topic_.c_str(),
-			output_path_topic_.c_str(),
-			target_frame_id_.c_str());
-	}
+  pub_odom_relay_ = create_publisher<nav_msgs::msg::Odometry>(relay_odom_topic, pub_qos);
+  if (path_enabled_) {
+    pub_path_ = create_publisher<nav_msgs::msg::Path>(relay_path_topic, pub_qos);
+    path_.header.frame_id = target_frame_id_;
+  }
 
-	~TagsVisualNode() override
-	{
-		shutting_down_.store(true);
-	}
+  sub_odom_ = create_subscription<nav_msgs::msg::Odometry>(
+    input_topic,
+    sub_qos,
+    std::bind(&TagsVisualNode::on_odom_global, this, std::placeholders::_1));
 
-private:
-	std::string select_namespace(int namespace_index) const
-	{
-		if (namespaces_.empty()) {
-			return "cyberdog_1";
-		}
-		if (namespace_index < 0 || static_cast<std::size_t>(namespace_index) >= namespaces_.size()) {
-			RCLCPP_WARN(
-				get_logger(),
-				"namespace_index=%d out of range, use 0",
-				namespace_index);
-			return trim_slashes(namespaces_.front());
-		}
-		const auto selected = trim_slashes(namespaces_[static_cast<std::size_t>(namespace_index)]);
-		return selected.empty() ? "cyberdog_1" : selected;
-	}
+  publish_static_tag_anchor_if_needed();
 
-	std::string build_input_topic(const std::string & base_topic) const
-	{
-		const auto clean_topic = trim_slashes(base_topic);
-		if (clean_topic.empty()) {
-			return "";
-		}
-		if (!selected_namespace_.empty() && clean_topic.rfind(selected_namespace_ + "/", 0) != 0) {
-			return "/" + selected_namespace_ + "/" + clean_topic;
-		}
-		return "/" + clean_topic;
-	}
+  if (status_period_sec_ > 0.0) {
+    last_status_time_ = now();
+    const auto period = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::duration<double>(status_period_sec_));
+    status_timer_ = create_wall_timer(period, std::bind(&TagsVisualNode::log_status, this));
+  }
 
-	static int clamp_publish_every_n(int value)
-	{
-		return value > 1 ? value : 1;
-	}
+  RCLCPP_INFO(
+    get_logger(),
+    "tags_visual ready: input=%s relay_odom=%s relay_path=%s fixed(tag)=%s child=%s",
+    input_topic.c_str(),
+    relay_odom_topic.c_str(),
+    relay_path_topic.c_str(),
+    target_frame_id_.c_str(),
+    output_child_frame_id_.c_str());
+}
 
-	void handle_odom(const nav_msgs::msg::Odometry::SharedPtr & message)
-	{
-		if (shutting_down_.load() || !message) {
-			return;
-		}
+TagsVisualNode::~TagsVisualNode()
+{
+  shutting_down_.store(true);
+  if (status_timer_) {
+    status_timer_.reset();
+  }
+}
 
-		auto output = *message;
-		if (!sanitize_odom(output)) {
-			return;
-		}
-		if (!target_frame_id_.empty()) {
-			output.header.frame_id = target_frame_id_;
-		}
-		if (!output_child_frame_id_.empty()) {
-			output.child_frame_id = output_child_frame_id_;
-		}
-		output.header.stamp = now();
+std::string TagsVisualNode::trim_slashes(const std::string & value) const
+{
+  auto start = value.find_first_not_of('/');
+  if (start == std::string::npos) {
+    return "";
+  }
+  auto end = value.find_last_not_of('/');
+  return value.substr(start, end - start + 1);
+}
 
-		odom_publisher_->publish(output);
-		append_path(output);
-		odom_count_ += 1;
-		if (should_publish(odom_count_, tf_publish_every_n_)) {
-			publish_tf(output);
-		}
-		if (should_publish(odom_count_, marker_publish_every_n_)) {
-			publish_pose_text(output);
-			publish_robot_marker(output);
-		}
+std::string TagsVisualNode::select_namespace(int namespace_index)
+{
+  if (namespaces_.empty()) {
+    RCLCPP_INFO(get_logger(), "namespace list is empty, use raw input topics");
+    return "";
+  }
+  if (namespace_index < 0 || namespace_index >= static_cast<int>(namespaces_.size())) {
+    RCLCPP_WARN(
+      get_logger(),
+      "namespace_index=%d out of range, fallback to namespace[0]=%s",
+      namespace_index,
+      namespaces_.front().c_str());
+    return namespaces_.front();
+  }
+  RCLCPP_INFO(
+    get_logger(),
+    "selected namespace[%d]=%s",
+    namespace_index,
+    namespaces_[namespace_index].c_str());
+  return namespaces_[namespace_index];
+}
 
-		{
-			std::lock_guard<std::mutex> lock(status_mutex_);
-			last_odom_time_ = now();
-		}
+std::string TagsVisualNode::build_input_topic(const std::string & base_topic) const
+{
+  const auto normalized_topic = trim_slashes(base_topic);
+  if (selected_namespace_.empty()) {
+    return normalized_topic.empty() ? "/" : ("/" + normalized_topic);
+  }
+  const auto normalized_ns = trim_slashes(selected_namespace_);
+  if (normalized_topic.empty()) {
+    return "/" + normalized_ns;
+  }
+  const auto prefix = normalized_ns + "/";
+  if (normalized_topic.rfind(prefix, 0) == 0) {
+    return "/" + normalized_topic;
+  }
+  return "/" + normalized_ns + "/" + normalized_topic;
+}
 
-		if (!first_odom_logged_) {
-			first_odom_logged_ = true;
-			RCLCPP_INFO(
-				get_logger(),
-				"tag aligned odom received: %s pos=[%.3f, %.3f, %.3f] frame=%s",
-				input_odom_topic_.c_str(),
-				output.pose.pose.position.x,
-				output.pose.pose.position.y,
-				output.pose.pose.position.z,
-				output.header.frame_id.c_str());
-		}
-	}
+std::string TagsVisualNode::build_output_topic(const std::string & base_topic) const
+{
+  const auto prefix = trim_slashes(output_topic_prefix_);
+  const auto topic = trim_slashes(base_topic);
+  if (prefix.empty()) {
+    return topic.empty() ? std::string{} : ("/" + topic);
+  }
+  if (topic.empty()) {
+    return "/" + prefix;
+  }
+  return "/" + prefix + "/" + topic;
+}
 
-	void handle_input_path(const nav_msgs::msg::Path::SharedPtr & message)
-	{
-		if (shutting_down_.load() || !message || !input_path_publisher_) {
-			return;
-		}
+void TagsVisualNode::publish_static_tag_anchor_if_needed()
+{
+  if (!static_tf_broadcaster_ || target_frame_id_.empty()) {
+    return;
+  }
 
-		auto output = *message;
-		if (!target_frame_id_.empty()) {
-			output.header.frame_id = target_frame_id_;
-			for (auto & pose : output.poses) {
-				pose.header.frame_id = target_frame_id_;
-			}
-		}
-		if (output.header.stamp.sec == 0 && output.header.stamp.nanosec == 0) {
-			output.header.stamp = now();
-		}
-		input_path_publisher_->publish(output);
+  // Optional convenience: publish map -> <tag_frame> identity so RViz can use either frame as Fixed Frame.
+  // This does NOT override apriltag's own TF chain; it only provides a root anchor when users keep Fixed Frame "map".
+  const bool publish_anchor = declare_parameter<bool>("publish_map_anchor_tf", false);
+  if (!publish_anchor) {
+    return;
+  }
 
-		std::lock_guard<std::mutex> lock(status_mutex_);
-		input_path_count_ += 1;
-		last_input_path_time_ = now();
-	}
+  geometry_msgs::msg::TransformStamped tf;
+  tf.header.stamp = now();
+  tf.header.frame_id = "map";
+  tf.child_frame_id = target_frame_id_;
+  tf.transform.rotation.w = 1.0;
+  static_tf_broadcaster_->sendTransform(tf);
+  RCLCPP_INFO(get_logger(), "published static TF anchor: map -> %s", target_frame_id_.c_str());
+}
 
-	void handle_image(const sensor_msgs::msg::Image::SharedPtr & message)
-	{
-		if (shutting_down_.load() || !message || !image_publisher_) {
-			return;
-		}
+void TagsVisualNode::publish_robot_tf(const nav_msgs::msg::Odometry & odom)
+{
+  if (!publish_tf_ || !tf_broadcaster_) {
+    return;
+  }
+  if (odom_count_ % static_cast<std::uint64_t>(std::max(1, tf_publish_every_n_)) != 0) {
+    return;
+  }
 
-		image_publisher_->publish(*message);
-		std::lock_guard<std::mutex> lock(status_mutex_);
-		image_count_ += 1;
-		last_image_time_ = now();
-	}
+  const auto parent = target_frame_id_.empty() ? odom.header.frame_id : target_frame_id_;
+  const auto child = output_child_frame_id_.empty() ? odom.child_frame_id : output_child_frame_id_;
+  if (parent.empty() || child.empty()) {
+    return;
+  }
 
-	bool sanitize_odom(nav_msgs::msg::Odometry & odom)
-	{
-		if (!std::isfinite(odom.pose.pose.position.x) ||
-			!std::isfinite(odom.pose.pose.position.y) ||
-			!std::isfinite(odom.pose.pose.position.z))
-		{
-			RCLCPP_WARN_THROTTLE(
-				get_logger(),
-				*get_clock(),
-				5000,
-				"skip tag aligned odom with invalid position");
-			return false;
-		}
+  geometry_msgs::msg::TransformStamped tf;
+  tf.header = odom.header;
+  tf.header.frame_id = parent;
+  tf.child_frame_id = child;
+  tf.transform.translation.x = odom.pose.pose.position.x;
+  tf.transform.translation.y = odom.pose.pose.position.y;
+  tf.transform.translation.z = odom.pose.pose.position.z;
+  tf.transform.rotation = odom.pose.pose.orientation;
 
-		if (!is_valid_quaternion(odom.pose.pose.orientation)) {
-			odom.pose.pose.orientation.x = 0.0;
-			odom.pose.pose.orientation.y = 0.0;
-			odom.pose.pose.orientation.z = 0.0;
-			odom.pose.pose.orientation.w = 1.0;
-		} else {
-			odom.pose.pose.orientation = normalize_quaternion(odom.pose.pose.orientation);
-		}
-		return true;
-	}
+  // Normalize quaternion (RViz dislikes near-zero norm)
+  tf2::Quaternion q(
+    tf.transform.rotation.x,
+    tf.transform.rotation.y,
+    tf.transform.rotation.z,
+    tf.transform.rotation.w);
+  if (q.length2() <= kQuaternionNormEpsilon) {
+    q.setValue(0.0, 0.0, 0.0, 1.0);
+  } else {
+    q.normalize();
+  }
+  tf.transform.rotation.x = q.x();
+  tf.transform.rotation.y = q.y();
+  tf.transform.rotation.z = q.z();
+  tf.transform.rotation.w = q.w();
 
-	void append_path(const nav_msgs::msg::Odometry & odom)
-	{
-		geometry_msgs::msg::PoseStamped pose;
-		pose.header = odom.header;
-		pose.pose = odom.pose.pose;
-		path_.header = odom.header;
-		path_.poses.push_back(std::move(pose));
+  if (tf.header.stamp.sec == 0 && tf.header.stamp.nanosec == 0) {
+    tf.header.stamp = now();
+  }
+  tf_broadcaster_->sendTransform(tf);
+}
 
-		if (path_max_poses_ > 0 && path_.poses.size() > path_max_poses_) {
-			const auto overflow = path_.poses.size() - path_max_poses_;
-			path_.poses.erase(path_.poses.begin(), path_.poses.begin() + static_cast<std::ptrdiff_t>(overflow));
-		}
+void TagsVisualNode::append_path_pose(const nav_msgs::msg::Odometry & odom)
+{
+  if (!path_enabled_ || !pub_path_) {
+    return;
+  }
+  if (odom_count_ % static_cast<std::uint64_t>(std::max(1, path_publish_every_n_)) != 0) {
+    return;
+  }
 
-		if (should_publish(odom_count_ + 1, path_publish_every_n_)) {
-			path_publisher_->publish(path_);
-		}
-	}
+  geometry_msgs::msg::PoseStamped pose;
+  pose.header = odom.header;
+  pose.header.frame_id = target_frame_id_.empty() ? odom.header.frame_id : target_frame_id_;
+  pose.pose = odom.pose.pose;
 
-	static bool should_publish(std::uint64_t count, int every_n)
-	{
-		return every_n <= 1 || count % static_cast<std::uint64_t>(every_n) == 0;
-	}
+  path_.header = pose.header;
+  path_.poses.push_back(std::move(pose));
+  if (path_.poses.size() > path_max_poses_) {
+    const auto overflow = path_.poses.size() - path_max_poses_;
+    path_.poses.erase(path_.poses.begin(), path_.poses.begin() + static_cast<std::ptrdiff_t>(overflow));
+  }
+  pub_path_->publish(path_);
+}
 
-	void publish_tf(const nav_msgs::msg::Odometry & odom)
-	{
-		if (!tf_broadcaster_ || odom.header.frame_id.empty() || odom.child_frame_id.empty()) {
-			return;
-		}
+void TagsVisualNode::on_odom_global(const nav_msgs::msg::Odometry::SharedPtr msg)
+{
+  if (shutting_down_.load() || !msg) {
+    return;
+  }
 
-		geometry_msgs::msg::TransformStamped transform;
-		transform.header = odom.header;
-		transform.child_frame_id = odom.child_frame_id;
-		transform.transform.translation.x = odom.pose.pose.position.x;
-		transform.transform.translation.y = odom.pose.pose.position.y;
-		transform.transform.translation.z = odom.pose.pose.position.z;
-		transform.transform.rotation = odom.pose.pose.orientation;
-		tf_broadcaster_->sendTransform(transform);
-	}
+  nav_msgs::msg::Odometry out = *msg;
+  if (!target_frame_id_.empty()) {
+    out.header.frame_id = target_frame_id_;
+  }
+  if (!output_child_frame_id_.empty()) {
+    out.child_frame_id = output_child_frame_id_;
+  }
+  if (out.header.stamp.sec == 0 && out.header.stamp.nanosec == 0) {
+    out.header.stamp = now();
+  }
 
-	void publish_pose_text(const nav_msgs::msg::Odometry & odom)
-	{
-		if (!pose_text_publisher_) {
-			return;
-		}
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    ++odom_count_;
+    last_odom_time_ = rclcpp::Time(out.header.stamp);
+  }
 
-		double roll = 0.0;
-		double pitch = 0.0;
-		double yaw = 0.0;
-		const auto has_rpy = extract_rpy(odom.pose.pose.orientation, roll, pitch, yaw);
+  if (pub_odom_relay_) {
+    pub_odom_relay_->publish(out);
+  }
 
-		std::ostringstream text_stream;
-		text_stream << std::fixed << std::setprecision(2)
-			<< selected_namespace_ << " tag "
-			<< "pos:["
-			<< odom.pose.pose.position.x << ","
-			<< odom.pose.pose.position.y << ","
-			<< odom.pose.pose.position.z << "] ypr:[";
-		if (has_rpy) {
-			text_stream << yaw << "," << pitch << "," << roll;
-		} else {
-			text_stream << "n/a,n/a,n/a";
-		}
-		text_stream << "]";
+  publish_robot_tf(out);
+  append_path_pose(out);
+}
 
-		visualization_msgs::msg::Marker marker;
-		marker.header = odom.header;
-		marker.ns = "tag_aligned_pose_text";
-		marker.id = 0;
-		marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
-		marker.action = visualization_msgs::msg::Marker::ADD;
-		marker.pose.position.x = odom.pose.pose.position.x;
-		marker.pose.position.y = odom.pose.pose.position.y;
-		marker.pose.position.z = odom.pose.pose.position.z + pose_text_z_offset_;
-		marker.pose.orientation.w = 1.0;
-		marker.scale.z = pose_text_scale_;
-		marker.color.r = 1.0F;
-		marker.color.g = 0.95F;
-		marker.color.b = 0.2F;
-		marker.color.a = 1.0F;
-		marker.text = text_stream.str();
-		pose_text_publisher_->publish(marker);
-	}
-
-	void publish_robot_marker(const nav_msgs::msg::Odometry & odom)
-	{
-		if (!robot_marker_publisher_) {
-			return;
-		}
-
-		visualization_msgs::msg::Marker marker;
-		marker.header = odom.header;
-		marker.ns = "tag_aligned_robot_arrow";
-		marker.id = 0;
-		marker.type = visualization_msgs::msg::Marker::ARROW;
-		marker.action = visualization_msgs::msg::Marker::ADD;
-		marker.pose = odom.pose.pose;
-		marker.scale.x = 0.6;
-		marker.scale.y = 0.12;
-		marker.scale.z = 0.12;
-		marker.color.r = 0.1F;
-		marker.color.g = 0.8F;
-		marker.color.b = 1.0F;
-		marker.color.a = 1.0F;
-		robot_marker_publisher_->publish(marker);
-	}
-
-	void log_status()
-	{
-		std::uint64_t odom_count = 0;
-		std::uint64_t input_path_count = 0;
-		std::uint64_t image_count = 0;
-		rclcpp::Time last_odom_time;
-		rclcpp::Time last_input_path_time;
-		rclcpp::Time last_image_time;
-		{
-			std::lock_guard<std::mutex> lock(status_mutex_);
-			odom_count = odom_count_;
-			input_path_count = input_path_count_;
-			image_count = image_count_;
-			last_odom_time = last_odom_time_;
-			last_input_path_time = last_input_path_time_;
-			last_image_time = last_image_time_;
-		}
-
-		RCLCPP_INFO(
-			get_logger(),
-			"tags_visual: odom %s -> %s count=%llu last_age=%s, path_relay count=%llu last_age=%s, image %s -> %s count=%llu last_age=%s",
-			input_odom_topic_.c_str(),
-			output_odom_topic_.c_str(),
-			static_cast<unsigned long long>(odom_count),
-			age_text(last_odom_time).c_str(),
-			static_cast<unsigned long long>(input_path_count),
-			age_text(last_input_path_time).c_str(),
-			image_input_topic_.c_str(),
-			image_output_topic_.c_str(),
-			static_cast<unsigned long long>(image_count),
-			age_text(last_image_time).c_str());
-	}
-
-	std::string age_text(const rclcpp::Time & time) const
-	{
-		if (time.nanoseconds() <= 0) {
-			return "never";
-		}
-		return std::to_string((now() - time).seconds()) + "s";
-	}
-
-	rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscription_;
-	rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_subscription_;
-	rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_subscription_;
-	rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_publisher_;
-	rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_publisher_;
-	rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr input_path_publisher_;
-	rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_publisher_;
-	rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pose_text_publisher_;
-	rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr robot_marker_publisher_;
-	std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
-	rclcpp::TimerBase::SharedPtr status_timer_;
-	nav_msgs::msg::Path path_;
-	std::atomic<bool> shutting_down_{false};
-	std::mutex status_mutex_;
-	std::vector<std::string> namespaces_;
-	std::string selected_namespace_;
-	std::string target_frame_id_;
-	std::string input_odom_topic_;
-	std::string input_path_topic_;
-	std::string output_odom_topic_;
-	std::string output_path_topic_;
-	std::string output_input_path_topic_;
-	std::string pose_text_topic_;
-	std::string robot_marker_topic_;
-	std::string image_input_topic_;
-	std::string image_output_topic_;
-	std::string output_child_frame_id_;
-	std::size_t path_max_poses_{5000};
-	std::uint64_t odom_count_{0};
-	std::uint64_t input_path_count_{0};
-	std::uint64_t image_count_{0};
-	rclcpp::Time last_odom_time_;
-	rclcpp::Time last_input_path_time_;
-	rclcpp::Time last_image_time_;
-	double pose_text_z_offset_{0.6};
-	double pose_text_scale_{0.18};
-	double status_period_sec_{5.0};
-	int path_publish_every_n_{5};
-	int marker_publish_every_n_{5};
-	int tf_publish_every_n_{1};
-	bool publish_tf_{true};
-	bool pose_text_enabled_{true};
-	bool robot_marker_enabled_{true};
-	bool input_path_relay_enabled_{true};
-	bool image_enabled_{true};
-	bool first_odom_logged_{false};
-};
+void TagsVisualNode::log_status()
+{
+  if (shutting_down_.load()) {
+    return;
+  }
+  std::uint64_t count = 0;
+  std::uint64_t last_status_count = 0;
+  rclcpp::Time last;
+  rclcpp::Time last_status;
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    count = odom_count_;
+    last_status_count = last_status_count_;
+    last = last_odom_time_;
+    last_status = last_status_time_;
+  }
+  auto age_text = std::string("never");
+  if (last.nanoseconds() > 0) {
+    age_text = std::to_string((now() - last).seconds()) + "s";
+  }
+  const auto now_time = now();
+  const auto dt = (now_time - last_status).seconds();
+  const auto hz = dt > 1e-6 ? static_cast<double>(count - last_status_count) / dt : 0.0;
+  RCLCPP_INFO(
+    get_logger(),
+    "odom_global relay stats: count=%llu hz=%.2f last_age=%s ns=%s",
+    static_cast<unsigned long long>(count),
+    hz,
+    age_text.c_str(),
+    selected_namespace_.empty() ? "(none)" : selected_namespace_.c_str());
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    last_status_count_ = count;
+    last_status_time_ = now_time;
+  }
+}
 
 int main(int argc, char ** argv)
 {
-	int exit_code = 0;
-	try {
-		rclcpp::init(argc, argv);
-		auto node = std::make_shared<TagsVisualNode>();
-		rclcpp::executors::SingleThreadedExecutor executor;
-		executor.add_node(node);
-		executor.spin();
-	} catch (const std::exception & exception) {
-		RCLCPP_ERROR(rclcpp::get_logger("tags_visual"), "fatal error: %s", exception.what());
-		exit_code = 1;
-	}
-
-	if (rclcpp::ok()) {
-		rclcpp::shutdown();
-	}
-	return exit_code;
+  int exit_code = 0;
+  try {
+    rclcpp::init(argc, argv);
+    auto node = std::make_shared<TagsVisualNode>();
+    rclcpp::executors::SingleThreadedExecutor exec;
+    exec.add_node(node);
+    exec.spin();
+  } catch (const std::exception & e) {
+    RCLCPP_ERROR(rclcpp::get_logger("tags_visual"), "fatal error: %s", e.what());
+    exit_code = 1;
+  }
+  if (rclcpp::ok()) {
+    rclcpp::shutdown();
+  }
+  return exit_code;
 }

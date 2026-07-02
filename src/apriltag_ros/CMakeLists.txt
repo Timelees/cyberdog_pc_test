@@ -37,7 +37,10 @@ find_package(rclcpp_components REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(apriltag_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2_msgs REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(Eigen3 REQUIRED NO_MODULE)
@@ -108,6 +111,11 @@ add_executable(apriltag_node
 )
 target_compile_definitions(apriltag_node PRIVATE APRILTAG_STANDALONE_MAIN)
 
+# odom transform node (standalone)
+add_executable(odom_transform_node
+    src/odomTransform.cpp
+)
+
 # Galactic (rclcpp < 16) lacks imported targets such as cv_bridge::cv_bridge
 if(rclcpp_VERSION VERSION_LESS 16.0)
     ament_target_dependencies(conversion geometry_msgs tf2_ros)
@@ -121,6 +129,8 @@ if(rclcpp_VERSION VERSION_LESS 16.0)
 
     ament_target_dependencies(apriltag_node rclcpp rclcpp_components sensor_msgs apriltag_msgs tf2_ros image_transport cv_bridge)
     target_link_libraries(apriltag_node apriltag::apriltag tags pose_estimation)
+
+    ament_target_dependencies(odom_transform_node rclcpp nav_msgs geometry_msgs tf2_ros tf2_geometry_msgs tf2_msgs)
 else()
     target_link_libraries(conversion
       PUBLIC
@@ -172,6 +182,16 @@ else()
         sensor_msgs::sensor_msgs_library
         tf2_ros::tf2_ros
     )
+
+    target_link_libraries(odom_transform_node
+      PUBLIC
+        rclcpp::rclcpp
+        ${nav_msgs_TARGETS}
+        ${geometry_msgs_TARGETS}
+        tf2_ros::tf2_ros
+        tf2_geometry_msgs::tf2_geometry_msgs
+        ${tf2_msgs_TARGETS}
+    )
 endif()
 rclcpp_components_register_node(AprilTagNode
     PLUGIN "AprilTagNode"
@@ -180,7 +200,7 @@ rclcpp_components_register_node(AprilTagNode
 
 ament_environment_hooks(${ament_cmake_package_templates_ENVIRONMENT_HOOK_LIBRARY_PATH})
 
-install(TARGETS AprilTagNode apriltag_node
+install(TARGETS AprilTagNode apriltag_node odom_transform_node
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION lib/${PROJECT_NAME}

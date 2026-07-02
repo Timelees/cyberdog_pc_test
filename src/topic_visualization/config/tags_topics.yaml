@@ -4,24 +4,23 @@
     namespace: ["cyberdog_1"]
     namespace_index: 0
 
-    # global_alignment_node 输出，节点会自动拼成 /cyberdog_1/odom_base 与 /cyberdog_1/path_base
-    input_odom_topic: /odom_base
-    input_path_topic: /path_base
+    # odom_transform_node 输出；节点会自动拼成 /cyberdog_1/odom_global
+    input_odom_topic: /odom_global
 
-    # RViz Fixed Frame 设为 tag_map，z 轴朝上。
-    target_frame_id: tag_map
-    output_child_frame_id: cyberdog_1_base_link_tag
+    # RViz Fixed Frame 建议设为 tag_global；tag_global -> tag_0_observation 由 odom_transform_node 发布
+    target_frame_id: tag_global
+    output_child_frame_id: base_link
     output_topic_prefix: /viz/tags
 
+    # 可视化只关心最新位姿，跨机 DDS 使用 BestEffort 可以避免 Reliable 重传造成显示滞后。
     subscribe_best_effort: true
-    publish_best_effort: false
+    publish_best_effort: true
     publish_tf: true
     tf_publish_every_n: 1
 
-    # tags_visual 自己从 odom 生成轻量轨迹；不再重复转发 global_alignment 的整条 path。
-    input_path_relay_enabled: false
+    # tags_visual 自己从 odom 生成轨迹
     path_max_poses: 1000
-    path_publish_every_n: 5
+    path_publish_every_n: 1
 
     pose_text_enabled: true
     pose_text_topic: /viz/tags/pose_text
