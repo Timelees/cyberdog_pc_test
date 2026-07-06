@@ -8,12 +8,9 @@
 #include <utility>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
-#include "geometry_msgs/msg/transform_stamped.hpp"
 #include "rclcpp/executors/single_threaded_executor.hpp"
 #include "tf2/LinearMath/Matrix3x3.h"
 #include "tf2/LinearMath/Quaternion.h"
-#include "tf2_ros/static_transform_broadcaster.h"
-#include "tf2_ros/transform_broadcaster.h"
 
 namespace
 {
@@ -29,28 +26,21 @@ MutilRobotTagVisualNode::MutilRobotTagVisualNode()
   status_period_sec_ = declare_parameter<double>("status_period_sec", 5.0);
   robot_namespaces_ = declare_parameter<std::vector<std::string>>(
     "robot_namespaces", std::vector<std::string>{"cyberdog_1", "cyberdog_2"});
-  input_odom_topic_ = declare_parameter<std::string>("input_odom_topic", "/odom_global");
+  input_topic_prefix_ = declare_parameter<std::string>("input_topic_prefix", "/global_vio");
+  input_odom_topic_ = declare_parameter<std::string>("input_odom_topic", "odom");
   target_frame_id_ = trim_slashes(declare_parameter<std::string>("target_frame_id", "tag_global"));
-  output_topic_prefix_ = declare_parameter<std::string>("output_topic_prefix", "/viz/tags_multi");
-  base_frame_name_ = trim_slashes(declare_parameter<std::string>("base_frame_name", "base_link"));
+  output_topic_prefix_ = declare_parameter<std::string>("output_topic_prefix", "/global_vio");
 
   subscribe_best_effort_ = declare_parameter<bool>("subscribe_best_effort", true);
   publish_best_effort_ = declare_parameter<bool>("publish_best_effort", false);
-  relay_odom_enabled_ = declare_parameter<bool>("relay_odom_enabled", true);
   path_enabled_ = declare_parameter<bool>("path_enabled", true);
-  publish_tf_ = declare_parameter<bool>("publish_tf", true);
   pose_text_enabled_ = declare_parameter<bool>("pose_text_enabled", true);
   robot_marker_enabled_ = declare_parameter<bool>("robot_marker_enabled", true);
-  publish_map_anchor_tf_ = declare_parameter<bool>("publish_map_anchor_tf", false);
-  tf_publish_every_n_ = declare_parameter<int>("tf_publish_every_n", 1);
   path_publish_every_n_ = declare_parameter<int>("path_publish_every_n", 1);
   marker_publish_every_n_ = declare_parameter<int>("marker_publish_every_n", 5);
   path_max_poses_ = static_cast<std::size_t>(declare_parameter<int>("path_max_poses", 2000));
   pose_text_z_offset_ = declare_parameter<double>("pose_text_z_offset", 0.6);
   pose_text_scale_ = declare_parameter<double>("pose_text_scale", 0.18);
-
-  tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(*this);
-  static_tf_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(*this);
 
   const auto sub_qos = subscribe_best_effort_ ? sensor_qos : reliable_qos;
   const auto pub_qos = publish_best_effort_ ? sensor_qos : reliable_qos;
@@ -64,7 +54,6 @@ MutilRobotTagVisualNode::MutilRobotTagVisualNode()
       ensure_abs_topic(output_topic_prefix_ + "/robot_markers"), pub_qos);
   }
 
-  publish_map_anchor_if_needed();
   create_robot_visuals(sub_qos, pub_qos);
 
   if (status_period_sec_ > 0.0) {
@@ -76,8 +65,9 @@ MutilRobotTagVisualNode::MutilRobotTagVisualNode()
 
   RCLCPP_INFO(
     get_logger(),
-    "mutil_robot_tag_visual ready: robots=%zu input_suffix=%s fixed_frame=%s output_prefix=%s",
+    "mutil_robot_tag_visual ready: robots=%zu input_prefix=%s input_leaf=%s fixed_frame=%s output_prefix=%s",
     robots_.size(),
+    ensure_abs_topic(input_topic_prefix_).c_str(),
     input_odom_topic_.c_str(),
     target_frame_id_.c_str(),
     ensure_abs_topic(output_topic_prefix_).c_str());
@@ -110,23 +100,31 @@ std::string MutilRobotTagVisualNode::ensure_abs_topic(const std::string & topic)
   return "/" + normalized;
 }
 
-std::string MutilRobotTagVisualNode::build_namespaced_topic(
+std::string MutilRobotTagVisualNode::build_input_topic(
   const std::string & namespace_name,
   const std::string & base_topic) const
 {
+  const auto prefix = trim_slashes(input_topic_prefix_);
   const auto ns = trim_slashes(namespace_name);
   const auto topic = trim_slashes(base_topic);
-  if (ns.empty()) {
-    return ensure_abs_topic(topic);
+
+  std::string built;
+  if (!prefix.empty()) {
+    built += prefix;
   }
-  if (topic.empty()) {
-    return "/" + ns;
+  if (!ns.empty()) {
+    if (!built.empty()) {
+      built += "/";
+    }
+    built += ns;
   }
-  const auto prefix = ns + "/";
-  if (topic.rfind(prefix, 0) == 0) {
-    return "/" + topic;
+  if (!topic.empty()) {
+    if (!built.empty()) {
+      built += "/";
+    }
+    built += topic;
   }
-  return "/" + ns + "/" + topic;
+  return ensure_abs_topic(built);
 }
 
 std::string MutilRobotTagVisualNode::build_output_topic(
@@ -156,19 +154,6 @@ std::string MutilRobotTagVisualNode::build_output_topic(
   return ensure_abs_topic(topic);
 }
 
-std::string MutilRobotTagVisualNode::build_child_frame_id(const std::string & namespace_name) const
-{
-  const auto ns = trim_slashes(namespace_name);
-  const auto base = trim_slashes(base_frame_name_);
-  if (ns.empty()) {
-    return base.empty() ? "base_link" : base;
-  }
-  if (base.empty()) {
-    return ns + "_base_link";
-  }
-  return ns + "_" + base;
-}
-
 void MutilRobotTagVisualNode::create_robot_visuals(
   const rclcpp::QoS & sub_qos,
   const rclcpp::QoS & pub_qos)
@@ -187,15 +172,10 @@ void MutilRobotTagVisualNode::create_robot_visuals(
 
     RobotVisual visual;
     visual.namespace_name = namespace_name;
-    visual.input_topic = build_namespaced_topic(namespace_name, input_odom_topic_);
-    visual.child_frame_id = build_child_frame_id(namespace_name);
+    visual.input_topic = build_input_topic(namespace_name, input_odom_topic_);
     visual.color_index = index;
     visual.path.header.frame_id = target_frame_id_;
 
-    if (relay_odom_enabled_) {
-      visual.odom_publisher = create_publisher<nav_msgs::msg::Odometry>(
-        build_output_topic(namespace_name, "odom"), pub_qos);
-    }
     if (path_enabled_) {
       visual.path_publisher = create_publisher<nav_msgs::msg::Path>(
         build_output_topic(namespace_name, "path"), pub_qos);
@@ -212,12 +192,10 @@ void MutilRobotTagVisualNode::create_robot_visuals(
 
     RCLCPP_INFO(
       get_logger(),
-      "visualize robot[%zu] ns=%s input=%s child_frame=%s odom_out=%s path_out=%s",
+      "visualize robot[%zu] ns=%s input=%s path_out=%s",
       robot_index,
       robots_[robot_index].namespace_name.c_str(),
       robots_[robot_index].input_topic.c_str(),
-      robots_[robot_index].child_frame_id.c_str(),
-      build_output_topic(namespace_name, "odom").c_str(),
       build_output_topic(namespace_name, "path").c_str());
   }
 }
@@ -236,79 +214,21 @@ void MutilRobotTagVisualNode::on_odom_global(
   }
 
   auto & visual = robots_[robot_index];
-  nav_msgs::msg::Odometry out = *msg;
-  if (!target_frame_id_.empty()) {
-    out.header.frame_id = target_frame_id_;
+  const nav_msgs::msg::Odometry & out = *msg;
+  nav_msgs::msg::Odometry stamped = out;
+  if (!target_frame_id_.empty() && stamped.header.frame_id.empty()) {
+    stamped.header.frame_id = target_frame_id_;
   }
-  out.child_frame_id = visual.child_frame_id;
-  if (out.header.stamp.sec == 0 && out.header.stamp.nanosec == 0) {
-    out.header.stamp = now();
+  if (stamped.header.stamp.sec == 0 && stamped.header.stamp.nanosec == 0) {
+    stamped.header.stamp = now();
   }
 
   ++visual.odom_count;
-  visual.last_odom_time = rclcpp::Time(out.header.stamp);
+  visual.last_odom_time = rclcpp::Time(stamped.header.stamp);
 
-  if (visual.odom_publisher) {
-    visual.odom_publisher->publish(out);
-  }
-
-  publish_robot_tf(visual, out);
-  append_path_pose(visual, out);
-  publish_robot_marker(visual, out);
-  publish_pose_text(visual, out);
-}
-
-void MutilRobotTagVisualNode::publish_map_anchor_if_needed()
-{
-  if (!publish_map_anchor_tf_ || !static_tf_broadcaster_ || target_frame_id_.empty()) {
-    return;
-  }
-
-  geometry_msgs::msg::TransformStamped tf;
-  tf.header.stamp = now();
-  tf.header.frame_id = "map";
-  tf.child_frame_id = target_frame_id_;
-  tf.transform.rotation.w = 1.0;
-  static_tf_broadcaster_->sendTransform(tf);
-  RCLCPP_INFO(get_logger(), "published static TF anchor: map -> %s", target_frame_id_.c_str());
-}
-
-void MutilRobotTagVisualNode::publish_robot_tf(
-  const RobotVisual & visual,
-  const nav_msgs::msg::Odometry & odom)
-{
-  if (!publish_tf_ || !tf_broadcaster_ || target_frame_id_.empty() || visual.child_frame_id.empty()) {
-    return;
-  }
-  if (visual.odom_count % static_cast<std::uint64_t>(std::max(1, tf_publish_every_n_)) != 0) {
-    return;
-  }
-
-  geometry_msgs::msg::TransformStamped tf;
-  tf.header = odom.header;
-  tf.header.frame_id = target_frame_id_;
-  tf.child_frame_id = visual.child_frame_id;
-  tf.transform.translation.x = odom.pose.pose.position.x;
-  tf.transform.translation.y = odom.pose.pose.position.y;
-  tf.transform.translation.z = odom.pose.pose.position.z;
-  tf.transform.rotation = odom.pose.pose.orientation;
-
-  tf2::Quaternion q(
-    tf.transform.rotation.x,
-    tf.transform.rotation.y,
-    tf.transform.rotation.z,
-    tf.transform.rotation.w);
-  if (q.length2() <= kQuaternionNormEpsilon) {
-    q.setValue(0.0, 0.0, 0.0, 1.0);
-  } else {
-    q.normalize();
-  }
-  tf.transform.rotation.x = q.x();
-  tf.transform.rotation.y = q.y();
-  tf.transform.rotation.z = q.z();
-  tf.transform.rotation.w = q.w();
-
-  tf_broadcaster_->sendTransform(tf);
+  append_path_pose(visual, stamped);
+  publish_robot_marker(visual, stamped);
+  publish_pose_text(visual, stamped);
 }
 
 void MutilRobotTagVisualNode::publish_robot_marker(

@@ -1,0 +1,27 @@
+/**:
+  ros__parameters:
+    status_period_sec: 5.0
+
+    # 添加机器人时只需要追加命名空间，节点会订阅 /<namespace>/odom_global。
+    robot_namespaces: ["cyberdog_1", "cyberdog_2"]
+    input_odom_topic: /odom_global
+
+    # 统一转发后的全局 VIO 输出：
+    # /global_vio/cyberdog_1/odom
+    # /global_vio/cyberdog_2/odom
+    output_topic_prefix: /global_vio
+    output_odom_topic: odom
+
+    # 统一 RViz/策略侧使用的全局坐标系。
+    target_frame_id: tag_global
+    base_frame_name: base_link
+
+    # 跨机器人 DDS 输入用 BestEffort，本机转发给策略/可视化用 Reliable。
+    subscribe_best_effort: true
+    publish_best_effort: false
+
+    publish_tf: true
+    tf_publish_every_n: 1
+
+    # 若需要 map 作为 RViz 根，可以改为 true。
+    publish_map_anchor_tf: false

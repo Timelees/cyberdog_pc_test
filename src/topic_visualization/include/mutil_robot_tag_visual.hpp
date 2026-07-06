@@ -15,12 +15,6 @@
 #include "rclcpp/rclcpp.hpp"
 #include "visualization_msgs/msg/marker.hpp"
 
-namespace tf2_ros
-{
-class StaticTransformBroadcaster;
-class TransformBroadcaster;
-}  // namespace tf2_ros
-
 class MutilRobotTagVisualNode final : public rclcpp::Node
 {
 public:
@@ -32,31 +26,26 @@ private:
   {
     std::string namespace_name;
     std::string input_topic;
-    std::string child_frame_id;
     std::size_t color_index{0};
     std::uint64_t odom_count{0};
     std::uint64_t last_status_count{0};
     rclcpp::Time last_odom_time;
     nav_msgs::msg::Path path;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_subscription;
-    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_publisher;
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_publisher;
   };
 
   std::string trim_slashes(const std::string & value) const;
   std::string ensure_abs_topic(const std::string & topic) const;
-  std::string build_namespaced_topic(
+  std::string build_input_topic(
     const std::string & namespace_name,
     const std::string & base_topic) const;
   std::string build_output_topic(
     const std::string & namespace_name,
     const std::string & leaf_topic) const;
-  std::string build_child_frame_id(const std::string & namespace_name) const;
 
   void create_robot_visuals(const rclcpp::QoS & sub_qos, const rclcpp::QoS & pub_qos);
   void on_odom_global(std::size_t robot_index, const nav_msgs::msg::Odometry::SharedPtr msg);
-  void publish_map_anchor_if_needed();
-  void publish_robot_tf(const RobotVisual & visual, const nav_msgs::msg::Odometry & odom);
   void publish_robot_marker(const RobotVisual & visual, const nav_msgs::msg::Odometry & odom);
   void publish_pose_text(const RobotVisual & visual, const nav_msgs::msg::Odometry & odom);
   void append_path_pose(RobotVisual & visual, const nav_msgs::msg::Odometry & odom);
@@ -65,20 +54,16 @@ private:
 
   double status_period_sec_{5.0};
   std::vector<std::string> robot_namespaces_;
-  std::string input_odom_topic_{"/odom_global"};
+  std::string input_topic_prefix_{"/global_vio"};
+  std::string input_odom_topic_{"odom"};
   std::string target_frame_id_{"tag_global"};
-  std::string output_topic_prefix_{"/viz/tags_multi"};
-  std::string base_frame_name_{"base_link"};
+  std::string output_topic_prefix_{"/global_vio"};
 
   bool subscribe_best_effort_{true};
   bool publish_best_effort_{false};
-  bool relay_odom_enabled_{true};
   bool path_enabled_{true};
-  bool publish_tf_{true};
   bool pose_text_enabled_{true};
   bool robot_marker_enabled_{true};
-  bool publish_map_anchor_tf_{false};
-  int tf_publish_every_n_{1};
   int path_publish_every_n_{1};
   int marker_publish_every_n_{5};
   std::size_t path_max_poses_{2000};
@@ -93,8 +78,6 @@ private:
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr robot_marker_publisher_;
   rclcpp::TimerBase::SharedPtr status_timer_;
   rclcpp::Time last_status_time_;
-  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
-  std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
 };
 
 #endif  // TOPIC_VISUALIZATION__MUTIL_ROBOT_TAG_VISUAL_HPP_

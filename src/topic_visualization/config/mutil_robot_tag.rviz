@@ -126,7 +126,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /viz/tags_multi/robot_markers
+        Value: /global_vio/robot_markers
       Value: true
     - Class: rviz_default_plugins/Marker
       Enabled: true
@@ -139,7 +139,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /viz/tags_multi/pose_text
+        Value: /global_vio/pose_text
       Value: true
     - Alpha: 1
       Buffer Length: 1
@@ -167,7 +167,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /viz/tags_multi/cyberdog_1/path
+        Value: /global_vio/cyberdog_1/path
       Value: true
     - Alpha: 1
       Buffer Length: 1
@@ -195,7 +195,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /viz/tags_multi/cyberdog_2/path
+        Value: /global_vio/cyberdog_2/path
       Value: true
     - Angle Tolerance: 0.10000000149011612
       Class: rviz_default_plugins/Odometry
@@ -234,7 +234,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /viz/tags_multi/cyberdog_1/odom
+        Value: /global_vio/cyberdog_1/odom
       Value: true
     - Angle Tolerance: 0.10000000149011612
       Class: rviz_default_plugins/Odometry
@@ -273,7 +273,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /viz/tags_multi/cyberdog_2/odom
+        Value: /global_vio/cyberdog_2/odom
       Value: true
     - Class: rviz_default_plugins/Axes
       Enabled: true

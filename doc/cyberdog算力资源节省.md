@@ -1,4 +1,4 @@
-# 算力资源节省
+# cyberdog算力资源节省
 
 关闭不必要的节点，避免需要使用的功能节点被杀死
 
@@ -15,8 +15,6 @@ base:
 ```
 
 然后编译修改cyberdog_bringup部署到实机
-
-
 
 
 
@@ -55,7 +53,7 @@ node_lists = [
         # 'tracking_indication',
         'rosbag_recorder',
         # 'tracking_base',
-        'emergency_stop'
+        'emergency_stop',
         ]
 ```
 

@@ -2,33 +2,27 @@
   ros__parameters:
     status_period_sec: 5.0
 
-    # 当前在线机器人。节点会订阅 /<namespace>/odom_global。
+    # 当前在线机器人。添加机器人时只需要追加命名空间。
     robot_namespaces: ["cyberdog_1", "cyberdog_2"]
-    input_odom_topic: /odom_global
+    input_topic_prefix: /global_vio
+    input_odom_topic: odom
 
-    # odom_transform_node 输出的全局坐标系。这里统一覆盖所有输入 odom 的 frame_id，
-    # 不依赖两台机器人各自发布的 TF 树，RViz Fixed Frame 使用 tag_global。
+    # mutil_robot_odom 已经将各机器人 odom_global 统一转发到 tag_global。
+    # 本节点只做可视化，不再负责坐标统一和 TF 转发。
     target_frame_id: tag_global
-    base_frame_name: base_link
-    output_topic_prefix: /viz/tags_multi
+    output_topic_prefix: /global_vio
 
-    # 跨机 DDS 下机器人端 odom_global 通常用 BestEffort 更稳；本机转发给 RViz 用 Reliable。
-    subscribe_best_effort: true
+    # 订阅本机 mutil_robot_odom 转发后的 /global_vio 话题，默认 Reliable。
+    subscribe_best_effort: false
     publish_best_effort: false
 
-    relay_odom_enabled: true
     path_enabled: true
-    publish_tf: true
     pose_text_enabled: true
     robot_marker_enabled: true
 
-    tf_publish_every_n: 1
     path_publish_every_n: 1
     marker_publish_every_n: 5
     path_max_poses: 3000
 
     pose_text_z_offset: 0.6
     pose_text_scale: 0.18
-
-    # 可选：若 RViz 需要 map 作为根，可设为 true，发布 map -> tag_global 静态 TF。
-    publish_map_anchor_tf: false

@@ -24,44 +24,70 @@ DepsLifecycleNodes = ["camera/camera", "stereo_camera", "mivinslocalization"]
 
 vins必须依赖camera/camera这个生命周期节点
 
-## 实机部署
+## 编译
 
-在小米docker（cyberdog_img:1.0）中，参考mivins功能包的README.md编译mivins功能包, 将编译产物拷贝到机器狗NX板中
+在小米docker（cyberdog_img:1.0）中，编译mivins功能包
+
+### 1. 编译mivins_core
+
+进入mivins_core文件夹下
 
 ```bash
-scp -r install/lib/vins mi@192.168.44.1:/home/mi/
-sudo cp -rf /home/mi/vins /opt/ros2/cyberdog/lib/
-sudo rm -rf /home/mi/vins
+mkdir build
+cd build
+cmake .. -DAPP_TYPE=ros2
+make
+make install
+```
 
-scp -r install/lib/libvins_lib.so mi@192.168.44.1:/home/mi/
-sudo cp -rf /home/mi/libvins_lib.so /opt/ros2/cyberdog/lib/
-sudo rm -rf /home/mi/libvins_lib.so
+### 2. 编译mivins_ros
 
-scp -r install/share/vins mi@192.168.44.1:/home/mi/
-sudo cp -rf /home/mi/vins /opt/ros2/cyberdog/share/
-sudo rm -rf /home/mi/vins
+进入源码工作空间
 
-sudo reboot
+源码内包括以下内容
+
+![工作空间src内容](./images/mivins部署工作空间_image.png)
+
+在工作空间下进行编译，编译产物进入install文件夹中
+
+![工作空间](./images/mivins工作空间_image.png)
+
+```bash
+colcon build --packages-up-to vins --merge-install
 ```
 
 
-### 前置要求
+
+## 实机部署
+
+使用[deploy_mivins.sh](../env/deploy_mivins.sh)将编译产物拷贝到机器狗NX板中
+
+
+```bash
+# 在宿主机执行
+cd ~/code/cyberdog2_pc_ws/src/env
+bash deploy_apriltag.sh
+```
+
+## 使用
+
+### 脚本启动方式
+
+使用[start_vio.sh](../env/start_vio.sh)启动多台机器人的realsense相机驱动，以及激活VIO节点
+
+### 手动启动方式
 
 realsense相机驱动必须启动，这个有开机自启动节点，设置生命周期时需要加namespace
 
 ```bash
-ros2 lifecycle set /cyberdog_1/camera/camera configure
-ros2 lifecycle set /cyberdog_1/camera/camera activate
+ros2 lifecycle set /{namespace}/camera/camera configure
+ros2 lifecycle set /{namespace}/camera/camera activate
 # 直接将以下service打开，后续apriltag_ros需要使用
-ros2 service call /cyberdog_1/camera/realsense_frame_service std_srvs/srv/SetBool "{data: true}" 
+ros2 service call /{namespace}/camera/realsense_frame_service std_srvs/srv/SetBool "{data: true}" 
+ros2 lifecycle set /{namespace}/vinslocalization configure
+ros2 lifecycle set /{namespace}/vinslocalization activate
 ```
 
-启动
-
-```bash
-ros2 lifecycle set /cyberdog_1/vinslocalization configure
-ros2 lifecycle set /cyberdog_1/vinslocalization activate
-```
 
 ## 备注
 
@@ -75,3 +101,5 @@ ros2 lifecycle set /cyberdog_1/vinslocalization activate
 ```
 
 如果提示Node not found，关机重启即可
+
+
