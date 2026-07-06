@@ -1,14 +1,17 @@
 /**:
   ros__parameters:
     status_period_sec: 5.0
-    namespace: ["cyberdog_1"]
-    namespace_index: 0
+    namespace: ["cyberdog_1", "cyberdog_2"]
+    namespace_index: 0   # 0=cyberdog_1, 1=cyberdog_2
 
     # odom_transform_node 输出；节点会自动拼成 /cyberdog_1/odom_global
     input_odom_topic: /odom_global
 
-    # RViz Fixed Frame 建议设为 tag_global；tag_global -> tag_0_observation 由 odom_transform_node 发布
+    # RViz Fixed Frame 建议设为 tag_global
     target_frame_id: tag_global
+    # 启动时在本地 /tf_static 发布 tag_global，避免 RViz 在首帧 odom 到达前报 frame 不存在
+    publish_fixed_frame_anchor: true
+    fixed_frame_anchor_child: tag_0_observation
     output_child_frame_id: base_link
     output_topic_prefix: /viz/tags
 

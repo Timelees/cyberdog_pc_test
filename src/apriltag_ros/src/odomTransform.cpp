@@ -199,6 +199,12 @@ public:
     odom_child_frame_fallback_ =
       trim_slashes(this->declare_parameter<std::string>("odom_child_frame_fallback", "base_link"));
     use_latest_tf_on_failure_ = this->declare_parameter<bool>("use_latest_tf_on_failure", true);
+    // Cross-machine CycloneDDS over WiFi: a local RELIABLE subscriber on the robot can
+    // prevent remote subscribers from receiving the same topic. BestEffort avoids that.
+    odom_subscribe_best_effort_ =
+      this->declare_parameter<bool>("odom_subscribe_best_effort", true);
+    odom_publish_best_effort_ =
+      this->declare_parameter<bool>("odom_publish_best_effort", true);
 
     // Namespace policy:
     // - Prefer the parameter set by launch (computed via cyberdog_bringup/manual.py:get_namespace()).
@@ -222,6 +228,12 @@ public:
     }
     RCLCPP_INFO(get_logger(), "robot_namespace: '%s'", robot_namespace_.c_str());
 
+    // When a robot namespace is known, default to namespaced TF only to reduce cross-host DDS load.
+    tf_subscribe_global_ =
+      this->declare_parameter<bool>("tf_subscribe_global", robot_namespace_.empty());
+    publish_static_tf_to_global_ =
+      this->declare_parameter<bool>("publish_static_tf_to_global", robot_namespace_.empty());
+
     // Default target frame:
     // Tag is fixed; use a global tag frame without robot namespace.
     if (target_frame_.empty()) {
@@ -237,6 +249,15 @@ public:
     if (rotate_output_x_180_) {
       T_output_tag_ = make_rotation_x_pi_transform() * T_output_tag_;
     }
+
+    if (!publish_static_tf_to_global_ && !robot_namespace_.empty()) {
+      const auto tf_static_qos = rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable();
+      const auto ns_tf_static_topic = "/" + robot_namespace_ + "/tf_static";
+      ns_static_tf_pub_ = create_publisher<tf2_msgs::msg::TFMessage>(
+        ns_tf_static_topic, tf_static_qos);
+      RCLCPP_INFO(get_logger(), "static TF will publish on: %s", ns_tf_static_topic.c_str());
+    }
+
     publish_output_tag_static_tf();
 
     // Force namespaced topics using the computed robot namespace.
@@ -261,9 +282,23 @@ public:
 
     setup_tf_subscriptions();
 
-    pub_ = this->create_publisher<nav_msgs::msg::Odometry>(output_topic_abs, rclcpp::QoS(10));
+    const auto reliable_qos = rclcpp::QoS(rclcpp::KeepLast(10)).reliable();
+    const auto odom_sub_qos = odom_subscribe_best_effort_
+      ? rclcpp::SensorDataQoS().keep_last(50)
+      : rclcpp::QoS(rclcpp::KeepLast(50)).reliable();
+    const auto odom_pub_qos = odom_publish_best_effort_
+      ? rclcpp::SensorDataQoS().keep_last(10)
+      : reliable_qos;
+
+    RCLCPP_INFO(
+      get_logger(),
+      "odom QoS: subscribe=%s publish=%s",
+      odom_subscribe_best_effort_ ? "best_effort" : "reliable",
+      odom_publish_best_effort_ ? "best_effort" : "reliable");
+
+    pub_ = this->create_publisher<nav_msgs::msg::Odometry>(output_topic_abs, odom_pub_qos);
     sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-      odom_topic_abs, rclcpp::QoS(50),
+      odom_topic_abs, odom_sub_qos,
       std::bind(&OdomTransformNode::onOdom, this, std::placeholders::_1));
 
     if (status_period_sec_ > 0.0) {
@@ -285,12 +320,15 @@ private:
     const auto tf_topic = declare_parameter<std::string>("tf_topic", "/tf");
     const auto tf_static_topic = declare_parameter<std::string>("tf_static_topic", "/tf_static");
 
-    tf_sub_ = create_subscription<tf2_msgs::msg::TFMessage>(
-      tf_topic, tf_qos,
-      [this](const tf2_msgs::msg::TFMessage::SharedPtr msg) { on_tf(msg, false); });
-    tf_static_sub_ = create_subscription<tf2_msgs::msg::TFMessage>(
-      tf_static_topic, tf_static_qos,
-      [this](const tf2_msgs::msg::TFMessage::SharedPtr msg) { on_tf(msg, true); });
+    if (tf_subscribe_global_) {
+      tf_sub_ = create_subscription<tf2_msgs::msg::TFMessage>(
+        tf_topic, tf_qos,
+        [this](const tf2_msgs::msg::TFMessage::SharedPtr msg) { on_tf(msg, false); });
+      tf_static_sub_ = create_subscription<tf2_msgs::msg::TFMessage>(
+        tf_static_topic, tf_static_qos,
+        [this](const tf2_msgs::msg::TFMessage::SharedPtr msg) { on_tf(msg, true); });
+      RCLCPP_INFO(get_logger(), "listening TF on: %s and %s", tf_topic.c_str(), tf_static_topic.c_str());
+    }
 
     if (!robot_namespace_.empty()) {
       const auto ns_tf = "/" + robot_namespace_ + "/tf";
@@ -304,8 +342,6 @@ private:
 
       RCLCPP_INFO(get_logger(), "listening TF on: %s and %s", ns_tf.c_str(), ns_tf_static.c_str());
     }
-
-    RCLCPP_INFO(get_logger(), "listening TF on: %s and %s", tf_topic.c_str(), tf_static_topic.c_str());
   }
 
   void publish_output_tag_static_tf()
@@ -319,7 +355,14 @@ private:
     tf.header.frame_id = output_frame_;
     tf.child_frame_id = target_frame_;
     tf.transform = tf2_to_transform_msg(T_output_tag_);
-    static_tf_broadcaster_.sendTransform(tf);
+
+    if (publish_static_tf_to_global_) {
+      static_tf_broadcaster_.sendTransform(tf);
+    } else if (ns_static_tf_pub_) {
+      tf2_msgs::msg::TFMessage msg;
+      msg.transforms.push_back(tf);
+      ns_static_tf_pub_->publish(msg);
+    }
 
     RCLCPP_INFO(
       get_logger(),
@@ -354,6 +397,9 @@ private:
 
     geometry_msgs::msg::PoseStamped out;
     if (!convert_with_latched_tag_frame(*msg, out)) {
+      if (!use_latest_tf_on_failure_) {
+        return;
+      }
       try {
         // Temporary path before latch: use latest TF to avoid extrapolation issues.
         const auto tf = tf_buffer_.lookupTransform(target_frame_, in.header.frame_id, tf2::TimePointZero);
@@ -496,6 +542,10 @@ private:
   std::string odom_child_frame_fallback_;
   std::string latched_child_frame_;
   bool use_latest_tf_on_failure_{true};
+  bool odom_subscribe_best_effort_{true};
+  bool odom_publish_best_effort_{true};
+  bool tf_subscribe_global_{true};
+  bool publish_static_tf_to_global_{true};
   bool apply_wall_tag_alignment_{true};
   bool rotate_output_x_180_{true};
   bool tag_to_odom_latched_{false};
@@ -509,6 +559,7 @@ private:
 
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::StaticTransformBroadcaster static_tf_broadcaster_;
+  rclcpp::Publisher<tf2_msgs::msg::TFMessage>::SharedPtr ns_static_tf_pub_;
   rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr tf_sub_;
   rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr tf_static_sub_;
   rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr tf_sub_ns_;

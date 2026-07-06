@@ -96,6 +96,27 @@ ament_target_dependencies(tags_visual_node
 )
 list(APPEND _topic_visual_targets tags_visual_node)
 
+add_executable(mutil_robot_tag_visual_node
+	src/mutil_robot_tag_visual.cpp
+)
+
+target_include_directories(mutil_robot_tag_visual_node PUBLIC
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+	$<INSTALL_INTERFACE:include>
+)
+
+target_compile_features(mutil_robot_tag_visual_node PUBLIC cxx_std_17)
+
+ament_target_dependencies(mutil_robot_tag_visual_node
+	geometry_msgs
+	nav_msgs
+	rclcpp
+	tf2
+	tf2_ros
+	visualization_msgs
+)
+list(APPEND _topic_visual_targets mutil_robot_tag_visual_node)
+
 install(
 	TARGETS ${_topic_visual_targets}
 	DESTINATION lib/${PROJECT_NAME}

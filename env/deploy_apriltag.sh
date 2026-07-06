@@ -124,6 +124,17 @@ STAGE=/home/mi/apriltag_deploy
 DEST=/opt/ros2/cyberdog
 sudo_cmd() { echo "\$PASS" | sudo -S "\$@"; }
 
+# 正在运行的可执行文件无法被 cp 覆盖（Text file busy），部署前先停掉相关节点
+echo "==> 停止 apriltag 相关节点..."
+pkill -f '/opt/ros2/cyberdog/lib/apriltag_ros/odom_transform_node' 2>/dev/null || true
+pkill -f '/opt/ros2/cyberdog/lib/apriltag_ros/apriltag_node' 2>/dev/null || true
+sleep 1
+if pgrep -f '/opt/ros2/cyberdog/lib/apriltag_ros/' >/dev/null; then
+    echo "警告: 仍有 apriltag 进程在运行，强制结束..." >&2
+    pkill -9 -f '/opt/ros2/cyberdog/lib/apriltag_ros/' 2>/dev/null || true
+    sleep 1
+fi
+
 sudo_cmd cp -r "\$STAGE/lib/apriltag_ros"              "\$DEST/lib/"
 sudo_cmd cp    "\$STAGE/lib/libAprilTagNode.so"        "\$DEST/lib/"
 sudo_cmd cp -P "\$STAGE/lib/libapriltag.so"*           "\$DEST/lib/"

@@ -33,6 +33,7 @@ private:
 
   void on_odom_global(const nav_msgs::msg::Odometry::SharedPtr msg);
   void publish_static_tag_anchor_if_needed();
+  void publish_fixed_frame_anchor_if_needed();
   void publish_robot_tf(const nav_msgs::msg::Odometry & odom);
   void append_path_pose(const nav_msgs::msg::Odometry & odom);
   void log_status();

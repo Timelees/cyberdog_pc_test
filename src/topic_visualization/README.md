@@ -10,7 +10,7 @@
 ```bash
 cd /home/lee/code/cyberdog2_pc_ws
 source /opt/ros/galactic/setup.bash
-colcon build --packages-up-to topic_visualization mutil_odom_shared --symlink-install
+colcon build --packages-up-to topic_visualization --symlink-install
 ```
 
 ## 多机器人共享可视化

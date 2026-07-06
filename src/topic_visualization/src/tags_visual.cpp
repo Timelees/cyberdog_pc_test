@@ -63,6 +63,7 @@ TagsVisualNode::TagsVisualNode()
     sub_qos,
     std::bind(&TagsVisualNode::on_odom_global, this, std::placeholders::_1));
 
+  publish_fixed_frame_anchor_if_needed();
   publish_static_tag_anchor_if_needed();
 
   if (status_period_sec_ > 0.0) {
@@ -150,6 +151,36 @@ std::string TagsVisualNode::build_output_topic(const std::string & base_topic) c
     return "/" + prefix;
   }
   return "/" + prefix + "/" + topic;
+}
+
+void TagsVisualNode::publish_fixed_frame_anchor_if_needed()
+{
+  if (!static_tf_broadcaster_ || target_frame_id_.empty()) {
+    return;
+  }
+
+  const bool publish_anchor = declare_parameter<bool>("publish_fixed_frame_anchor", true);
+  if (!publish_anchor) {
+    return;
+  }
+
+  const auto anchor_child = trim_slashes(
+    declare_parameter<std::string>("fixed_frame_anchor_child", "tag_0_observation"));
+  if (anchor_child.empty()) {
+    return;
+  }
+
+  geometry_msgs::msg::TransformStamped tf;
+  tf.header.stamp = now();
+  tf.header.frame_id = target_frame_id_;
+  tf.child_frame_id = anchor_child;
+  tf.transform.rotation.w = 1.0;
+  static_tf_broadcaster_->sendTransform(tf);
+  RCLCPP_INFO(
+    get_logger(),
+    "published fixed-frame anchor on /tf_static: %s -> %s",
+    target_frame_id_.c_str(),
+    anchor_child.c_str());
 }
 
 void TagsVisualNode::publish_static_tag_anchor_if_needed()

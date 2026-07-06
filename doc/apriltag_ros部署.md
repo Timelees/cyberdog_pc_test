@@ -93,17 +93,29 @@ ros2 topic echo /cyberdog_2/camera/infra1/image_rect_raw
 
 ### 节点启动
 
-**TODO: (后续写入开机自启动或脚本启动)**
-
-在机器人NX板上启动 **apriltag** 节点 和 **位姿转换** 节点：
+**机器人上**启动 apriltag 和 odom_transform：
 
 ```bash
-ros2 launch apriltag_ros apriltag_36h11.launch.py
+ros2 launch apriltag_ros apriltag_36h11.launch.py 
 ```
 
 ```bash
-ros2 run apriltag_ros odom_transform_node
+# 需先在本机工作空间编译 apriltag_ros（含 odom_transform_node）
+source /home/lee/code/cyberdog2_pc_ws/install/setup.bash
+ros2 launch apriltag_ros odom_transform.launch.py 
+# ros2 run apriltag_ros odom_transform_node
+
 ```
+
+
+`odom_global` 需 apriltag 识别到 tag 且 TF 链完整后才有输出；节点日志中 `latched=true` 表示已对齐。
+如果看到 `waiting for TF chain base_link -> tag_0_observation`，说明还没有识别到 tag 或缺少相机到机身的 TF。若看到 `map -> tag_0_observation`，说明仍在运行旧版节点或启动参数里 `use_latest_tf_on_failure` 未关闭。
+
+如果启动 `odom_transform_node` 后本机收不到 `/odom_slam`，优先检查 DDS 显式 peer：
+
+- 机器人 `/etc/mi/cyclonedds.xml` 的 `<Peers>` 增加本机 WiFi IP，如 `192.168.31.68`
+- 本机 `~/.cyclonedds.xml` 的 `<Peers>` 增加机器人 WiFi IP，如 `192.168.31.162`
+- 修改后重启机器人端相关 ROS2 节点，并在本机执行 `ros2 daemon stop && ros2 daemon start`
 
 查看检测结果：
 
@@ -119,6 +131,24 @@ ros2 topic echo /cyberdog_1/apriltag/detections
 本机galactic docker中启动
 
 ```bash
-ros2 launch topic_visualization tags_visualize.launch.py 
+source /home/lee/code/cyberdog2_pc_ws/install/setup.bash
+ros2 launch topic_visualization tags_visualize.launch.py
 ```
- **TODO：当前转换后的里程计话题/odom_global的显示刷新率较低，仅供验证位置在全局坐标系下是否正确**
+
+`tags_visual` 订阅 `/cyberdog_1/odom_global`，在本机转发为 `/viz/tags/odom`、`/viz/tags/path` 并发布 TF `tag_global -> base_link`。RViz 请订阅本机转发话题，不要直接订阅机器人端的 `/cyberdog_1/odom_global`（跨机 BestEffort 与 RViz 默认 Reliable 不兼容）。
+
+### 验证
+
+```bash
+ros2 topic hz /cyberdog_1/odom_global
+ros2 topic hz /viz/tags/odom
+```
+
+`tags_visual` 日志中应周期性出现 `odom_global relay stats: count>0`。
+
+### 无法显示时排查
+
+1. `tags_topics.yaml` 中 `namespace_index: 0` 对应 `cyberdog_1`
+2. RViz Fixed Frame 设为 **tag_global**
+3. Odometry / Path 显示订阅 **/viz/tags/odom**、**/viz/tags/path**，QoS 设为 **Best Effort**
+4. 确认本机已 `colcon build --packages-select topic_visualization --symlink-install` 并 source install
