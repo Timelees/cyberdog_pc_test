@@ -19,7 +19,7 @@
 #include "std_msgs/msg/bool.hpp"
 #include "std_msgs/msg/string.hpp"
 
-#include "football_navigation/football_geometry.hpp"
+#include "football_navigation/core/football_geometry.hpp"
 
 namespace football_navigation
 {

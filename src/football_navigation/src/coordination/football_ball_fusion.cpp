@@ -14,10 +14,11 @@
 #include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
-#include "football_navigation/football_geometry.hpp"
+#include "football_navigation/core/football_geometry.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "football_navigation/coordination/football_ball_fusion.hpp"
 
 namespace football_navigation
 {
@@ -62,12 +63,9 @@ double median(std::vector<double> values)
 
 }  // namespace
 
-class FootballBallFusion : public rclcpp::Node
-{
-public:
-  FootballBallFusion()
+FootballBallFusion::FootballBallFusion()
   : Node("football_ball_fusion")
-  {
+{
     mode_ = declare_parameter<std::string>("mode", "global_external");
     if (mode_ != "global_external" && mode_ != "local_multi_robot") {
       throw std::invalid_argument("mode must be global_external or local_multi_robot");
@@ -177,29 +175,28 @@ public:
       mode_.c_str(), field_frame_.c_str(), robots.size(), output_topic_.c_str());
   }
 
-private:
-  void goalEventCallback(const std_msgs::msg::String::SharedPtr)
-  {
+void FootballBallFusion::goalEventCallback(const std_msgs::msg::String::SharedPtr)
+{
     have_previous_ = false;
     previous_ = geometry_msgs::msg::PoseStamped();
     detections_.clear();
     odom_histories_.clear();
   }
 
-  bool finitePose(const geometry_msgs::msg::Pose & pose) const
-  {
+bool FootballBallFusion::finitePose(const geometry_msgs::msg::Pose & pose) const
+{
     double yaw = 0.0;
     return std::isfinite(pose.position.x) && std::isfinite(pose.position.y) &&
            yawFromQuaternion(pose.orientation, yaw);
   }
 
-  bool insideField(const double x, const double y) const
-  {
+bool FootballBallFusion::insideField(const double x, const double y) const
+{
     return x >= field_min_x_ && x <= field_max_x_ && y >= field_min_y_ && y <= field_max_y_;
   }
 
-  bool motionValid(const geometry_msgs::msg::PoseStamped & candidate) const
-  {
+bool FootballBallFusion::motionValid(const geometry_msgs::msg::PoseStamped & candidate) const
+{
     if (!have_previous_) {
       return true;
     }
@@ -214,8 +211,8 @@ private:
       candidate.pose.position.y - previous_.pose.position.y) / dt <= max_ball_speed_mps_;
   }
 
-  void publish(geometry_msgs::msg::PoseStamped output)
-  {
+void FootballBallFusion::publish(geometry_msgs::msg::PoseStamped output)
+{
     if (!finitePose(output.pose) || !insideField(
         output.pose.position.x, output.pose.position.y) || !motionValid(output))
     {
@@ -232,8 +229,8 @@ private:
     have_previous_ = true;
   }
 
-  void globalCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
-  {
+void FootballBallFusion::globalCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+{
     if (!msg || msg->header.frame_id != field_frame_ || !finitePose(msg->pose)) {
       return;
     }
@@ -248,11 +245,11 @@ private:
     publish(*msg);
   }
 
-  bool findNearestOdom(
-    const std::string & robot,
-    const rclcpp::Time & detection_stamp,
-    nav_msgs::msg::Odometry & output) const
-  {
+bool FootballBallFusion::findNearestOdom(
+  const std::string & robot,
+  const rclcpp::Time & detection_stamp,
+  nav_msgs::msg::Odometry & output) const
+{
     const auto found = odom_histories_.find(robot);
     if (found == odom_histories_.end() || found->second.empty()) {
       return false;
@@ -269,8 +266,8 @@ private:
     return best_skew <= max_detection_odom_skew_sec_;
   }
 
-  void fuse()
-  {
+void FootballBallFusion::fuse()
+{
     struct Candidate {double x; double y; rclcpp::Time stamp;};
     std::vector<Candidate> candidates;
     for (const auto & item : detections_) {
@@ -349,55 +346,5 @@ private:
     publish(output);
   }
 
-  std::string mode_;
-  std::string field_frame_;
-  std::string output_topic_;
-  double max_detection_age_sec_{0.30};
-  double future_tolerance_sec_{0.08};
-  double max_odom_age_sec_{0.30};
-  double max_detection_odom_skew_sec_{0.12};
-  double max_fusion_time_skew_sec_{0.08};
-  int minimum_inlier_count_{2};
-  double inlier_radius_m_{0.45};
-  double max_ball_speed_mps_{6.0};
-  double field_min_x_{-2.25};
-  double field_max_x_{8.25};
-  double field_min_y_{-3.25};
-  double field_max_y_{3.25};
-  bool have_previous_{false};
-  geometry_msgs::msg::PoseStamped previous_;
-  std::map<std::string, geometry_msgs::msg::PoseStamped> detections_;
-  std::map<std::string, std::deque<nav_msgs::msg::Odometry>> odom_histories_;
-  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr publisher_;
-  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr global_sub_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr goal_event_sub_;
-  std::vector<rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr> detection_subs_;
-  std::vector<rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr> odom_subs_;
-  rclcpp::TimerBase::SharedPtr timer_;
-};
 
 }  // namespace football_navigation
-
-int main(int argc, char ** argv)
-{
-  rclcpp::init(argc, argv);
-
-  int exit_code = 0;
-  try {
-    const auto node = std::make_shared<football_navigation::FootballBallFusion>();
-    rclcpp::spin(node);
-  } catch (const std::exception & exception) {
-    RCLCPP_FATAL(
-      rclcpp::get_logger("football_ball_fusion"),
-      "fatal exception: %s", exception.what());
-    exit_code = 1;
-  } catch (...) {
-    RCLCPP_FATAL(
-      rclcpp::get_logger("football_ball_fusion"),
-      "fatal unknown exception");
-    exit_code = 1;
-  }
-
-  rclcpp::shutdown();
-  return exit_code;
-}

@@ -177,6 +177,7 @@ target_compile_definitions(
 
 add_executable(football_fake_ball_publisher
   src/simulation/football_fake_ball_publisher.cpp
+  src/simulation/football_fake_ball_publisher_node.cpp
 )
 
 ament_target_dependencies(football_fake_ball_publisher
@@ -192,6 +193,7 @@ target_link_libraries(football_fake_ball_publisher
 
 add_executable(football_simulation_input_publisher
   src/simulation/football_simulation_input_publisher.cpp
+  src/simulation/football_simulation_input_publisher_node.cpp
 )
 
 ament_target_dependencies(football_simulation_input_publisher
@@ -207,6 +209,7 @@ target_link_libraries(football_simulation_input_publisher
 
 add_executable(football_simulation_navigator
   src/simulation/football_simulation_navigator.cpp
+  src/simulation/football_simulation_navigator_node.cpp
 )
 
 ament_target_dependencies(football_simulation_navigator
@@ -224,6 +227,7 @@ target_link_libraries(football_simulation_navigator
 
 add_executable(football_fake_other_robot_publisher
   src/simulation/football_fake_other_robot_publisher.cpp
+  src/simulation/football_fake_other_robot_publisher_node.cpp
 )
 
 add_dependencies(
@@ -284,6 +288,7 @@ endif()
 
 add_executable(football_trajectory_adapter
   src/control/football_trajectory_adapter.cpp
+  src/control/football_trajectory_adapter_node.cpp
 )
 
 ament_target_dependencies(football_trajectory_adapter
@@ -296,6 +301,7 @@ target_link_libraries(football_trajectory_adapter
 
 add_executable(football_tracking_action_client
   src/control/football_tracking_action_client.cpp
+  src/control/football_tracking_action_client_node.cpp
 )
 
 ament_target_dependencies(football_tracking_action_client
@@ -308,6 +314,7 @@ target_link_libraries(football_tracking_action_client
 
 add_executable(football_team_role_assigner
   src/coordination/football_team_role_assigner.cpp
+  src/coordination/football_team_role_assigner_node.cpp
 )
 
 ament_target_dependencies(football_team_role_assigner
@@ -320,6 +327,7 @@ target_link_libraries(football_team_role_assigner
 
 add_executable(football_ball_fusion
   src/coordination/football_ball_fusion.cpp
+  src/coordination/football_ball_fusion_node.cpp
 )
 
 ament_target_dependencies(football_ball_fusion
@@ -336,6 +344,7 @@ target_link_libraries(football_ball_fusion
 
 add_executable(football_visualization_node
   src/visualization/football_visualization_node.cpp
+  src/visualization/football_visualization_main.cpp
 )
 
 target_link_libraries(football_visualization_node
@@ -361,21 +370,40 @@ pluginlib_export_plugin_description_file(dwb_core football_navigation_dwb_plugin
 
 set(football_identity_sources
   CMakeLists.txt
-  include/football_navigation/football_geometry.hpp
-  include/football_navigation/football_goal_adapter.hpp
-  include/football_navigation/multi_robot_obstacle_layer.hpp
+  include/football_navigation/core/football_geometry.hpp
+  include/football_navigation/control/football_goal_adapter.hpp
+  include/football_navigation/control/football_tracking_action_client.hpp
+  include/football_navigation/control/football_trajectory_adapter.hpp
+  include/football_navigation/coordination/football_ball_fusion.hpp
+  include/football_navigation/coordination/football_team_role_assigner.hpp
+  include/football_navigation/plugins/dynamic_obstacle_marker.hpp
+  include/football_navigation/plugins/multi_robot_obstacle_layer.hpp
+  include/football_navigation/simulation/football_fake_ball_publisher.hpp
+  include/football_navigation/simulation/football_fake_other_robot_publisher.hpp
+  include/football_navigation/simulation/football_simulation_input_publisher.hpp
+  include/football_navigation/simulation/football_simulation_navigator.hpp
+  include/football_navigation/visualization/football_visualization_node.hpp
   src/core/football_geometry.cpp
   src/control/football_goal_adapter.cpp
   src/control/football_goal_adapter_node.cpp
   src/simulation/football_fake_ball_publisher.cpp
+  src/simulation/football_fake_ball_publisher_node.cpp
   src/simulation/football_simulation_input_publisher.cpp
+  src/simulation/football_simulation_input_publisher_node.cpp
   src/simulation/football_simulation_navigator.cpp
+  src/simulation/football_simulation_navigator_node.cpp
   src/simulation/football_fake_other_robot_publisher.cpp
+  src/simulation/football_fake_other_robot_publisher_node.cpp
   src/coordination/football_ball_fusion.cpp
+  src/coordination/football_ball_fusion_node.cpp
   src/control/football_trajectory_adapter.cpp
+  src/control/football_trajectory_adapter_node.cpp
   src/control/football_tracking_action_client.cpp
+  src/control/football_tracking_action_client_node.cpp
   src/coordination/football_team_role_assigner.cpp
+  src/coordination/football_team_role_assigner_node.cpp
   src/visualization/football_visualization_node.cpp
+  src/visualization/football_visualization_main.cpp
   src/plugins/dynamic_obstacle_marker.cpp
   src/plugins/multi_robot_obstacle_layer.cpp
   launch/football_navigation.launch.py

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 CyberDog2 football navigation contributors.
 // Licensed under the Apache License, Version 2.0.
 
-#include "football_navigation/football_goal_adapter.hpp"
+#include "football_navigation/control/football_goal_adapter.hpp"
 
 #include <algorithm>
 #include <chrono>

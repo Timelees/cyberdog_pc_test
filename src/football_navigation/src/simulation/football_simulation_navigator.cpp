@@ -13,7 +13,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "football_navigation/football_geometry.hpp"
+#include "football_navigation/core/football_geometry.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
 #include "nav2_msgs/msg/speed_limit.hpp"
@@ -21,19 +21,14 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "football_navigation/simulation/football_simulation_navigator.hpp"
 
 namespace football_navigation
 {
 
-class FootballSimulationNavigator : public rclcpp::Node
+FootballSimulationNavigator::FootballSimulationNavigator()
+: Node("football_simulation_navigator")
 {
-public:
-  using NavigateToPose = nav2_msgs::action::NavigateToPose;
-  using GoalHandle = rclcpp_action::ServerGoalHandle<NavigateToPose>;
-
-  FootballSimulationNavigator()
-  : Node("football_simulation_navigator")
-  {
     field_frame_ = declare_parameter<std::string>("field_frame", "tag_global");
     action_name_ = declare_parameter<std::string>("action_name", "navigate_to_pose");
     odom_topic_ = declare_parameter<std::string>(
@@ -113,11 +108,10 @@ public:
       std::bind(&FootballSimulationNavigator::controlTick, this));
   }
 
-private:
-  rclcpp_action::GoalResponse handleGoal(
+rclcpp_action::GoalResponse FootballSimulationNavigator::handleGoal(
     const rclcpp_action::GoalUUID &,
     std::shared_ptr<const NavigateToPose::Goal> goal)
-  {
+{
     if (!goal || goal->pose.header.frame_id != field_frame_) {
       return rclcpp_action::GoalResponse::REJECT;
     }
@@ -128,13 +122,13 @@ private:
     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
   }
 
-  rclcpp_action::CancelResponse handleCancel(const std::shared_ptr<GoalHandle>)
-  {
+rclcpp_action::CancelResponse FootballSimulationNavigator::handleCancel(const std::shared_ptr<GoalHandle>)
+{
     return rclcpp_action::CancelResponse::ACCEPT;
   }
 
-  void handleAccepted(const std::shared_ptr<GoalHandle> goal_handle)
-  {
+void FootballSimulationNavigator::handleAccepted(const std::shared_ptr<GoalHandle> goal_handle)
+{
     std::lock_guard<std::mutex> lock(mutex_);
     if (active_goal_ && active_goal_->is_active()) {
       active_goal_->abort(std::make_shared<NavigateToPose::Result>());
@@ -147,26 +141,26 @@ private:
       goal_handle->get_goal()->pose.pose.position.y);
   }
 
-  void publishStop()
-  {
+void FootballSimulationNavigator::publishStop()
+{
     publishCommand(geometry_msgs::msg::Twist());
   }
 
-  bool isPushState() const
-  {
+bool FootballSimulationNavigator::isPushState() const
+{
     return control_state_ == "CONTACT_ACQUIRE" || control_state_ == "PUSH_BALL";
   }
 
-  void publishCommand(const geometry_msgs::msg::Twist & command)
-  {
+void FootballSimulationNavigator::publishCommand(const geometry_msgs::msg::Twist & command)
+{
     cmd_vel_pub_->publish(command);
     if (isPushState()) {
       push_cmd_vel_pub_->publish(command);
     }
   }
 
-  void controlTick()
-  {
+void FootballSimulationNavigator::controlTick()
+{
     std::lock_guard<std::mutex> lock(mutex_);
     if (!active_goal_) {
       publishStop();
@@ -250,45 +244,5 @@ private:
     active_goal_->publish_feedback(feedback);
   }
 
-  std::string field_frame_;
-  std::string action_name_;
-  std::string odom_topic_;
-  std::string cmd_vel_topic_;
-  std::string push_cmd_vel_topic_;
-  std::string speed_limit_topic_;
-  std::string control_state_topic_;
-  double control_rate_hz_{20.0};
-  double linear_gain_{0.9};
-  double angular_gain_{1.5};
-  double push_bearing_gain_{0.6};
-  double max_linear_speed_mps_{0.45};
-  double max_angular_speed_rps_{0.8};
-  double position_tolerance_m_{0.06};
-  double yaw_tolerance_rad_{0.08};
-  double odom_timeout_sec_{0.5};
-  double speed_limit_mps_{0.0};
-  std::string control_state_{"SEARCH_BALL"};
-  std::mutex mutex_;
-  bool have_odom_{false};
-  nav_msgs::msg::Odometry latest_odom_;
-  rclcpp::Time latest_odom_time_;
-  rclcpp::Time goal_started_time_;
-  std::shared_ptr<GoalHandle> active_goal_;
-  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
-  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr push_cmd_vel_pub_;
-  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
-  rclcpp::Subscription<nav2_msgs::msg::SpeedLimit>::SharedPtr speed_limit_sub_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr control_state_sub_;
-  rclcpp_action::Server<NavigateToPose>::SharedPtr action_server_;
-  rclcpp::TimerBase::SharedPtr timer_;
-};
 
 }  // namespace football_navigation
-
-int main(int argc, char ** argv)
-{
-  rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<football_navigation::FootballSimulationNavigator>());
-  rclcpp::shutdown();
-  return 0;
-}

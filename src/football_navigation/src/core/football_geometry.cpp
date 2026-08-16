@@ -2,7 +2,7 @@
 //
 // Licensed under the Apache License, Version 2.0.
 
-#include "football_navigation/football_geometry.hpp"
+#include "football_navigation/core/football_geometry.hpp"
 
 #include <algorithm>
 #include <cctype>

@@ -1823,11 +1823,11 @@ print("Transitioning successful")
         )
         header = read(
             "cyberdog_nav2/football_navigation/include/"
-            "football_navigation/multi_robot_obstacle_layer.hpp"
+            "football_navigation/plugins/multi_robot_obstacle_layer.hpp"
         )
         obstacle = read(
             "cyberdog_nav2/football_navigation/include/"
-            "football_navigation/dynamic_obstacle_marker.hpp"
+            "football_navigation/plugins/dynamic_obstacle_marker.hpp"
         )
 
         assert "std::size_t source_index{0};" in obstacle

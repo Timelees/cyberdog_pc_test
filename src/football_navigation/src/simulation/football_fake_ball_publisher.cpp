@@ -17,11 +17,12 @@
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
-#include "football_navigation/football_geometry.hpp"
+#include "football_navigation/core/football_geometry.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "football_navigation/simulation/football_fake_ball_publisher.hpp"
 
 namespace football_navigation
 {
@@ -41,12 +42,9 @@ std::string normalizeNamespace(const std::string & ns)
 
 }  // namespace
 
-class FootballFakeBallPublisher : public rclcpp::Node
-{
-public:
-  FootballFakeBallPublisher()
+FootballFakeBallPublisher::FootballFakeBallPublisher()
   : Node("football_fake_ball_publisher")
-  {
+{
     frame_id_ = declare_parameter<std::string>("frame_id", "tag_global");
     // 假球模式仍发布到原始输入话题；之后必须由融合节点生成
     // /football/ball_pose，从而保留与真实数据相同的校验链路。
@@ -262,9 +260,8 @@ public:
       controlled_robot_namespace_.c_str());
   }
 
-private:
-  bool lookupRobotInField(const std::string & ns, double & x, double & y) const
-  {
+bool FootballFakeBallPublisher::lookupRobotInField(const std::string & ns, double & x, double & y) const
+{
     if (frame_id_.empty() || ns.empty()) {
       return false;
     }
@@ -281,8 +278,8 @@ private:
     return true;
   }
 
-  void getTeamGoalForStriker(const std::string & striker, double & gx, double & gy) const
-  {
+void FootballFakeBallPublisher::getTeamGoalForStriker(const std::string & striker, double & gx, double & gy) const
+{
     if (have_striker_a_ && striker == striker_a_) {
       gx = team_a_attack_goal_x_;
       gy = team_a_attack_goal_y_;
@@ -297,15 +294,15 @@ private:
     gy = team_a_attack_goal_y_;
   }
 
-  bool inKickoffHold(const rclcpp::Time & stamp) const
-  {
+bool FootballFakeBallPublisher::inKickoffHold(const rclcpp::Time & stamp) const
+{
     return kickoff_hold_until_.nanoseconds() > 0 && stamp < kickoff_hold_until_;
   }
 
-  bool scoredAtGoal(
-    const double goal_x, const double goal_y,
-    const double home_x, const double home_y) const
-  {
+bool FootballFakeBallPublisher::scoredAtGoal(
+  const double goal_x, const double goal_y,
+  const double home_x, const double home_y) const
+{
     const double dx = goal_x - home_x;
     const double dy = goal_y - home_y;
     const double norm = std::hypot(dx, dy);
@@ -321,30 +318,30 @@ private:
     return center_plane >= 0.0 && lateral + ball_radius_m_ <= goal_width_m_ * 0.5;
   }
 
-  bool teamAScored() const
-  {
+bool FootballFakeBallPublisher::teamAScored() const
+{
     return scoredAtGoal(
       team_a_attack_goal_x_, team_a_attack_goal_y_,
       team_b_attack_goal_x_, team_b_attack_goal_y_);
   }
 
-  bool teamBScored() const
-  {
+bool FootballFakeBallPublisher::teamBScored() const
+{
     return scoredAtGoal(
       team_b_attack_goal_x_, team_b_attack_goal_y_,
       team_a_attack_goal_x_, team_a_attack_goal_y_);
   }
 
-  void publishMatchStateCommand(const std::string & state)
-  {
+void FootballFakeBallPublisher::publishMatchStateCommand(const std::string & state)
+{
     std_msgs::msg::String command;
     command.data = state;
     match_state_command_pub_->publish(command);
     match_state_ = state;
   }
 
-  void resetToKickoff(const rclcpp::Time & stamp, const char * scoring_team)
-  {
+void FootballFakeBallPublisher::resetToKickoff(const rclcpp::Time & stamp, const char * scoring_team)
+{
     sim_ball_x_ = kickoff_x_;
     sim_ball_y_ = kickoff_y_;
     ball_velocity_x_ = 0.0;
@@ -365,8 +362,8 @@ private:
       scoring_team, kickoff_x_, kickoff_y_, kickoff_hold_sec_);
   }
 
-  void finishSingleShot(const char * scoring_team)
-  {
+void FootballFakeBallPublisher::finishSingleShot(const char * scoring_team)
+{
     goal_completed_ = true;
     ball_velocity_x_ = 0.0;
     ball_velocity_y_ = 0.0;
@@ -382,16 +379,8 @@ private:
       scoring_team, sim_ball_x_, sim_ball_y_);
   }
 
-  struct ContactCandidate
-  {
-    std::string robot;
-    double strength{0.0};
-    double vx{0.0};
-    double vy{0.0};
-  };
-
-  bool contactCandidate(const std::string & robot, ContactCandidate & output) const
-  {
+bool FootballFakeBallPublisher::contactCandidate(const std::string & robot, ContactCandidate & output) const
+{
     const std::string normalized_robot = normalizeNamespace(robot);
     if (!controlled_robot_namespace_.empty() &&
       normalized_robot != controlled_robot_namespace_)
@@ -465,8 +454,8 @@ private:
     return true;
   }
 
-  std::string selectBallPossessionStriker() const
-  {
+std::string FootballFakeBallPublisher::selectBallPossessionStriker() const
+{
     struct Candidate
     {
       std::string ns;
@@ -516,15 +505,15 @@ private:
     return pick(all);
   }
 
-  void publishBallPossessionStriker(const std::string & possessor)
-  {
+void FootballFakeBallPublisher::publishBallPossessionStriker(const std::string & possessor)
+{
     std_msgs::msg::String msg;
     msg.data = possessor;
     ball_possession_pub_->publish(msg);
   }
 
-  bool tryPushByAnyRobot(const rclcpp::Time & stamp, const double dt)
-  {
+bool FootballFakeBallPublisher::tryPushByAnyRobot(const rclcpp::Time & stamp, const double dt)
+{
     if (inKickoffHold(stamp)) {
       publishBallPossessionStriker("");
       return false;
@@ -560,8 +549,8 @@ private:
     return pushed;
   }
 
-  bool controlledRobotPoseFresh(const rclcpp::Time & stamp) const
-  {
+bool FootballFakeBallPublisher::controlledRobotPoseFresh(const rclcpp::Time & stamp) const
+{
     if (controlled_robot_namespace_.empty()) {
       return false;
     }
@@ -581,15 +570,15 @@ private:
     return age >= -0.08 && age <= 0.5;
   }
 
-  bool controlledRobotSeen(const rclcpp::Time & stamp) const
-  {
+bool FootballFakeBallPublisher::controlledRobotSeen(const rclcpp::Time & stamp) const
+{
     return controlled_robot_pose_seen_ &&
       controlled_robot_transform_valid_ &&
       controlledRobotPoseFresh(stamp);
   }
 
-  void updateControlledContactDiagnostics(const rclcpp::Time & stamp)
-  {
+void FootballFakeBallPublisher::updateControlledContactDiagnostics(const rclcpp::Time & stamp)
+{
     current_front_contact_ = false;
     current_side_contact_ = false;
     current_rear_contact_ = false;
@@ -633,8 +622,8 @@ private:
     }
   }
 
-  void publishDiagnostics(const rclcpp::Time & stamp)
-  {
+void FootballFakeBallPublisher::publishDiagnostics(const rclcpp::Time & stamp)
+{
     updateControlledContactDiagnostics(stamp);
 
     std_msgs::msg::Bool contact;
@@ -677,16 +666,16 @@ private:
     ball_velocity_pub_->publish(velocity);
   }
 
-  bool outOfBounds() const
-  {
+bool FootballFakeBallPublisher::outOfBounds() const
+{
     return sim_ball_x_ < field_min_x_ ||
       sim_ball_x_ > field_max_x_ ||
       sim_ball_y_ < field_min_y_ ||
       sim_ball_y_ > field_max_y_;
   }
 
-  void performPendingOpponentKickoff(const rclcpp::Time & stamp)
-  {
+void FootballFakeBallPublisher::performPendingOpponentKickoff(const rclcpp::Time & stamp)
+{
     if (!pending_opponent_kickoff_ || inKickoffHold(stamp)) {
       return;
     }
@@ -700,8 +689,8 @@ private:
     publishMatchStateCommand("PLAY");
   }
 
-  void signalOutOfBounds()
-  {
+void FootballFakeBallPublisher::signalOutOfBounds()
+{
     goal_completed_ = true;
     ball_velocity_x_ = ball_velocity_y_ = 0.0;
     std_msgs::msg::String event;
@@ -710,8 +699,8 @@ private:
     publishMatchStateCommand("FINISHED");
   }
 
-  void publishBallPose()
-  {
+void FootballFakeBallPublisher::publishBallPose()
+{
     const auto stamp = now();
     double dt = (stamp - last_publish_time_).seconds();
     if (dt <= 0.0 || dt > 0.5) {
@@ -772,107 +761,5 @@ private:
     publishDiagnostics(stamp);
   }
 
-  std::string frame_id_;
-  std::string ball_topic_;
-  std::string goal_event_topic_;
-  std::string ball_possession_striker_topic_;
-  double ball_contest_radius_m_{3.0};
-  double publish_rate_hz_{10.0};
-  double ball_x_{2.0};
-  double ball_y_{0.0};
-  double ball_z_{0.0};
-  double kickoff_x_{0.0};
-  double kickoff_y_{0.0};
-  double robot_front_extent_m_{0.25};
-  double robot_rear_extent_m_{0.23};
-  double robot_half_width_m_{0.13};
-  double ball_radius_m_{0.11};
-  double contact_tolerance_m_{0.03};
-  double minimum_contact_speed_mps_{0.02};
-  double ball_friction_mps2_{0.8};
-  double max_sim_ball_speed_mps_{0.25};
-  double max_ball_acceleration_mps2_{0.45};
-  double velocity_transfer_gain_{0.85};
-  double goal_width_m_{1.2};
-  double field_min_x_{-2.0};
-  double field_max_x_{8.0};
-  double field_min_y_{-3.0};
-  double field_max_y_{3.0};
-  double kickoff_hold_sec_{3.0};
-  double team_a_attack_goal_x_{8.0};
-  double team_a_attack_goal_y_{0.0};
-  double team_b_attack_goal_x_{-2.0};
-  double team_b_attack_goal_y_{0.0};
-  std::string team_a_striker_topic_;
-  std::string team_b_striker_topic_;
-  std::string odom_topic_template_;
-  bool continuous_demo_enabled_{false};
-  bool single_shot_enabled_{false};
-  std::string controlled_robot_namespace_;
-  std::string match_state_topic_;
-  std::string control_state_topic_;
-  std::string front_contact_topic_;
-  std::string side_contact_topic_;
-  std::string rear_contact_topic_;
-  std::string contact_robot_topic_;
-  std::string controlled_robot_pose_seen_topic_;
-  std::string controlled_robot_pose_fresh_topic_;
-  std::string controlled_robot_transform_valid_topic_;
-  std::string controlled_robot_seen_topic_;
-  std::string ball_velocity_topic_;
-  std::string match_state_{"STOP"};
-  std::string control_state_{"SAFE_STOP"};
-
-  double sim_ball_x_{2.0};
-  double sim_ball_y_{0.0};
-  double ball_velocity_x_{0.0};
-  double ball_velocity_y_{0.0};
-  rclcpp::Time last_publish_time_;
-  rclcpp::Time kickoff_hold_until_;
-  bool pending_opponent_kickoff_{false};
-  bool goal_completed_{false};
-  bool controlled_robot_pose_seen_{false};
-  bool controlled_robot_pose_fresh_{false};
-  bool controlled_robot_transform_valid_{false};
-  bool current_front_contact_{false};
-  bool current_side_contact_{false};
-  bool current_rear_contact_{false};
-  std::string current_contact_robot_;
-
-  bool have_striker_a_{false};
-  bool have_striker_b_{false};
-  std::string striker_a_;
-  std::string striker_b_;
-
-  std::map<std::string, nav_msgs::msg::Odometry> robot_odoms_;
-
-  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr publisher_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr goal_event_pub_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr match_state_command_pub_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr ball_possession_pub_;
-  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr front_contact_pub_;
-  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr side_contact_pub_;
-  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr rear_contact_pub_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr contact_robot_pub_;
-  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr controlled_robot_pose_seen_pub_;
-  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr controlled_robot_pose_fresh_pub_;
-  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr controlled_robot_transform_valid_pub_;
-  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr controlled_robot_seen_pub_;
-  rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr ball_velocity_pub_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr striker_a_sub_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr striker_b_sub_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr match_state_sub_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr control_state_sub_;
-  std::vector<rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr> odom_subs_;
-  rclcpp::TimerBase::SharedPtr timer_;
-};
 
 }  // namespace football_navigation
-
-int main(int argc, char ** argv)
-{
-  rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<football_navigation::FootballFakeBallPublisher>());
-  rclcpp::shutdown();
-  return 0;
-}

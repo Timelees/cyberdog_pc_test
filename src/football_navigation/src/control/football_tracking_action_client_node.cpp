@@ -4,15 +4,14 @@
 
 #include <memory>
 
+#include "football_navigation/control/football_tracking_action_client.hpp"
 #include "rclcpp/rclcpp.hpp"
-
-#include "football_navigation/control/football_goal_adapter.hpp"
 
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<football_navigation::FootballGoalAdapter>();
-  rclcpp::spin(node);
+  rclcpp::spin(
+    std::make_shared<football_navigation::FootballTrackingActionClient>());
   rclcpp::shutdown();
   return 0;
 }

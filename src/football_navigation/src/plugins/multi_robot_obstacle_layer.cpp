@@ -1,7 +1,7 @@
 // Copyright (c) 2026 CyberDog2 football navigation contributors.
 // Licensed under the Apache License, Version 2.0.
 
-#include "football_navigation/multi_robot_obstacle_layer.hpp"
+#include "football_navigation/plugins/multi_robot_obstacle_layer.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -16,7 +16,7 @@
 
 #include "behaviortree_cpp_v3/bt_factory.h"
 #include "dwb_core/trajectory_critic.hpp"
-#include "football_navigation/football_geometry.hpp"
+#include "football_navigation/core/football_geometry.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav_msgs/msg/path.hpp"
 #include "nav2_behavior_tree/bt_action_node.hpp"

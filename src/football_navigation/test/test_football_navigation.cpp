@@ -11,8 +11,8 @@
 #include "tf2/utils.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.h"
 
-#include "football_navigation/dynamic_obstacle_marker.hpp"
-#include "football_navigation/football_geometry.hpp"
+#include "football_navigation/plugins/dynamic_obstacle_marker.hpp"
+#include "football_navigation/core/football_geometry.hpp"
 
 namespace
 {

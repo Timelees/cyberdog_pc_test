@@ -487,7 +487,7 @@ class FootballContractTest(unittest.TestCase):
     def test_goal_adapter_is_timestamped_math_only(self):
         header = read(
             "cyberdog_nav2/football_navigation/include/"
-            "football_navigation/football_goal_adapter.hpp"
+            "football_navigation/control/football_goal_adapter.hpp"
         )
 
         source = read(
@@ -613,7 +613,7 @@ class FootballContractTest(unittest.TestCase):
     def test_obstacle_layer_is_namespaced_pose_array_only(self):
         header = read(
             "cyberdog_nav2/football_navigation/include/"
-            "football_navigation/multi_robot_obstacle_layer.hpp"
+            "football_navigation/plugins/multi_robot_obstacle_layer.hpp"
         )
         source = read(
             "cyberdog_nav2/football_navigation/src/"

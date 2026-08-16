@@ -14,12 +14,13 @@
 #include <string>
 #include <vector>
 
-#include "football_navigation/football_geometry.hpp"
+#include "football_navigation/core/football_geometry.hpp"
 #include "geometry_msgs/msg/pose_array.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "football_navigation/coordination/football_team_role_assigner.hpp"
 
 namespace football_navigation
 {
@@ -61,12 +62,9 @@ rclcpp::QoS latchedQos()
 
 }  // namespace
 
-class FootballTeamRoleAssigner : public rclcpp::Node
-{
-public:
-  FootballTeamRoleAssigner()
+FootballTeamRoleAssigner::FootballTeamRoleAssigner()
   : Node("football_team_role_assigner")
-  {
+{
     const auto zero = zeroTime();
     latest_ball_time_ = zero;
     kickoff_hold_until_ = zero;
@@ -248,28 +246,13 @@ public:
       odom_topic_template_.c_str(), update_rate_hz_);
   }
 
-private:
-  struct OdomState
-  {
-    nav_msgs::msg::Odometry odom;
-    rclcpp::Time stamp;
-    rclcpp::Time received;
-  };
-
-  struct RoleCommand
-  {
-    std::string role{"STOP"};
-    double x{0.0};
-    double y{0.0};
-  };
-
-  rclcpp::Time zeroTime() const
-  {
+rclcpp::Time FootballTeamRoleAssigner::zeroTime() const
+{
     return rclcpp::Time(0, 0, get_clock()->get_clock_type());
   }
 
-  void validateTeamRosters() const
-  {
+void FootballTeamRoleAssigner::validateTeamRosters() const
+{
     if (team_a_namespaces_.size() != 5 || team_b_namespaces_.size() != 5) {
       throw std::invalid_argument("each football team must contain exactly five robots");
     }
@@ -296,8 +279,8 @@ private:
     validate(team_b_namespaces_, 6, 10, "team_b");
   }
 
-  bool finitePose(const geometry_msgs::msg::Pose & pose) const
-  {
+bool FootballTeamRoleAssigner::finitePose(const geometry_msgs::msg::Pose & pose) const
+{
     const auto & q = pose.orientation;
     const double norm = q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w;
     return std::isfinite(pose.position.x) && std::isfinite(pose.position.y) &&
@@ -305,8 +288,8 @@ private:
            std::isfinite(q.y) && std::isfinite(q.z) && std::isfinite(q.w) && norm > 1e-8;
   }
 
-  bool ballFresh(const rclcpp::Time & stamp) const
-  {
+bool FootballTeamRoleAssigner::ballFresh(const rclcpp::Time & stamp) const
+{
     if (!have_ball_) {
       return false;
     }
@@ -314,8 +297,8 @@ private:
     return age >= 0.0 && age <= ball_timeout_sec_;
   }
 
-  void ballCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
-  {
+void FootballTeamRoleAssigner::ballCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+{
     if (!msg || msg->header.frame_id != field_frame_ || !finitePose(msg->pose)) {
       return;
     }
@@ -332,8 +315,8 @@ private:
     have_ball_ = true;
   }
 
-  void odomCallback(const std::string & robot_id, const nav_msgs::msg::Odometry::SharedPtr msg)
-  {
+void FootballTeamRoleAssigner::odomCallback(const std::string & robot_id, const nav_msgs::msg::Odometry::SharedPtr msg)
+{
     if (!msg || msg->header.frame_id != field_frame_ || !finitePose(msg->pose.pose)) {
       return;
     }
@@ -348,8 +331,8 @@ private:
     robot_odoms_[robot_id] = OdomState{*msg, stamp, now()};
   }
 
-  void authorityCallback(const std_msgs::msg::String::SharedPtr msg)
-  {
+void FootballTeamRoleAssigner::authorityCallback(const std_msgs::msg::String::SharedPtr msg)
+{
     if (!msg || msg->data.empty()) {
       return;
     }
@@ -379,14 +362,14 @@ private:
     conflicting_authority_ = seen_authority + "/" + seen_instance;
   }
 
-  void resetPendingChallenger(std::string & challenger, rclcpp::Time & since)
-  {
+void FootballTeamRoleAssigner::resetPendingChallenger(std::string & challenger, rclcpp::Time & since)
+{
     challenger.clear();
     since = zeroTime();
   }
 
-  void resetSelections()
-  {
+void FootballTeamRoleAssigner::resetSelections()
+{
     current_striker_a_.clear();
     current_striker_b_.clear();
     striker_since_a_ = zeroTime();
@@ -395,8 +378,8 @@ private:
     resetPendingChallenger(challenger_b_, challenger_since_b_);
   }
 
-  void startKickoff(const std::string & kickoff_state)
-  {
+void FootballTeamRoleAssigner::startKickoff(const std::string & kickoff_state)
+{
     match_state_ = kickoff_state;
     const auto stamp = now();
     kickoff_hold_until_ = stamp + rclcpp::Duration::from_seconds(kickoff_hold_sec_);
@@ -407,8 +390,8 @@ private:
     stopAllRoles("kickoff_start");
   }
 
-  void goalEventCallback(const std_msgs::msg::String::SharedPtr msg)
-  {
+void FootballTeamRoleAssigner::goalEventCallback(const std_msgs::msg::String::SharedPtr msg)
+{
     if (!msg) {
       return;
     }
@@ -419,8 +402,8 @@ private:
     }
   }
 
-  void matchStateCommandCallback(const std_msgs::msg::String::SharedPtr msg)
-  {
+void FootballTeamRoleAssigner::matchStateCommandCallback(const std_msgs::msg::String::SharedPtr msg)
+{
     if (!msg || !validMatchState(msg->data)) {
       return;
     }
@@ -445,34 +428,34 @@ private:
     }
   }
 
-  static bool validMatchState(const std::string & state)
-  {
+bool FootballTeamRoleAssigner::validMatchState(const std::string & state)
+{
     return state == "STOP" || state == "READY" || state == "PLAY" ||
            state == "KICKOFF_A" || state == "KICKOFF_B" || state == "FINISHED";
   }
 
-  bool matchStateAllowsMovement(const std::string & team_id) const
-  {
+bool FootballTeamRoleAssigner::matchStateAllowsMovement(const std::string & team_id) const
+{
     return match_state_ == "PLAY" ||
            (match_state_ == "KICKOFF_A" && team_id == "a") ||
            (match_state_ == "KICKOFF_B" && team_id == "b");
   }
 
-  void publishMatchState()
-  {
+void FootballTeamRoleAssigner::publishMatchState()
+{
     std_msgs::msg::String state;
     state.data = match_state_;
     match_state_pub_->publish(state);
   }
 
-  bool authorityConflictActive() const
-  {
+bool FootballTeamRoleAssigner::authorityConflictActive() const
+{
     return authority_conflict_time_.nanoseconds() > 0 &&
            (now() - authority_conflict_time_).seconds() <= authority_timeout_sec_;
   }
 
-  RobotPose2D robotPose(const std::string & id) const
-  {
+RobotPose2D FootballTeamRoleAssigner::robotPose(const std::string & id) const
+{
     RobotPose2D robot;
     robot.id = id;
     const auto found = robot_odoms_.find(id);
@@ -500,8 +483,8 @@ private:
     return robot;
   }
 
-  std::vector<RobotPose2D> teamPoses(const std::vector<std::string> & ids) const
-  {
+std::vector<RobotPose2D> FootballTeamRoleAssigner::teamPoses(const std::vector<std::string> & ids) const
+{
     std::vector<RobotPose2D> robots;
     robots.reserve(ids.size());
     for (const auto & id : ids) {
@@ -510,8 +493,8 @@ private:
     return robots;
   }
 
-  bool poseSkewAcceptable(const std::vector<RobotPose2D> & robots) const
-  {
+bool FootballTeamRoleAssigner::poseSkewAcceptable(const std::vector<RobotPose2D> & robots) const
+{
     double oldest = std::numeric_limits<double>::infinity();
     double newest = -std::numeric_limits<double>::infinity();
     for (const auto & robot : robots) {
@@ -524,33 +507,33 @@ private:
     return !std::isfinite(oldest) || newest - oldest <= max_pose_skew_sec_;
   }
 
-  static bool currentStrikerFresh(
-    const std::vector<RobotPose2D> & team, const std::string & current)
-  {
+bool FootballTeamRoleAssigner::currentStrikerFresh(
+  const std::vector<RobotPose2D> & team, const std::string & current)
+{
     return std::any_of(
       team.begin(), team.end(), [&current](const RobotPose2D & robot) {
         return robot.valid && robot.id == current;
       });
   }
 
-  static int countValidRobots(const std::vector<RobotPose2D> & team)
-  {
+int FootballTeamRoleAssigner::countValidRobots(const std::vector<RobotPose2D> & team)
+{
     return static_cast<int>(std::count_if(
       team.begin(), team.end(), [](const RobotPose2D & robot) {
         return robot.valid;
       }));
   }
 
-  void publishAuthority()
-  {
+void FootballTeamRoleAssigner::publishAuthority()
+{
     std_msgs::msg::String heartbeat;
     heartbeat.data = authority_id_ + "|" + authority_instance_id_ + "|" +
       std::to_string(now().seconds());
     authority_pub_->publish(heartbeat);
   }
 
-  void publishStrikers()
-  {
+void FootballTeamRoleAssigner::publishStrikers()
+{
     std_msgs::msg::String team_a;
     team_a.data = current_striker_a_;
     striker_a_pub_->publish(team_a);
@@ -559,8 +542,8 @@ private:
     striker_b_pub_->publish(team_b);
   }
 
-  void publishKickTargets()
-  {
+void FootballTeamRoleAssigner::publishKickTargets()
+{
     geometry_msgs::msg::PoseStamped team_a;
     team_a.header.stamp = now();
     team_a.header.frame_id = field_frame_;
@@ -575,24 +558,24 @@ private:
     kick_target_b_pub_->publish(team_b);
   }
 
-  double clampTacticalX(const double x) const
-  {
+double FootballTeamRoleAssigner::clampTacticalX(const double x) const
+{
     return std::clamp(
       x, field_min_x_ + tactical_boundary_margin_m_,
       field_max_x_ - tactical_boundary_margin_m_);
   }
 
-  double clampTacticalY(const double y) const
-  {
+double FootballTeamRoleAssigner::clampTacticalY(const double y) const
+{
     return std::clamp(
       y, field_min_y_ + tactical_boundary_margin_m_,
       field_max_y_ - tactical_boundary_margin_m_);
   }
 
-  void publishRole(
-    const std::string & robot_id, const std::string & role,
-    const double x, const double y)
-  {
+void FootballTeamRoleAssigner::publishRole(
+  const std::string & robot_id, const std::string & role,
+  const double x, const double y)
+{
     std_msgs::msg::String role_msg;
     role_msg.data = role;
     role_pubs_.at(robot_id)->publish(role_msg);
@@ -608,10 +591,10 @@ private:
     tactical_target_pubs_.at(robot_id)->publish(target);
   }
 
-  void publishTeamTactics(
-    const std::vector<RobotPose2D> & team, const std::string & team_id,
-    const std::string & striker)
-  {
+void FootballTeamRoleAssigner::publishTeamTactics(
+  const std::vector<RobotPose2D> & team, const std::string & team_id,
+  const std::string & striker)
+{
     std::map<std::string, RoleCommand> commands;
     for (const auto & robot : team) {
       commands.emplace(robot.id, RoleCommand{});
@@ -676,8 +659,8 @@ private:
     }
   }
 
-  void publishOtherRobots(const std::vector<RobotPose2D> & all)
-  {
+void FootballTeamRoleAssigner::publishOtherRobots(const std::vector<RobotPose2D> & all)
+{
     for (const auto & ego : all) {
       if (!ego.valid) {
         continue;
@@ -717,11 +700,11 @@ private:
     }
   }
 
-  std::string selectNearestStriker(
-    const std::vector<RobotPose2D> & robots, const std::string & current,
-    rclcpp::Time & current_since, std::string & challenger,
-    rclcpp::Time & challenger_since, const rclcpp::Time & stamp)
-  {
+std::string FootballTeamRoleAssigner::selectNearestStriker(
+  const std::vector<RobotPose2D> & robots, const std::string & current,
+  rclcpp::Time & current_since, std::string & challenger,
+  rclcpp::Time & challenger_since, const rclcpp::Time & stamp)
+{
     const auto best_index = indexOfClosestRobot(
       robots, latest_ball_.pose.position.x, latest_ball_.pose.position.y);
     if (best_index >= robots.size()) {
@@ -777,16 +760,16 @@ private:
     return best_id;
   }
 
-  void publishStatus(const std::string & prefix)
-  {
+void FootballTeamRoleAssigner::publishStatus(const std::string & prefix)
+{
     std_msgs::msg::String status;
     status.data = prefix + " team_a_striker=" + current_striker_a_ +
       " team_b_striker=" + current_striker_b_;
     status_pub_->publish(status);
   }
 
-  void stopAllRoles(const std::string & reason)
-  {
+void FootballTeamRoleAssigner::stopAllRoles(const std::string & reason)
+{
     for (const auto & item : role_pubs_) {
       publishRole(item.first, "STOP", 0.0, 0.0);
     }
@@ -794,26 +777,26 @@ private:
     publishStatus(reason);
   }
 
-  void clearRoles(const std::string & reason)
-  {
+void FootballTeamRoleAssigner::clearRoles(const std::string & reason)
+{
     resetSelections();
     stopAllRoles(reason);
   }
 
-  void clearTeamSelection(
-    std::string & current, rclcpp::Time & current_since,
-    std::string & challenger, rclcpp::Time & challenger_since)
-  {
+void FootballTeamRoleAssigner::clearTeamSelection(
+  std::string & current, rclcpp::Time & current_since,
+  std::string & challenger, rclcpp::Time & challenger_since)
+{
     current.clear();
     current_since = zeroTime();
     resetPendingChallenger(challenger, challenger_since);
   }
 
-  void updateSelections(
-    const std::vector<RobotPose2D> & team_a,
-    const std::vector<RobotPose2D> & team_b,
-    const rclcpp::Time & stamp)
-  {
+void FootballTeamRoleAssigner::updateSelections(
+  const std::vector<RobotPose2D> & team_a,
+  const std::vector<RobotPose2D> & team_b,
+  const rclcpp::Time & stamp)
+{
     const bool team_a_eligible = matchStateAllowsMovement("a") &&
       countValidRobots(team_a) >= minimum_online_per_team_ &&
       poseSkewAcceptable(team_a);
@@ -860,15 +843,15 @@ private:
     publishStrikers();
   }
 
-  void captureKickoffReference()
-  {
+void FootballTeamRoleAssigner::captureKickoffReference()
+{
     kickoff_ball_x_ = latest_ball_.pose.position.x;
     kickoff_ball_y_ = latest_ball_.pose.position.y;
     kickoff_reference_valid_ = true;
   }
 
-  void update()
-  {
+void FootballTeamRoleAssigner::update()
+{
     const auto stamp = now();
     publishAuthority();
 
@@ -954,104 +937,5 @@ private:
     publishStatus("active");
   }
 
-  std::string field_frame_;
-  std::string ball_topic_;
-  std::string odom_source_mode_;
-  std::string odom_topic_template_;
-  std::string authority_id_;
-  std::string authority_instance_id_;
-  std::string authority_topic_;
-  std::string match_state_topic_;
-  std::string match_state_command_topic_;
-  std::string match_state_;
-  std::string conflicting_authority_;
-  std::vector<std::string> team_a_namespaces_;
-  std::vector<std::string> team_b_namespaces_;
-  std::string forced_team_a_striker_namespace_;
-  double team_a_attack_goal_x_{8.0};
-  double team_a_attack_goal_y_{0.0};
-  double team_b_attack_goal_x_{-2.0};
-  double team_b_attack_goal_y_{0.0};
-  double field_min_x_{-2.0};
-  double field_max_x_{8.0};
-  double field_min_y_{-3.0};
-  double field_max_y_{3.0};
-  double tactical_boundary_margin_m_{0.30};
-  double update_rate_hz_{5.0};
-  double max_pose_age_sec_{0.40};
-  double max_pose_skew_sec_{0.15};
-  double ball_timeout_sec_{0.35};
-  double future_tolerance_sec_{0.08};
-  double authority_timeout_sec_{1.0};
-  double striker_min_hold_sec_{1.5};
-  double striker_benefit_threshold_{0.45};
-  double striker_switch_confirm_sec_{0.80};
-  double kickoff_hold_sec_{3.0};
-  double kickoff_release_distance_m_{0.25};
-  double kickoff_max_duration_sec_{10.0};
-  int minimum_online_per_team_{1};
-  int minimum_other_robot_count_{9};
-  bool have_ball_{false};
-  bool kickoff_reference_valid_{false};
-  geometry_msgs::msg::PoseStamped latest_ball_;
-  rclcpp::Time latest_ball_time_;
-  rclcpp::Time kickoff_hold_until_;
-  rclcpp::Time kickoff_started_;
-  double kickoff_ball_x_{0.0};
-  double kickoff_ball_y_{0.0};
-  rclcpp::Time striker_since_a_;
-  rclcpp::Time striker_since_b_;
-  rclcpp::Time challenger_since_a_;
-  rclcpp::Time challenger_since_b_;
-  rclcpp::Time authority_conflict_time_;
-  std::string current_striker_a_;
-  std::string current_striker_b_;
-  std::string challenger_a_;
-  std::string challenger_b_;
-  std::map<std::string, OdomState> robot_odoms_;
-  std::map<std::string, rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr>
-    other_robot_pubs_;
-  std::map<std::string, rclcpp::Publisher<std_msgs::msg::String>::SharedPtr> role_pubs_;
-  std::map<std::string, rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr>
-    tactical_target_pubs_;
-  std::vector<rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr> odom_subs_;
-  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ball_sub_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr authority_sub_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr goal_event_sub_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr match_state_command_sub_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr striker_a_pub_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr striker_b_pub_;
-  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr kick_target_a_pub_;
-  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr kick_target_b_pub_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr authority_pub_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr match_state_pub_;
-  rclcpp::TimerBase::SharedPtr timer_;
-};
 
 }  // namespace football_navigation
-
-int main(int argc, char ** argv)
-{
-  rclcpp::init(argc, argv);
-
-  int exit_code = 0;
-  try {
-    const auto node =
-      std::make_shared<football_navigation::FootballTeamRoleAssigner>();
-    rclcpp::spin(node);
-  } catch (const std::exception & exception) {
-    RCLCPP_FATAL(
-      rclcpp::get_logger("football_team_role_assigner"),
-      "fatal exception: %s", exception.what());
-    exit_code = 1;
-  } catch (...) {
-    RCLCPP_FATAL(
-      rclcpp::get_logger("football_team_role_assigner"),
-      "fatal unknown exception");
-    exit_code = 1;
-  }
-
-  rclcpp::shutdown();
-  return exit_code;
-}

@@ -10,5 +10,11 @@ target names remain unchanged; this layout only separates source ownership.
 - `plugins/`: Nav2 costmap/progress-checker plugin implementation.
 - `visualization/`: RViz marker aggregation and presentation.
 
-Public headers remain under `include/football_navigation/`, so moving a source
-between these folders does not change the package's public include paths.
+Public headers mirror these folders under `include/football_navigation/`.
+Include paths therefore state the owning responsibility explicitly.
+
+ROS node targets use a consistent three-file structure:
+
+- `include/.../<name>.hpp`: node class declaration and owned state.
+- `src/.../<name>.cpp`: out-of-line method implementations.
+- `src/.../<name>_node.cpp` (or `*_main.cpp`): process entry point only.

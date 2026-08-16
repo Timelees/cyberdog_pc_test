@@ -15,7 +15,7 @@
 #include "nav2_costmap_2d/costmap_layer.hpp"
 #include "rclcpp/rclcpp.hpp"
 
-#include "football_navigation/dynamic_obstacle_marker.hpp"
+#include "football_navigation/plugins/dynamic_obstacle_marker.hpp"
 
 namespace football_navigation
 {

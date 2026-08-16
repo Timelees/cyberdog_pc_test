@@ -17,7 +17,7 @@
 #include <vector>
 
 #include "builtin_interfaces/msg/time.hpp"
-#include "football_navigation/football_geometry.hpp"
+#include "football_navigation/core/football_geometry.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/pose_array.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
@@ -35,6 +35,7 @@
 #include "tf2_ros/transform_listener.h"
 #include "visualization_msgs/msg/marker.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
+#include "football_navigation/visualization/football_visualization_node.hpp"
 
 namespace football_navigation
 {
@@ -86,12 +87,9 @@ void costToRgb(unsigned char cost, float & r, float & g, float & b)
 
 }  // namespace
 
-class FootballVisualizationNode : public rclcpp::Node
-{
-public:
-  FootballVisualizationNode()
+FootballVisualizationNode::FootballVisualizationNode()
   : Node("football_visualization_node")
-  {
+{
     target_frame_ = declare_parameter<std::string>("target_frame", "base_link");
     base_frame_ = declare_parameter<std::string>("base_frame", "base_link");
     field_frame_ = declare_parameter<std::string>("field_frame", "tag_global");
@@ -398,14 +396,13 @@ public:
       target_frame_.c_str(), costmap_topic_.c_str(), cmd_vel_topic_.c_str());
   }
 
-private:
-  bool fresh(const rclcpp::Time & stamp, const rclcpp::Time & current) const
-  {
+bool FootballVisualizationNode::fresh(const rclcpp::Time & stamp, const rclcpp::Time & current) const
+{
     return (current - stamp).seconds() <= stale_timeout_sec_;
   }
 
-  void setLifetime(visualization_msgs::msg::Marker & marker) const
-  {
+void FootballVisualizationNode::setLifetime(visualization_msgs::msg::Marker & marker) const
+{
     if (marker_lifetime_sec_ <= 0.0) {
       marker.lifetime.sec = 0;
       marker.lifetime.nanosec = 0;
@@ -418,13 +415,13 @@ private:
     marker.lifetime.nanosec = nsec;
   }
 
-  visualization_msgs::msg::Marker makeBaseMarker(
-    const std::string & frame,
-    const std::string & ns,
-    int id,
-    int type,
-    const rclcpp::Time & stamp) const
-  {
+visualization_msgs::msg::Marker FootballVisualizationNode::makeBaseMarker(
+  const std::string & frame,
+  const std::string & ns,
+  int id,
+  int type,
+  const rclcpp::Time & stamp) const
+{
     visualization_msgs::msg::Marker marker;
     marker.header.frame_id = frame.empty() ? target_frame_ : frame;
     marker.header.stamp = stamp;
@@ -437,10 +434,10 @@ private:
     return marker;
   }
 
-  bool transformPoseToTarget(
-    const geometry_msgs::msg::PoseStamped & in,
-    geometry_msgs::msg::PoseStamped & out)
-  {
+bool FootballVisualizationNode::transformPoseToTarget(
+  const geometry_msgs::msg::PoseStamped & in,
+  geometry_msgs::msg::PoseStamped & out)
+{
     if (in.header.frame_id.empty()) {
       return false;
     }
@@ -460,11 +457,11 @@ private:
     }
   }
 
-  bool transformPoseInPlace(
-    geometry_msgs::msg::Pose & pose,
-    const std::string & frame_id,
-    const builtin_interfaces::msg::Time & stamp)
-  {
+bool FootballVisualizationNode::transformPoseInPlace(
+  geometry_msgs::msg::Pose & pose,
+  const std::string & frame_id,
+  const builtin_interfaces::msg::Time & stamp)
+{
     geometry_msgs::msg::PoseStamped in;
     in.header.frame_id = frame_id;
     in.header.stamp = stamp;
@@ -477,42 +474,42 @@ private:
     return true;
   }
 
-  void setColor(
-    visualization_msgs::msg::Marker & marker,
-    float r,
-    float g,
-    float b,
-    float a = 1.0) const
-  {
+void FootballVisualizationNode::setColor(
+  visualization_msgs::msg::Marker & marker,
+  float r,
+  float g,
+  float b,
+  float a) const
+{
     marker.color.r = r;
     marker.color.g = g;
     marker.color.b = b;
     marker.color.a = a;
   }
 
-  void appendDeleteAll(
-    visualization_msgs::msg::MarkerArray & array,
-    const rclcpp::Time & stamp) const
-  {
+void FootballVisualizationNode::appendDeleteAll(
+  visualization_msgs::msg::MarkerArray & array,
+  const rclcpp::Time & stamp) const
+{
     auto del = makeBaseMarker(
       target_frame_, "football_clear", 0,
       visualization_msgs::msg::Marker::DELETEALL, stamp);
     array.markers.push_back(del);
   }
 
-  void appendPoseMarker(
-    visualization_msgs::msg::MarkerArray & array,
-    const geometry_msgs::msg::PoseStamped & pose_in,
-    const std::string & ns,
-    int id_base,
-    const std::string & label,
-    float r,
-    float g,
-    float b,
-    double sphere_size,
-    bool draw_arrow,
-    const rclcpp::Time & stamp)
-  {
+void FootballVisualizationNode::appendPoseMarker(
+  visualization_msgs::msg::MarkerArray & array,
+  const geometry_msgs::msg::PoseStamped & pose_in,
+  const std::string & ns,
+  int id_base,
+  const std::string & label,
+  float r,
+  float g,
+  float b,
+  double sphere_size,
+  bool draw_arrow,
+  const rclcpp::Time & stamp)
+{
     geometry_msgs::msg::PoseStamped pose;
     if (!transformPoseToTarget(pose_in, pose)) {
       return;
@@ -556,17 +553,17 @@ private:
     array.markers.push_back(text);
   }
 
-  void appendGoalMarker(
-    visualization_msgs::msg::MarkerArray & array,
-    const geometry_msgs::msg::PoseStamped & kick_in,
-    const std::string & ns,
-    int id_base,
-    const std::string & label,
-    float r,
-    float g,
-    float b,
-    const rclcpp::Time & stamp)
-  {
+void FootballVisualizationNode::appendGoalMarker(
+  visualization_msgs::msg::MarkerArray & array,
+  const geometry_msgs::msg::PoseStamped & kick_in,
+  const std::string & ns,
+  int id_base,
+  const std::string & label,
+  float r,
+  float g,
+  float b,
+  const rclcpp::Time & stamp)
+{
     geometry_msgs::msg::PoseStamped kick;
     if (!transformPoseToTarget(kick_in, kick)) {
       return;
@@ -616,14 +613,14 @@ private:
     array.markers.push_back(label_marker);
   }
 
-  void appendLine(
-    visualization_msgs::msg::MarkerArray & array,
-    const geometry_msgs::msg::PoseStamped & a_in,
-    const geometry_msgs::msg::PoseStamped & b_in,
-    const std::string & ns,
-    int id,
-    const rclcpp::Time & stamp)
-  {
+void FootballVisualizationNode::appendLine(
+  visualization_msgs::msg::MarkerArray & array,
+  const geometry_msgs::msg::PoseStamped & a_in,
+  const geometry_msgs::msg::PoseStamped & b_in,
+  const std::string & ns,
+  int id,
+  const rclcpp::Time & stamp)
+{
     geometry_msgs::msg::PoseStamped a;
     geometry_msgs::msg::PoseStamped b;
     if (!transformPoseToTarget(a_in, a) || !transformPoseToTarget(b_in, b)) {
@@ -647,10 +644,10 @@ private:
     array.markers.push_back(line);
   }
 
-  void appendFieldBoundary(
-    visualization_msgs::msg::MarkerArray & array,
-    const rclcpp::Time & stamp) const
-  {
+void FootballVisualizationNode::appendFieldBoundary(
+  visualization_msgs::msg::MarkerArray & array,
+  const rclcpp::Time & stamp) const
+{
     const double min_x = field_center_x_ - field_length_m_ * 0.5;
     const double max_x = field_center_x_ + field_length_m_ * 0.5;
     const double min_y = field_center_y_ - field_width_m_ * 0.5;
@@ -717,16 +714,16 @@ private:
     array.markers.push_back(origin);
   }
 
-  void appendPath(
-    visualization_msgs::msg::MarkerArray & array,
-    const nav_msgs::msg::Path & path,
-    const std::string & marker_namespace,
-    int id,
-    float r,
-    float g,
-    float b,
-    const rclcpp::Time & stamp)
-  {
+void FootballVisualizationNode::appendPath(
+  visualization_msgs::msg::MarkerArray & array,
+  const nav_msgs::msg::Path & path,
+  const std::string & marker_namespace,
+  int id,
+  float r,
+  float g,
+  float b,
+  const rclcpp::Time & stamp)
+{
     auto line = makeBaseMarker(
       target_frame_, marker_namespace, id,
       visualization_msgs::msg::Marker::LINE_STRIP, stamp);
@@ -751,11 +748,11 @@ private:
     }
   }
 
-  void appendFootprint(
-    visualization_msgs::msg::MarkerArray & array,
-    const geometry_msgs::msg::Pose & pose,
-    const rclcpp::Time & stamp) const
-  {
+void FootballVisualizationNode::appendFootprint(
+  visualization_msgs::msg::MarkerArray & array,
+  const geometry_msgs::msg::Pose & pose,
+  const rclcpp::Time & stamp) const
+{
     auto footprint = makeBaseMarker(
       target_frame_, "footprint", 620,
       visualization_msgs::msg::Marker::LINE_STRIP, stamp);
@@ -782,11 +779,11 @@ private:
     array.markers.push_back(footprint);
   }
 
-  void appendOdometry(
-    visualization_msgs::msg::MarkerArray & array,
-    const nav_msgs::msg::Odometry & odom,
-    const rclcpp::Time & stamp)
-  {
+void FootballVisualizationNode::appendOdometry(
+  visualization_msgs::msg::MarkerArray & array,
+  const nav_msgs::msg::Odometry & odom,
+  const rclcpp::Time & stamp)
+{
     geometry_msgs::msg::PoseStamped pose;
     pose.header = odom.header;
     pose.pose = odom.pose.pose;
@@ -804,11 +801,11 @@ private:
       stamp);
   }
 
-  void appendOtherRobots(
-    visualization_msgs::msg::MarkerArray & array,
-    const geometry_msgs::msg::PoseArray & poses,
-    const rclcpp::Time & stamp)
-  {
+void FootballVisualizationNode::appendOtherRobots(
+  visualization_msgs::msg::MarkerArray & array,
+  const geometry_msgs::msg::PoseArray & poses,
+  const rclcpp::Time & stamp)
+{
     for (std::size_t i = 0; i < poses.poses.size(); ++i) {
       geometry_msgs::msg::Pose pose = poses.poses[i];
       if (!transformPoseInPlace(
@@ -845,11 +842,11 @@ private:
     }
   }
 
-  void appendCostmapPoints(
-    visualization_msgs::msg::MarkerArray & array,
-    const nav_msgs::msg::OccupancyGrid & grid,
-    const rclcpp::Time & stamp)
-  {
+void FootballVisualizationNode::appendCostmapPoints(
+  visualization_msgs::msg::MarkerArray & array,
+  const nav_msgs::msg::OccupancyGrid & grid,
+  const rclcpp::Time & stamp)
+{
     if (grid.header.frame_id != target_frame_) {
       return;
     }
@@ -901,8 +898,8 @@ private:
     }
   }
 
-  std::size_t countCostmapBackedRobots()
-  {
+std::size_t FootballVisualizationNode::countCostmapBackedRobots()
+{
     if (!have_other_robots_ ||
       costmap_.header.frame_id != target_frame_ ||
       costmap_.info.resolution <= 0.0 ||
@@ -961,10 +958,10 @@ private:
     return matched;
   }
 
-  bool lookupRobotPoseInTarget(
-    const std::string & robot_frame,
-    geometry_msgs::msg::Pose & pose) const
-  {
+bool FootballVisualizationNode::lookupRobotPoseInTarget(
+  const std::string & robot_frame,
+  geometry_msgs::msg::Pose & pose) const
+{
     try {
       const auto tf = tf_buffer_->lookupTransform(
         target_frame_,
@@ -980,8 +977,8 @@ private:
     }
   }
 
-  bool isStrikerNamespace(const std::string & ns) const
-  {
+bool FootballVisualizationNode::isStrikerNamespace(const std::string & ns) const
+{
     auto norm = [](std::string s) {
       if (!s.empty() && s.front() == '/') {
         s.erase(0, 1);
@@ -998,16 +995,16 @@ private:
     return false;
   }
 
-  void appendInflationRing(
-    visualization_msgs::msg::MarkerArray & array,
-    const geometry_msgs::msg::Pose & pose,
-    const std::string & ns,
-    int id,
-    float r,
-    float g,
-    float b,
-    const rclcpp::Time & stamp) const
-  {
+void FootballVisualizationNode::appendInflationRing(
+  visualization_msgs::msg::MarkerArray & array,
+  const geometry_msgs::msg::Pose & pose,
+  const std::string & ns,
+  int id,
+  float r,
+  float g,
+  float b,
+  const rclcpp::Time & stamp) const
+{
     const double outer_r = other_robot_radius_ + inflation_radius_m_;
     auto ring = makeBaseMarker(
       target_frame_, ns, id,
@@ -1032,10 +1029,10 @@ private:
     array.markers.push_back(inner);
   }
 
-  void appendAllTeamRobotInflations(
-    visualization_msgs::msg::MarkerArray & array,
-    const rclcpp::Time & stamp) const
-  {
+void FootballVisualizationNode::appendAllTeamRobotInflations(
+  visualization_msgs::msg::MarkerArray & array,
+  const rclcpp::Time & stamp) const
+{
     const int count = std::max(1, team_robot_count_);
     for (int i = 1; i <= count; ++i) {
       const std::string ns = "cyberdog_" + std::to_string(i);
@@ -1057,8 +1054,8 @@ private:
     }
   }
 
-  bool lookupEgoPoseInTarget(geometry_msgs::msg::Pose & pose) const
-  {
+bool FootballVisualizationNode::lookupEgoPoseInTarget(geometry_msgs::msg::Pose & pose) const
+{
     for (const auto & ego_frame : ego_base_frames_) {
       try {
         const auto tf = tf_buffer_->lookupTransform(
@@ -1077,11 +1074,11 @@ private:
     return false;
   }
 
-  void appendEgoRobot(
-    visualization_msgs::msg::MarkerArray & array,
-    const geometry_msgs::msg::Pose & pose,
-    const rclcpp::Time & stamp) const
-  {
+void FootballVisualizationNode::appendEgoRobot(
+  visualization_msgs::msg::MarkerArray & array,
+  const geometry_msgs::msg::Pose & pose,
+  const rclcpp::Time & stamp) const
+{
     auto box = makeBaseMarker(
       target_frame_, "ego_robot", 60,
       visualization_msgs::msg::Marker::CUBE, stamp);
@@ -1108,19 +1105,19 @@ private:
     array.markers.push_back(text);
   }
 
-  void appendTwistArrowAt(
-    visualization_msgs::msg::MarkerArray & array,
-    const geometry_msgs::msg::Twist & twist,
-    const geometry_msgs::msg::Pose & origin,
-    const std::string & ns,
-    int id,
-    const std::string & label,
-    float r,
-    float g,
-    float b,
-    double z_offset_extra,
-    const rclcpp::Time & stamp) const
-  {
+void FootballVisualizationNode::appendTwistArrowAt(
+  visualization_msgs::msg::MarkerArray & array,
+  const geometry_msgs::msg::Twist & twist,
+  const geometry_msgs::msg::Pose & origin,
+  const std::string & ns,
+  int id,
+  const std::string & label,
+  float r,
+  float g,
+  float b,
+  double z_offset_extra,
+  const rclcpp::Time & stamp) const
+{
     auto arrow = makeBaseMarker(
       target_frame_, ns, id,
       visualization_msgs::msg::Marker::ARROW, stamp);
@@ -1158,18 +1155,18 @@ private:
     array.markers.push_back(text);
   }
 
-  void appendTwistArrow(
-    visualization_msgs::msg::MarkerArray & array,
-    const geometry_msgs::msg::Twist & twist,
-    const std::string & ns,
-    int id,
-    const std::string & label,
-    float r,
-    float g,
-    float b,
-    double z,
-    const rclcpp::Time & stamp) const
-  {
+void FootballVisualizationNode::appendTwistArrow(
+  visualization_msgs::msg::MarkerArray & array,
+  const geometry_msgs::msg::Twist & twist,
+  const std::string & ns,
+  int id,
+  const std::string & label,
+  float r,
+  float g,
+  float b,
+  double z,
+  const rclcpp::Time & stamp) const
+{
     auto arrow = makeBaseMarker(
       target_frame_, ns, id,
       visualization_msgs::msg::Marker::ARROW, stamp);
@@ -1206,12 +1203,12 @@ private:
     array.markers.push_back(text);
   }
 
-  void appendMotionServoArrow(
-    visualization_msgs::msg::MarkerArray & array,
-    const protocol::msg::MotionServoCmd & cmd,
-    const geometry_msgs::msg::Pose * origin,
-    const rclcpp::Time & stamp) const
-  {
+void FootballVisualizationNode::appendMotionServoArrow(
+  visualization_msgs::msg::MarkerArray & array,
+  const protocol::msg::MotionServoCmd & cmd,
+  const geometry_msgs::msg::Pose * origin,
+  const rclcpp::Time & stamp) const
+{
     geometry_msgs::msg::Twist twist;
     if (cmd.vel_des.size() > 0) {
       twist.linear.x = cmd.vel_des[0];
@@ -1250,11 +1247,11 @@ private:
     }
   }
 
-  void appendStatusText(
-    visualization_msgs::msg::MarkerArray & array,
-    const rclcpp::Time & stamp,
-    const std::size_t costmap_dynamic_robot_count) const
-  {
+void FootballVisualizationNode::appendStatusText(
+  visualization_msgs::msg::MarkerArray & array,
+  const rclcpp::Time & stamp,
+  const std::size_t costmap_dynamic_robot_count) const
+{
     auto text = makeBaseMarker(
       target_frame_, "football_status", 900,
       visualization_msgs::msg::Marker::TEXT_VIEW_FACING, stamp);
@@ -1296,8 +1293,8 @@ private:
     array.markers.push_back(text);
   }
 
-  void publishMarkers()
-  {
+void FootballVisualizationNode::publishMarkers()
+{
     std::lock_guard<std::mutex> lock(mutex_);
     const auto stamp = now();
 
@@ -1540,165 +1537,5 @@ private:
     status_marker_pub_->publish(status_markers);
   }
 
-  std::string target_frame_;
-  std::string base_frame_;
-  std::string ball_topic_;
-  std::string approach_pose_topic_;
-  std::string tracking_pose_topic_;
-  std::string goal_pose_topic_;
-  std::string other_robot_poses_topic_;
-  std::string cmd_vel_topic_;
-  std::string motion_servo_cmd_topic_;
-  std::string costmap_topic_;
-  std::string path_topic_;
-  std::string local_trajectory_topic_;
-  std::string odom_topic_;
-  std::string field_marker_topic_;
-  std::string robot_marker_topic_;
-  std::string ball_marker_topic_;
-  std::string approach_marker_topic_;
-  std::string tracking_marker_topic_;
-  std::string path_marker_topic_;
-  std::string goal_marker_topic_;
-  std::string costmap_marker_topic_;
-  std::string command_marker_topic_;
-  std::string status_marker_topic_;
-  std::string team_a_kick_topic_;
-  std::string team_b_kick_topic_;
-  bool show_field_boundary_{true};
-  bool show_ball_marker_{true};
-  bool show_goal_markers_{true};
-  bool show_ego_robot_marker_{true};
-  bool show_other_robot_markers_{true};
-  bool show_robot_inflation_markers_{true};
-  double inflation_radius_m_{0.35};
-  int team_robot_count_{10};
-  std::string team_a_striker_topic_;
-  std::string team_b_striker_topic_;
-  double ego_robot_length_m_{0.562};
-  double ego_robot_width_m_{0.339};
-  double ego_robot_height_m_{0.481};
-  double goal_width_m_{1.2};
-  double goal_post_height_m_{0.45};
-  double field_center_x_{0.0};
-  double field_center_y_{0.0};
-  double field_length_m_{16.0};
-  double field_width_m_{8.0};
-  double center_circle_radius_m_{0.75};
-
-  double publish_rate_hz_;
-  double stale_timeout_sec_;
-  double marker_lifetime_sec_;
-  bool use_delete_all_before_publish_{false};
-  double velocity_arrow_scale_;
-  double other_robot_length_m_;
-  double other_robot_width_m_;
-  double other_robot_height_m_;
-  double other_robot_radius_;
-  double z_offset_;
-  double command_panel_x_{-3.0};
-  double command_panel_y_{-5.0};
-  double status_panel_x_{1.0};
-  double status_panel_y_{-5.0};
-  bool enable_costmap_markers_{true};
-  int costmap_min_cost_{1};
-  bool expect_motion_cmds_{false};
-  std::string field_frame_;
-  std::string self_namespace_;
-  std::string team_id_;
-  std::vector<std::string> ego_base_frames_;
-
-  std::mutex mutex_;
-
-  bool have_ball_{false};
-  bool have_approach_{false};
-  bool have_tracking_{false};
-  bool have_goal_{false};
-  bool have_other_robots_{false};
-  bool have_cmd_vel_{false};
-  bool have_motion_servo_cmd_{false};
-  bool have_costmap_{false};
-  bool have_path_{false};
-  bool have_local_trajectory_{false};
-  bool have_odom_{false};
-  bool have_team_a_kick_{false};
-  bool have_team_b_kick_{false};
-  bool have_striker_a_{false};
-  bool have_striker_b_{false};
-  std::size_t costmap_obstacle_cell_count_{0};
-
-  std::string striker_a_;
-  std::string striker_b_;
-
-  geometry_msgs::msg::PoseStamped team_a_kick_default_;
-  geometry_msgs::msg::PoseStamped team_b_kick_default_;
-  geometry_msgs::msg::PoseStamped team_a_kick_;
-  geometry_msgs::msg::PoseStamped team_b_kick_;
-  geometry_msgs::msg::PoseStamped ball_pose_;
-  geometry_msgs::msg::PoseStamped approach_pose_;
-  geometry_msgs::msg::PoseStamped tracking_pose_;
-  geometry_msgs::msg::PoseStamped goal_pose_;
-  geometry_msgs::msg::PoseArray other_robot_poses_;
-  geometry_msgs::msg::Twist cmd_vel_;
-  protocol::msg::MotionServoCmd motion_servo_cmd_;
-  nav_msgs::msg::OccupancyGrid costmap_;
-  nav_msgs::msg::Path path_;
-  nav_msgs::msg::Path local_trajectory_;
-  nav_msgs::msg::Odometry odom_;
-
-  rclcpp::Time ball_time_;
-  rclcpp::Time approach_time_;
-  rclcpp::Time tracking_time_;
-  rclcpp::Time goal_time_;
-  rclcpp::Time other_robot_time_;
-  rclcpp::Time cmd_vel_time_;
-  rclcpp::Time motion_servo_cmd_time_;
-  rclcpp::Time costmap_time_;
-  rclcpp::Time path_time_;
-  rclcpp::Time local_trajectory_time_;
-  rclcpp::Time odom_time_;
-  rclcpp::Time team_a_kick_time_;
-  rclcpp::Time team_b_kick_time_;
-
-  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr field_marker_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr robot_marker_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr ball_marker_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr approach_marker_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr tracking_marker_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr path_marker_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr goal_marker_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr costmap_marker_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr command_marker_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr status_marker_pub_;
-  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ball_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr approach_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr tracking_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr other_robots_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
-  rclcpp::Subscription<protocol::msg::MotionServoCmd>::SharedPtr motion_servo_cmd_sub_;
-  rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_sub_;
-  rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
-  rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr local_trajectory_sub_;
-  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr team_a_kick_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr team_b_kick_sub_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr striker_a_sub_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr striker_b_sub_;
-  rclcpp::TimerBase::SharedPtr timer_;
-};
 
 }  // namespace football_navigation
-
-int main(int argc, char ** argv)
-{
-  rclcpp::init(argc, argv);
-  rclcpp::spin(
-    std::make_shared<
-      football_navigation::FootballVisualizationNode>());
-  rclcpp::shutdown();
-  return 0;
-}

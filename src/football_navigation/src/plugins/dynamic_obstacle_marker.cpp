@@ -2,7 +2,7 @@
 //
 // Licensed under the Apache License, Version 2.0.
 
-#include "football_navigation/dynamic_obstacle_marker.hpp"
+#include "football_navigation/plugins/dynamic_obstacle_marker.hpp"
 
 #include <algorithm>
 #include <cmath>
