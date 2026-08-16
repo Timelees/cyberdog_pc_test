@@ -33,6 +33,10 @@ def launch_nodes(context):
     if '{namespace}' not in odom_template:
         raise RuntimeError('odom_topic_template must contain {namespace}')
     odom_topic = odom_template.replace('{namespace}', robot_namespace)
+    robot_namespaces_csv = str(simulation.get(
+        'robot_namespaces_csv',
+        'cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,'
+        'cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10'))
 
     team_id = 'a' if int(robot_namespace.rsplit('_', 1)[1]) <= 5 else 'b'
     approach_topic = '/{}/football/approach_pose'.format(robot_namespace)
@@ -53,6 +57,8 @@ def launch_nodes(context):
         'field_frame': field_frame,
         'target_frame': field_frame,
         'odom_global_topic': odom_topic,
+        'robot_namespaces_csv': robot_namespaces_csv,
+        'robot_odom_topic_template': odom_template,
     })
 
     visualization = node_params(params, 'football_visualization_node')
@@ -66,6 +72,8 @@ def launch_nodes(context):
         'path_topic': path_topic,
         'cmd_vel_topic': cmd_vel_topic,
         'expect_motion_cmds': True,
+        'robot_namespaces_csv': robot_namespaces_csv,
+        'robot_odom_topic_template': odom_template,
     })
 
     trajectory = node_params(params, 'football_trajectory_adapter')
@@ -83,6 +91,20 @@ def launch_nodes(context):
         'field_frame': field_frame,
         'odom_topic': odom_topic,
         'cmd_vel_topic': cmd_vel_topic,
+        'self_namespace': robot_namespace,
+        'robot_namespaces_csv': robot_namespaces_csv,
+        'robot_odom_topic_template': odom_template,
+    })
+
+    fake_robots = node_params(params, 'football_fake_other_robot_publisher')
+    fake_robots.update({
+        'frame_id': field_frame,
+        'robot_namespaces_csv': robot_namespaces_csv,
+        'selected_namespace': robot_namespace,
+        'simulate_selected_robot': False,
+        'selected_initial_global_x': float(simulation.get('robot_x', 0.0)),
+        'selected_initial_global_y': float(simulation.get('robot_y', 0.0)),
+        'acceptance_global_odom_topic_template': odom_template,
     })
 
     rviz_config = os.path.join(
@@ -90,6 +112,13 @@ def launch_nodes(context):
         'rviz', 'football_single_robot_simulation.rviz')
 
     return [
+        Node(
+            package='football_navigation',
+            executable='football_fake_other_robot_publisher',
+            name='football_fake_other_robot_publisher',
+            output='screen',
+            parameters=[fake_robots],
+        ),
         Node(
             package='football_navigation',
             executable='football_simulation_input_publisher',

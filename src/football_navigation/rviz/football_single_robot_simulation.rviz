@@ -52,16 +52,61 @@ Visualization Manager:
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
-      Name: 02 Robots
+      Name: 02 Robot cyberdog_1
       Namespaces:
+        cyberdog_1: true
         football_clear: true
-        odometry: true
       Topic:
         Depth: 10
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /football/markers/robots
+        Value: /football/markers/robots/cyberdog_1
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: 02 Robot cyberdog_2
+      Topic: {Depth: 10, Durability Policy: Volatile, History Policy: Keep Last, Reliability Policy: Reliable, Value: /football/markers/robots/cyberdog_2}
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: 02 Robot cyberdog_3
+      Topic: {Depth: 10, Durability Policy: Volatile, History Policy: Keep Last, Reliability Policy: Reliable, Value: /football/markers/robots/cyberdog_3}
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: 02 Robot cyberdog_4
+      Topic: {Depth: 10, Durability Policy: Volatile, History Policy: Keep Last, Reliability Policy: Reliable, Value: /football/markers/robots/cyberdog_4}
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: 02 Robot cyberdog_5
+      Topic: {Depth: 10, Durability Policy: Volatile, History Policy: Keep Last, Reliability Policy: Reliable, Value: /football/markers/robots/cyberdog_5}
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: 02 Robot cyberdog_6
+      Topic: {Depth: 10, Durability Policy: Volatile, History Policy: Keep Last, Reliability Policy: Reliable, Value: /football/markers/robots/cyberdog_6}
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: 02 Robot cyberdog_7
+      Topic: {Depth: 10, Durability Policy: Volatile, History Policy: Keep Last, Reliability Policy: Reliable, Value: /football/markers/robots/cyberdog_7}
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: 02 Robot cyberdog_8
+      Topic: {Depth: 10, Durability Policy: Volatile, History Policy: Keep Last, Reliability Policy: Reliable, Value: /football/markers/robots/cyberdog_8}
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: 02 Robot cyberdog_9
+      Topic: {Depth: 10, Durability Policy: Volatile, History Policy: Keep Last, Reliability Policy: Reliable, Value: /football/markers/robots/cyberdog_9}
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: 02 Robot cyberdog_10
+      Topic: {Depth: 10, Durability Policy: Volatile, History Policy: Keep Last, Reliability Policy: Reliable, Value: /football/markers/robots/cyberdog_10}
       Value: true
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true

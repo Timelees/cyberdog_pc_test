@@ -16,7 +16,6 @@
 #include <string>
 #include <vector>
 #include "football_navigation/core/football_geometry.hpp"
-#include "geometry_msgs/msg/pose_array.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -79,7 +78,6 @@ private:
   void publishTeamTactics(
   const std::vector<RobotPose2D> & team, const std::string & team_id,
   const std::string & striker);
-  void publishOtherRobots(const std::vector<RobotPose2D> & all);
   std::string selectNearestStriker(
   const std::vector<RobotPose2D> & robots, const std::string & current,
   rclcpp::Time & current_since, std::string & challenger,
@@ -152,8 +150,6 @@ private:
   std::string challenger_a_;
   std::string challenger_b_;
   std::map<std::string, OdomState> robot_odoms_;
-  std::map<std::string, rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr>
-    other_robot_pubs_;
   std::map<std::string, rclcpp::Publisher<std_msgs::msg::String>::SharedPtr> role_pubs_;
   std::map<std::string, rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr>
     tactical_target_pubs_;

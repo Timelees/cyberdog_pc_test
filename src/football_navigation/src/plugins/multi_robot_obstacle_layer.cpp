@@ -10,6 +10,7 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -43,6 +44,34 @@ PLUGINLIB_EXPORT_CLASS(
 
 namespace football_navigation
 {
+  namespace
+  {
+  std::vector<std::string> splitRobotCsv(const std::string & csv)
+  {
+    std::vector<std::string> output;
+    std::stringstream stream(csv);
+    std::string value;
+    while (std::getline(stream, value, ',')) {
+      const auto first = value.find_first_not_of(" \t\r\n/");
+      const auto last = value.find_last_not_of(" \t\r\n/");
+      if (first != std::string::npos) {
+        output.push_back(value.substr(first, last - first + 1));
+      }
+    }
+    return output;
+  }
+
+  std::string expandRobotOdomTopic(std::string pattern, const std::string & robot_namespace)
+  {
+    const std::string token = "{namespace}";
+    const auto position = pattern.find(token);
+    if (position == std::string::npos) {
+      throw std::invalid_argument("robot_odom_topic_template must contain {namespace}");
+    }
+    pattern.replace(position, token.size(), robot_namespace);
+    return pattern;
+  }
+  }  // namespace
 
   class FootballPreferForwardCritic : public dwb_core::TrajectoryCritic
   {
@@ -901,9 +930,15 @@ namespace football_navigation
   {
     declareParameter("enabled", rclcpp::ParameterValue(true));
     declareParameter("target_frame", rclcpp::ParameterValue(std::string("")));
+    declareParameter("self_namespace", rclcpp::ParameterValue(std::string("")));
     declareParameter(
-        "pose_array_topic",
-        rclcpp::ParameterValue(std::string("football/other_robot_poses")));
+        "robot_namespaces_csv",
+        rclcpp::ParameterValue(std::string(
+          "cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,"
+          "cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10")));
+    declareParameter(
+        "robot_odom_topic_template",
+        rclcpp::ParameterValue(std::string("/global_vio/{namespace}/odom")));
     declareParameter("obstacle_radius", rclcpp::ParameterValue(0.55));
     declareParameter("use_oriented_footprint", rclcpp::ParameterValue(true));
     declareParameter("footprint_padding", rclcpp::ParameterValue(0.04));
@@ -911,8 +946,6 @@ namespace football_navigation
     declareParameter("other_robot_width_m", rclcpp::ParameterValue(0.339));
     declareParameter("obstacle_timeout_sec", rclcpp::ParameterValue(0.70));
     declareParameter("minimum_obstacle_count", rclcpp::ParameterValue(1));
-    declareParameter("pose_array_includes_self", rclcpp::ParameterValue(false));
-    declareParameter("self_filter_radius", rclcpp::ParameterValue(0.05));
     declareParameter("max_message_age", rclcpp::ParameterValue(0.50));
     declareParameter("future_tolerance", rclcpp::ParameterValue(0.08));
     declareParameter("transform_tolerance_sec", rclcpp::ParameterValue(0.25));
@@ -942,7 +975,9 @@ namespace football_navigation
     int cost = 254;
     node->get_parameter(name_ + ".enabled", enabled_);
     node->get_parameter(name_ + ".target_frame", target_frame_);
-    node->get_parameter(name_ + ".pose_array_topic", pose_array_topic_);
+    node->get_parameter(name_ + ".self_namespace", self_namespace_);
+    node->get_parameter(name_ + ".robot_namespaces_csv", robot_namespaces_csv_);
+    node->get_parameter(name_ + ".robot_odom_topic_template", robot_odom_topic_template_);
     node->get_parameter(name_ + ".obstacle_radius", obstacle_radius_);
     node->get_parameter(name_ + ".use_oriented_footprint", use_oriented_footprint_);
     node->get_parameter(name_ + ".footprint_padding", footprint_padding_);
@@ -950,8 +985,6 @@ namespace football_navigation
     node->get_parameter(name_ + ".other_robot_width_m", other_robot_width_m_);
     node->get_parameter(name_ + ".obstacle_timeout_sec", data_timeout_);
     node->get_parameter(name_ + ".minimum_obstacle_count", minimum_obstacle_count_);
-    node->get_parameter(name_ + ".pose_array_includes_self", pose_array_includes_self_);
-    node->get_parameter(name_ + ".self_filter_radius", self_filter_radius_);
     node->get_parameter(name_ + ".max_message_age", max_message_age_);
     node->get_parameter(name_ + ".future_tolerance", future_tolerance_);
     node->get_parameter(name_ + ".transform_tolerance_sec", transform_tolerance_sec_);
@@ -985,7 +1018,6 @@ namespace football_navigation
     sweep_angular_step_rad_ = std::max(0.05, sweep_angular_step_rad_);
     max_sweep_samples_ = std::clamp(max_sweep_samples_, 1, 60);
     minimum_obstacle_count_ = std::clamp(minimum_obstacle_count_, 1, 20);
-    self_filter_radius_ = std::max(0.0, self_filter_radius_);
 
     rolling_window_ = layered_costmap_->isRolling();
     global_frame_ = layered_costmap_->getGlobalFrameID();
@@ -1011,21 +1043,29 @@ namespace football_navigation
 
     matchSize();
     current_ = false;
-    pose_array_sub_ = rclcpp_node_->create_subscription<geometry_msgs::msg::PoseArray>(
-        pose_array_topic_, rclcpp::SensorDataQoS().keep_last(5),
-        std::bind(
-            &MultiRobotObstacleLayer::poseArrayCallback,
-            this,
-            std::placeholders::_1));
+    robot_namespaces_ = splitRobotCsv(robot_namespaces_csv_);
+    for (std::size_t index = 0; index < robot_namespaces_.size(); ++index) {
+      const auto & robot_namespace = robot_namespaces_[index];
+      if (robot_namespace == self_namespace_) {
+        continue;
+      }
+      robot_odom_subs_.push_back(
+        rclcpp_node_->create_subscription<nav_msgs::msg::Odometry>(
+        expandRobotOdomTopic(robot_odom_topic_template_, robot_namespace),
+        rclcpp::SensorDataQoS().keep_last(5),
+        [this, robot_namespace, index](const nav_msgs::msg::Odometry::SharedPtr msg) {
+          robotOdomCallback(robot_namespace, index, msg);
+        }));
+    }
 
     RCLCPP_INFO(
         logger_,
-        "MultiRobotObstacleLayer topic=%s frame=%s prediction=%s horizon=%.2fs "
-        "max_distance=%.2fm pose_array_includes_self=%s",
-        pose_array_topic_.c_str(), global_frame_.c_str(),
+        "MultiRobotObstacleLayer odom_template=%s frame=%s prediction=%s horizon=%.2fs "
+        "max_distance=%.2fm robots=%zu",
+        robot_odom_topic_template_.c_str(), global_frame_.c_str(),
         enable_prediction_ ? "on" : "off",
         prediction_horizon_sec_, max_prediction_distance_m_,
-        pose_array_includes_self_ ? "true" : "false");
+        robot_odom_subs_.size());
   }
 
   void MultiRobotObstacleLayer::activate()
@@ -1197,8 +1237,10 @@ namespace football_navigation
     // dynamic obstacle. Unobserved tracks remain valid until data_timeout_.
   }
 
-  void MultiRobotObstacleLayer::poseArrayCallback(
-      const geometry_msgs::msg::PoseArray::SharedPtr msg)
+  void MultiRobotObstacleLayer::robotOdomCallback(
+      const std::string & robot_namespace,
+      const std::size_t source_index,
+      const nav_msgs::msg::Odometry::SharedPtr msg)
   {
     if (!msg || msg->header.frame_id.empty())
     {
@@ -1211,36 +1253,25 @@ namespace football_navigation
     }
 
     std::vector<IndexedObstacle> accepted;
-    accepted.reserve(std::min<std::size_t>(msg->poses.size(), 20));
-    const std::size_t input_size = std::min<std::size_t>(msg->poses.size(), 20);
+    const std::size_t input_size = robot_namespaces_.size();
     std::size_t rejected_invalid = 0;
     std::size_t rejected_transform = 0;
-    for (std::size_t index = 0; index < input_size; ++index)
     {
-      const auto &pose = msg->poses[index];
+      const auto &pose = msg->pose.pose;
       if (!validPose(pose))
       {
         ++rejected_invalid;
-        continue;
-      }
-      // The formal Football PoseArray contract excludes the controlled robot.
-      // Only legacy producers that explicitly declare that they include self may
-      // use the origin-radius compatibility filter in the ego base frame.
-      if (pose_array_includes_self_ &&
-          std::hypot(pose.position.x, pose.position.y) < self_filter_radius_)
-      {
-        ++rejected_invalid;
-        continue;
+        return;
       }
       DynamicObstacle obstacle;
       if (!makeObstacleFromPose(
               pose, msg->header.frame_id, stamp, obstacle))
       {
         ++rejected_transform;
-        continue;
+        return;
       }
-      obstacle.source_index = index;
-      accepted.push_back(IndexedObstacle{index, obstacle});
+      obstacle.source_index = source_index;
+      accepted.push_back(IndexedObstacle{source_index, obstacle});
     }
 
     std::lock_guard<std::mutex> lock(data_mutex_);
@@ -1250,24 +1281,21 @@ namespace football_navigation
     last_rejected_transform_count_ = rejected_transform;
     // Valid peers continue updating even when another pose is absent or
     // untransformable; unobserved tracks expire individually in updateBounds.
-    if (input_size < static_cast<std::size_t>(minimum_obstacle_count_) ||
-        accepted.size() < static_cast<std::size_t>(minimum_obstacle_count_))
-    {
-      return;
-    }
     if (!stampAcceptable(stamp))
     {
       return;
     }
-    if (last_pose_array_stamp_.nanoseconds() > 0 &&
-        stamp <= last_pose_array_stamp_)
-    {
-      return;
-    }
     updateTracks(accepted, input_size, stamp);
-    last_pose_array_stamp_ = stamp;
+    robot_odom_times_.insert_or_assign(robot_namespace, clock_->now());
+    std::size_t fresh_count = 0;
+    for (const auto & entry : robot_odom_times_) {
+      if ((clock_->now() - entry.second).seconds() <= data_timeout_) {
+        ++fresh_count;
+      }
+    }
+    last_pose_array_stamp_ = std::max(last_pose_array_stamp_, stamp);
     last_data_received_time_ = clock_->now();
-    have_received_data_ = true;
+    have_received_data_ = fresh_count >= static_cast<std::size_t>(minimum_obstacle_count_);
   }
 
   void MultiRobotObstacleLayer::appendPredictedSweep(

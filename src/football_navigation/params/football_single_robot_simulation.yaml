@@ -2,6 +2,7 @@ football_simulation_input_publisher:
   ros__parameters:
     # 第一版固定场景。机器人命名空间和所有全局坐标都由本文件提供。
     robot_namespace: cyberdog_1
+    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
     field_frame: tag_global
     odom_topic_template: /global_vio/{namespace}/odom
     cmd_vel_topic: /cyberdog_1/cmd_vel
@@ -20,6 +21,43 @@ football_simulation_input_publisher:
     ball_push_transfer_gain: 1.0
     ball_push_lateral_gain: 0.05
 
+football_fake_other_robot_publisher:
+  ros__parameters:
+    frame_id: tag_global
+    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
+    selected_namespace: cyberdog_1
+    simulate_selected_robot: false
+    publish_acceptance_global_odom: true
+    acceptance_global_odom_topic_template: /global_vio/{namespace}/odom
+    # 每台机器人的 [x, y, yaw] 都可直接修改；删除某一项或设为 [] 时，
+    # randomize_initial_poses=true 会仅为该机器人生成随机位置。
+    randomize_initial_poses: false
+    random_seed: 2026
+    minimum_initial_separation_m: 0.90
+    initial_pose_cyberdog_2: [1.25, 1.08, 0.0]
+    initial_pose_cyberdog_3: [-4.0, -2.5, 0.0]
+    initial_pose_cyberdog_4: [0.4, 1.52, 0.0]
+    initial_pose_cyberdog_5: [-4.0, 2.5, 0.0]
+    initial_pose_cyberdog_6: [0.0, -3.0, 3.14159]
+    initial_pose_cyberdog_7: [3.5, -3.0, 3.14159]
+    initial_pose_cyberdog_8: [6.5, -3.0, 3.14159]
+    initial_pose_cyberdog_9: [6.5, 3.0, 3.14159]
+    initial_pose_cyberdog_10: [1.4, 0.3, 3.14159]
+    selected_initial_global_x: 0.0
+    selected_initial_global_y: 0.0
+    scripted_peer_motion_enabled: false
+    continuous_demo_enabled: false
+    publish_odom_slam: false
+    publish_rate_hz: 20.0
+    field_min_x: -8.0
+    field_max_x: 8.0
+    field_min_y: -4.0
+    field_max_y: 4.0
+    robot_collision_length_m: 0.562
+    robot_collision_width_m: 0.339
+    collision_ellipse_expansion_m: 0.05
+    boundary_margin_m: 0.20
+
 football_goal_adapter:
   ros__parameters:
     field_frame: tag_global
@@ -30,13 +68,25 @@ football_goal_adapter:
     speed_limit_topic: speed_limit
     require_striker_role: true
     use_team_kick_target: true
-    require_other_robot_poses: false
+    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
+    robot_odom_topic_template: /global_vio/{namespace}/odom
+    require_other_robot_poses: true
+    minimum_other_robot_count: 9
     update_rate_hz: 15.0
     approach_distance_m: 0.5
     default_kick_yaw: 0.0
-    ball_approach_speed_limit_mps: 0.20
-    contact_acquire_speed_limit_mps: 0.07
-    push_speed_limit_mps: 0.12
+    # 仿真 striker 速度分级：正常行走最快，接近足球和建立接触时逐级减速。
+    approach_speed_limit_mps: 0.85
+    obstacle_speed_limit_mps: 0.42
+    ball_approach_speed_limit_mps: 0.38
+    contact_acquire_speed_limit_mps: 0.13
+    push_speed_limit_mps: 0.24
+    robot_collision_length_m: 0.562
+    robot_collision_width_m: 0.339
+    collision_ellipse_expansion_m: 0.05
+    obstacle_slowdown_clearance_m: 0.45
+    obstacle_slowdown_exit_clearance_m: 0.60
+    obstacle_stop_clearance_m: 0.03
     field_min_x: -2.0
     field_max_x: 8.0
     field_min_y: -4.0
@@ -76,14 +126,42 @@ football_simulation_navigator:
     speed_limit_topic: speed_limit
     control_state_topic: football/state
     control_rate_hz: 20.0
-    linear_gain: 0.9
+    linear_gain: 1.7
     angular_gain: 1.5
     push_bearing_gain: 0.6
-    max_linear_speed_mps: 0.45
-    max_angular_speed_rps: 0.8
+    max_linear_speed_mps: 0.85
+    max_angular_speed_rps: 1.4
     position_tolerance_m: 0.06
     yaw_tolerance_rad: 0.08
     odom_timeout_sec: 0.5
+    self_namespace: cyberdog_1
+    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
+    robot_odom_topic_template: /global_vio/{namespace}/odom
+    local_plan_topic: local_plan
+    other_robot_timeout_sec: 0.7
+    # 矩形外接椭圆半轴为 length/sqrt(2)、width/sqrt(2)，再向外扩展 0.05 m。
+    robot_collision_length_m: 0.562
+    robot_collision_width_m: 0.339
+    collision_ellipse_expansion_m: 0.05
+    # 以下三个值均为两台有向椭圆边界之间的净空，而不是机器人中心距离。
+    collision_hard_stop_clearance_m: 0.02
+    collision_path_clearance_m: 0.08
+    collision_slowdown_clearance_m: 0.35
+    detour_extra_clearance_m: 0.08
+    local_path_lookahead_m: 0.28
+    path_heading_gain: 2.4
+    turn_in_place_threshold_rad: 0.75
+    smooth_path_samples: 41
+    # 单峰曲线无法绕开多台障碍时，沿行进方向搜索可切换左右侧的横向走廊。
+    multi_obstacle_lattice_stations: 17
+    multi_obstacle_lateral_step_m: 0.18
+    multi_obstacle_max_lateral_m: 3.0
+    multi_obstacle_max_lane_change_m: 0.54
+    multi_obstacle_turn_penalty: 0.25
+    field_min_x: -8.0
+    field_max_x: 8.0
+    field_min_y: -4.0
+    field_max_y: 4.0
 
 football_visualization_node:
   ros__parameters:
@@ -95,7 +173,9 @@ football_visualization_node:
     path_topic: plan
     odom_topic: /global_vio/cyberdog_1/odom
     field_marker_topic: /football/markers/field
-    robot_marker_topic: /football/markers/robots
+    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
+    robot_odom_topic_template: /global_vio/{namespace}/odom
+    robot_marker_topic_template: /football/markers/robots/{namespace}
     ball_marker_topic: /football/markers/ball
     approach_marker_topic: /football/markers/approach_pose
     tracking_marker_topic: /football/markers/tracking_pose
@@ -106,13 +186,15 @@ football_visualization_node:
     status_marker_topic: /football/markers/status
     self_namespace: cyberdog_1
     team_id: a
-    team_robot_count: 1
     show_field_boundary: true
     show_ball_marker: true
     show_goal_markers: true
     show_ego_robot_marker: true
-    show_other_robot_markers: false
-    show_robot_inflation_markers: false
+    show_other_robot_markers: true
+    show_robot_collision_ellipses: true
+    other_robot_length_m: 0.562
+    other_robot_width_m: 0.339
+    collision_ellipse_expansion_m: 0.05
     enable_costmap_markers: false
     expect_motion_cmds: false
     use_delete_all_before_publish: true

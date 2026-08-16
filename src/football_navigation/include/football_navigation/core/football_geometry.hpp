@@ -40,6 +40,30 @@ std::string inferTeamIdFromNamespace(const std::string & ns);
 
 double planarDistance(double ax, double ay, double bx, double by);
 
+struct CollisionEllipse
+{
+  double semi_major_m{0.0};
+  double semi_minor_m{0.0};
+};
+
+// The minimum-area axis-aligned ellipse containing a centered rectangle has
+// semi axes length/sqrt(2) and width/sqrt(2). Expansion is then applied to
+// both semi axes.
+CollisionEllipse makeCircumscribedCollisionEllipse(
+  double robot_length_m, double robot_width_m, double expansion_m);
+
+double ellipseSupportRadius(
+  const CollisionEllipse & ellipse, double ellipse_yaw,
+  double direction_x, double direction_y);
+
+// Positive values are free edge clearance; zero is contact; negative values
+// indicate overlap of the two oriented collision domains.
+double orientedEllipseClearance(
+  double first_x, double first_y, double first_yaw,
+  const CollisionEllipse & first,
+  double second_x, double second_y, double second_yaw,
+  const CollisionEllipse & second);
+
 std::pair<double, double> worldVelocityToBody(
   double world_vx, double world_vy, double yaw);
 

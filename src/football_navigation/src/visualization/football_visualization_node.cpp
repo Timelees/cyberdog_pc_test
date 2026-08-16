@@ -19,7 +19,6 @@
 #include "builtin_interfaces/msg/time.hpp"
 #include "football_navigation/core/football_geometry.hpp"
 #include "geometry_msgs/msg/point.hpp"
-#include "geometry_msgs/msg/pose_array.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
@@ -54,6 +53,32 @@ std::string resolveTopic(const rclcpp::Node & node, const std::string & topic)
     return "/" + topic;
   }
   return ns + "/" + topic;
+}
+
+std::vector<std::string> splitCsv(const std::string & csv)
+{
+  std::vector<std::string> output;
+  std::stringstream stream(csv);
+  std::string value;
+  while (std::getline(stream, value, ',')) {
+    const auto first = value.find_first_not_of(" \t\r\n/");
+    const auto last = value.find_last_not_of(" \t\r\n/");
+    if (first != std::string::npos) {
+      output.push_back(value.substr(first, last - first + 1));
+    }
+  }
+  return output;
+}
+
+std::string expandNamespace(std::string pattern, const std::string & robot_namespace)
+{
+  const std::string token = "{namespace}";
+  const auto position = pattern.find(token);
+  if (position == std::string::npos) {
+    throw std::invalid_argument("topic template must contain {namespace}");
+  }
+  pattern.replace(position, token.size(), robot_namespace);
+  return pattern;
 }
 
 void costToRgb(unsigned char cost, float & r, float & g, float & b)
@@ -101,8 +126,12 @@ FootballVisualizationNode::FootballVisualizationNode()
       declare_parameter<std::string>("tracking_pose_topic", "tracking_pose");
     goal_pose_topic_ =
       declare_parameter<std::string>("goal_pose_topic", "goal_pose");
-    other_robot_poses_topic_ =
-      declare_parameter<std::string>("other_robot_poses_topic", "football/other_robot_poses");
+    robot_namespaces_csv_ = declare_parameter<std::string>(
+      "robot_namespaces_csv",
+      "cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,"
+      "cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10");
+    robot_odom_topic_template_ = declare_parameter<std::string>(
+      "robot_odom_topic_template", "/global_vio/{namespace}/odom");
     cmd_vel_topic_ = declare_parameter<std::string>("cmd_vel_topic", "cmd_vel");
     motion_servo_cmd_topic_ =
       declare_parameter<std::string>("motion_servo_cmd_topic", "motion_servo_cmd");
@@ -114,8 +143,8 @@ FootballVisualizationNode::FootballVisualizationNode()
     odom_topic_ = declare_parameter<std::string>("odom_topic", "odom_global");
     field_marker_topic_ = declare_parameter<std::string>(
       "field_marker_topic", "/football/markers/field");
-    robot_marker_topic_ = declare_parameter<std::string>(
-      "robot_marker_topic", "/football/markers/robots");
+    robot_marker_topic_template_ = declare_parameter<std::string>(
+      "robot_marker_topic_template", "/football/markers/robots/{namespace}");
     ball_marker_topic_ = declare_parameter<std::string>(
       "ball_marker_topic", "/football/markers/ball");
     approach_marker_topic_ = declare_parameter<std::string>(
@@ -154,9 +183,8 @@ FootballVisualizationNode::FootballVisualizationNode()
     show_ego_robot_marker_ = declare_parameter<bool>("show_ego_robot_marker", true);
     show_other_robot_markers_ =
       declare_parameter<bool>("show_other_robot_markers", true);
-    show_robot_inflation_markers_ = declare_parameter<bool>("show_robot_inflation_markers", true);
-    inflation_radius_m_ = declare_parameter<double>("inflation_radius_m", 0.35);
-    team_robot_count_ = declare_parameter<int>("team_robot_count", 10);
+    show_robot_collision_ellipses_ = declare_parameter<bool>(
+      "show_robot_collision_ellipses", true);
     team_a_striker_topic_ = declare_parameter<std::string>(
       "team_a_striker_topic", "/football/team_a/striker");
     team_b_striker_topic_ = declare_parameter<std::string>(
@@ -182,7 +210,8 @@ FootballVisualizationNode::FootballVisualizationNode()
     other_robot_length_m_ = declare_parameter<double>("other_robot_length_m", 0.562);
     other_robot_width_m_ = declare_parameter<double>("other_robot_width_m", 0.339);
     other_robot_height_m_ = declare_parameter<double>("other_robot_height_m", 0.481);
-    other_robot_radius_ = declare_parameter<double>("other_robot_radius", 0.55);
+    collision_ellipse_expansion_m_ = declare_parameter<double>(
+      "collision_ellipse_expansion_m", 0.05);
     z_offset_ = declare_parameter<double>("z_offset", 0.05);
     command_panel_x_ = declare_parameter<double>("command_panel_x", -3.0);
     command_panel_y_ = declare_parameter<double>("command_panel_y", -5.0);
@@ -226,8 +255,22 @@ FootballVisualizationNode::FootballVisualizationNode()
     const auto marker_qos = rclcpp::QoS(10).reliable();
     field_marker_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>(
       field_marker_topic_, marker_qos);
-    robot_marker_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>(
-      robot_marker_topic_, marker_qos);
+    robot_namespaces_ = splitCsv(robot_namespaces_csv_);
+    for (const auto & robot_namespace : robot_namespaces_) {
+      robot_marker_pubs_[robot_namespace] =
+        create_publisher<visualization_msgs::msg::MarkerArray>(
+        expandNamespace(robot_marker_topic_template_, robot_namespace), marker_qos);
+      robot_odom_subs_.push_back(create_subscription<nav_msgs::msg::Odometry>(
+        expandNamespace(robot_odom_topic_template_, robot_namespace), qos_profile_sensor_data,
+        [this, robot_namespace](const nav_msgs::msg::Odometry::SharedPtr msg) {
+          if (!msg || msg->header.frame_id != field_frame_) {
+            return;
+          }
+          std::lock_guard<std::mutex> lock(mutex_);
+          robot_odoms_[robot_namespace] = *msg;
+          robot_odom_times_.insert_or_assign(robot_namespace, now());
+        }));
+    }
     ball_marker_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>(
       ball_marker_topic_, marker_qos);
     approach_marker_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>(
@@ -279,15 +322,6 @@ FootballVisualizationNode::FootballVisualizationNode()
         goal_pose_ = *msg;
         goal_time_ = now();
         have_goal_ = true;
-      });
-
-    other_robots_sub_ = create_subscription<geometry_msgs::msg::PoseArray>(
-      other_robot_poses_topic_, qos_profile_sensor_data,
-      [this](const geometry_msgs::msg::PoseArray::SharedPtr msg) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        other_robot_poses_ = *msg;
-        other_robot_time_ = now();
-        have_other_robots_ = true;
       });
 
     cmd_vel_sub_ = create_subscription<geometry_msgs::msg::Twist>(
@@ -547,7 +581,7 @@ void FootballVisualizationNode::appendPoseMarker(
     text.scale.z = 0.16;
     std::ostringstream ss;
     ss << label << " (" << std::fixed << std::setprecision(2)
-       << pose.pose.position.x << ", " << pose.pose.position.y << ")";
+       << pose.pose.position.x << "," << pose.pose.position.y << ")";
     text.text = ss.str();
     setColor(text, r, g, b, 1.0);
     array.markers.push_back(text);
@@ -801,46 +835,91 @@ void FootballVisualizationNode::appendOdometry(
       stamp);
   }
 
-void FootballVisualizationNode::appendOtherRobots(
+void FootballVisualizationNode::appendRobot(
   visualization_msgs::msg::MarkerArray & array,
-  const geometry_msgs::msg::PoseArray & poses,
-  const rclcpp::Time & stamp)
+  const std::string & robot_namespace,
+  const nav_msgs::msg::Odometry & odom,
+  const rclcpp::Time & stamp) const
 {
-    for (std::size_t i = 0; i < poses.poses.size(); ++i) {
-      geometry_msgs::msg::Pose pose = poses.poses[i];
-      if (!transformPoseInPlace(
-          pose,
-          poses.header.frame_id,
-          poses.header.stamp))
-      {
-        continue;
-      }
-
+      const auto & pose = odom.pose.pose;
+      const bool team_a = [&robot_namespace]() {
+          try {
+          return std::stoi(robot_namespace.substr(robot_namespace.rfind('_') + 1)) <= 5;
+          } catch (const std::exception &) {
+          return true;
+          }
+        }();
       auto box = makeBaseMarker(
-        target_frame_, "other_robots", static_cast<int>(100 + i),
+        target_frame_, robot_namespace, 1,
         visualization_msgs::msg::Marker::CUBE, stamp);
       box.pose = pose;
       box.pose.position.z += other_robot_height_m_ * 0.5;
       box.scale.x = other_robot_length_m_;
       box.scale.y = other_robot_width_m_;
       box.scale.z = other_robot_height_m_;
-      setColor(box, 1.0, 0.0, 0.0, 0.45);
+      if (robot_namespace == self_namespace_) {
+        setColor(box, 0.0, 0.95, 1.0, 0.75);
+      } else if (team_a) {
+        setColor(box, 0.15, 0.95, 0.25, 0.65);
+      } else {
+        setColor(box, 0.25, 0.45, 1.0, 0.65);
+      }
       array.markers.push_back(box);
 
       auto text = makeBaseMarker(
-        target_frame_, "other_robots", static_cast<int>(200 + i),
+        target_frame_, robot_namespace, 2,
         visualization_msgs::msg::Marker::TEXT_VIEW_FACING, stamp);
       text.pose = pose;
       text.pose.position.z += other_robot_height_m_ + 0.05;
       text.scale.z = 0.14;
       std::ostringstream ss;
-      ss << "other_robot_" << i << " (" << std::fixed << std::setprecision(2)
-         << pose.position.x << ", " << pose.position.y << ")";
+      ss << robot_namespace << (robot_namespace == self_namespace_ ? " [STRIKER]" : "")
+         << " (" << std::fixed << std::setprecision(2)
+         << pose.position.x << "," << pose.position.y << ")";
       text.text = ss.str();
-      setColor(text, 1.0, 0.1, 0.1, 1.0);
+      setColor(text, team_a ? 0.3f : 0.45f, team_a ? 1.0f : 0.65f, 1.0f, 1.0f);
       array.markers.push_back(text);
-    }
-  }
+
+      if (show_robot_collision_ellipses_) {
+        const auto ellipse = makeCircumscribedCollisionEllipse(
+          other_robot_length_m_, other_robot_width_m_, collision_ellipse_expansion_m_);
+        auto collision_area = makeBaseMarker(
+          target_frame_, robot_namespace, 3,
+          visualization_msgs::msg::Marker::CYLINDER, stamp);
+        collision_area.pose = pose;
+        collision_area.pose.position.z = 0.012;
+        collision_area.scale.x = 2.0 * ellipse.semi_major_m;
+        collision_area.scale.y = 2.0 * ellipse.semi_minor_m;
+        collision_area.scale.z = 0.018;
+        setColor(
+          collision_area, team_a ? 0.1f : 0.25f,
+          team_a ? 1.0f : 0.55f, 1.0f, 0.20f);
+        array.markers.push_back(collision_area);
+
+        auto ellipse_outline = makeBaseMarker(
+          target_frame_, robot_namespace, 4,
+          visualization_msgs::msg::Marker::LINE_STRIP, stamp);
+        ellipse_outline.scale.x = 0.025;
+        setColor(
+          ellipse_outline, team_a ? 0.1f : 0.25f,
+          team_a ? 1.0f : 0.55f, 1.0f, 0.95f);
+        const double yaw = tf2::getYaw(pose.orientation);
+        const double cosine = std::cos(yaw);
+        const double sine = std::sin(yaw);
+        constexpr int ellipse_segments = 48;
+        for (int index = 0; index <= ellipse_segments; ++index) {
+          const double angle = 2.0 * M_PI * static_cast<double>(index) / ellipse_segments;
+          const double local_x = ellipse.semi_major_m * std::cos(angle);
+          const double local_y = ellipse.semi_minor_m * std::sin(angle);
+          geometry_msgs::msg::Point point;
+          point.x = pose.position.x + cosine * local_x - sine * local_y;
+          point.y = pose.position.y + sine * local_x + cosine * local_y;
+          point.z = 0.025;
+          ellipse_outline.points.push_back(point);
+        }
+        array.markers.push_back(ellipse_outline);
+      }
+}
 
 void FootballVisualizationNode::appendCostmapPoints(
   visualization_msgs::msg::MarkerArray & array,
@@ -900,7 +979,7 @@ void FootballVisualizationNode::appendCostmapPoints(
 
 std::size_t FootballVisualizationNode::countCostmapBackedRobots()
 {
-    if (!have_other_robots_ ||
+    if (robot_odoms_.empty() ||
       costmap_.header.frame_id != target_frame_ ||
       costmap_.info.resolution <= 0.0 ||
       costmap_.info.width == 0 ||
@@ -916,14 +995,8 @@ std::size_t FootballVisualizationNode::countCostmapBackedRobots()
       1,
       static_cast<int>(std::ceil(0.25 / resolution)));
     std::size_t matched = 0;
-    for (auto pose : other_robot_poses_.poses) {
-      if (!transformPoseInPlace(
-          pose,
-          other_robot_poses_.header.frame_id,
-          other_robot_poses_.header.stamp))
-      {
-        continue;
-      }
+    for (const auto & robot : robot_odoms_) {
+      const auto & pose = robot.second.pose.pose;
       const int center_x = static_cast<int>(std::floor(
           (pose.position.x - origin_x) / resolution));
       const int center_y = static_cast<int>(std::floor(
@@ -977,83 +1050,6 @@ bool FootballVisualizationNode::lookupRobotPoseInTarget(
     }
   }
 
-bool FootballVisualizationNode::isStrikerNamespace(const std::string & ns) const
-{
-    auto norm = [](std::string s) {
-      if (!s.empty() && s.front() == '/') {
-        s.erase(0, 1);
-      }
-      return s;
-    };
-    const std::string n = norm(ns);
-    if (have_striker_a_ && norm(striker_a_) == n) {
-      return true;
-    }
-    if (have_striker_b_ && norm(striker_b_) == n) {
-      return true;
-    }
-    return false;
-  }
-
-void FootballVisualizationNode::appendInflationRing(
-  visualization_msgs::msg::MarkerArray & array,
-  const geometry_msgs::msg::Pose & pose,
-  const std::string & ns,
-  int id,
-  float r,
-  float g,
-  float b,
-  const rclcpp::Time & stamp) const
-{
-    const double outer_r = other_robot_radius_ + inflation_radius_m_;
-    auto ring = makeBaseMarker(
-      target_frame_, ns, id,
-      visualization_msgs::msg::Marker::CYLINDER, stamp);
-    ring.pose = pose;
-    ring.pose.position.z = inflation_radius_m_ * 0.5;
-    ring.scale.x = outer_r * 2.0;
-    ring.scale.y = outer_r * 2.0;
-    ring.scale.z = 0.02;
-    setColor(ring, r, g, b, 0.28);
-    array.markers.push_back(ring);
-
-    auto inner = makeBaseMarker(
-      target_frame_, ns, id + 1000,
-      visualization_msgs::msg::Marker::CYLINDER, stamp);
-    inner.pose = pose;
-    inner.pose.position.z = 0.015;
-    inner.scale.x = other_robot_radius_ * 2.0;
-    inner.scale.y = other_robot_radius_ * 2.0;
-    inner.scale.z = 0.01;
-    setColor(inner, 1.0f, 0.2f, 0.0f, 0.35);
-    array.markers.push_back(inner);
-  }
-
-void FootballVisualizationNode::appendAllTeamRobotInflations(
-  visualization_msgs::msg::MarkerArray & array,
-  const rclcpp::Time & stamp) const
-{
-    const int count = std::max(1, team_robot_count_);
-    for (int i = 1; i <= count; ++i) {
-      const std::string ns = "cyberdog_" + std::to_string(i);
-      const std::string frame = ns + "/base_link";
-      geometry_msgs::msg::Pose pose;
-      if (!lookupRobotPoseInTarget(frame, pose)) {
-        continue;
-      }
-      const bool striker = isStrikerNamespace(ns);
-      appendInflationRing(
-        array,
-        pose,
-        "robot_inflation",
-        700 + i,
-        striker ? 0.2f : 1.0f,
-        striker ? 1.0f : 0.85f,
-        striker ? 0.2f : 0.0f,
-        stamp);
-    }
-  }
-
 bool FootballVisualizationNode::lookupEgoPoseInTarget(geometry_msgs::msg::Pose & pose) const
 {
     for (const auto & ego_frame : ego_base_frames_) {
@@ -1099,7 +1095,7 @@ void FootballVisualizationNode::appendEgoRobot(
     std::ostringstream ss;
     ss << (self_namespace_.empty() ? "ego" : self_namespace_)
        << " (" << std::fixed << std::setprecision(2)
-       << pose.position.x << ", " << pose.position.y << ")";
+       << pose.position.x << "," << pose.position.y << ")";
     text.text = ss.str();
     setColor(text, 0.0, 0.9, 1.0, 1.0);
     array.markers.push_back(text);
@@ -1272,9 +1268,8 @@ void FootballVisualizationNode::appendStatusText(
     ss << "football no-map @ " << target_frame_ << "  (stable view)\n"
        << "ball=" << (have_ball_ ? "OK" : "NO")
        << "  other_robots="
-       << (have_other_robots_ ?
-      std::to_string(other_robot_poses_.poses.size()) :
-      "NO")
+       << (robot_odoms_.empty() ? "NO" : std::to_string(robot_odoms_.size() -
+      (robot_odoms_.count(self_namespace_) > 0 ? 1 : 0)))
        << "  costmap="
        << (costmap_data_ok ?
       "OK(" + std::to_string(costmap_obstacle_cell_count_) + " cells)" :
@@ -1299,7 +1294,6 @@ void FootballVisualizationNode::publishMarkers()
     const auto stamp = now();
 
     visualization_msgs::msg::MarkerArray field_markers;
-    visualization_msgs::msg::MarkerArray robot_markers;
     visualization_msgs::msg::MarkerArray ball_markers;
     visualization_msgs::msg::MarkerArray approach_markers;
     visualization_msgs::msg::MarkerArray tracking_markers;
@@ -1310,7 +1304,6 @@ void FootballVisualizationNode::publishMarkers()
     visualization_msgs::msg::MarkerArray status_markers;
     if (use_delete_all_before_publish_) {
       appendDeleteAll(field_markers, stamp);
-      appendDeleteAll(robot_markers, stamp);
       appendDeleteAll(ball_markers, stamp);
       appendDeleteAll(approach_markers, stamp);
       appendDeleteAll(tracking_markers, stamp);
@@ -1324,14 +1317,22 @@ void FootballVisualizationNode::publishMarkers()
       appendFieldBoundary(field_markers, stamp);
     }
 
-    geometry_msgs::msg::Pose ego_pose;
-    const bool have_ego_pose = lookupEgoPoseInTarget(ego_pose);
-    if (show_ego_robot_marker_ && have_ego_pose) {
-      appendEgoRobot(robot_markers, ego_pose, stamp);
-      appendFootprint(robot_markers, ego_pose, stamp);
-    }
-    if (show_robot_inflation_markers_) {
-      appendAllTeamRobotInflations(robot_markers, stamp);
+    if (show_ego_robot_marker_ || show_other_robot_markers_) {
+      for (const auto & robot_namespace : robot_namespaces_) {
+        visualization_msgs::msg::MarkerArray robot_markers;
+        if (use_delete_all_before_publish_) {
+          appendDeleteAll(robot_markers, stamp);
+        }
+        const auto odom = robot_odoms_.find(robot_namespace);
+        const auto received = robot_odom_times_.find(robot_namespace);
+        if (odom != robot_odoms_.end() && received != robot_odom_times_.end() &&
+          fresh(received->second, stamp) &&
+          (robot_namespace == self_namespace_ ? show_ego_robot_marker_ : show_other_robot_markers_))
+        {
+          appendRobot(robot_markers, robot_namespace, odom->second, stamp);
+        }
+        robot_marker_pubs_.at(robot_namespace)->publish(robot_markers);
+      }
     }
 
     if (show_ball_marker_ && have_ball_ && fresh(ball_time_, stamp)) {
@@ -1404,15 +1405,6 @@ void FootballVisualizationNode::publishMarkers()
         50,
         stamp);
     }
-    if (show_other_robot_markers_ &&
-      have_other_robots_ &&
-      fresh(other_robot_time_, stamp))
-    {
-      appendOtherRobots(
-        robot_markers,
-        other_robot_poses_,
-        stamp);
-    }
     if (enable_costmap_markers_ &&
       have_costmap_ &&
       fresh(costmap_time_, stamp))
@@ -1447,10 +1439,8 @@ void FootballVisualizationNode::publishMarkers()
         stamp);
     }
     if (have_odom_ && fresh(odom_time_, stamp)) {
-      appendOdometry(
-        robot_markers,
-        odom_,
-        stamp);
+      // The robot pose is already published with its body and label on the
+      // namespace-specific marker topic.
     }
     if (show_goal_markers_) {
       const geometry_msgs::msg::PoseStamped & kick_a =
@@ -1517,8 +1507,7 @@ void FootballVisualizationNode::publishMarkers()
     const std::size_t costmap_dynamic_robot_count =
       have_costmap_ &&
       fresh(costmap_time_, stamp) &&
-      have_other_robots_ &&
-      fresh(other_robot_time_, stamp) ?
+      !robot_odoms_.empty() ?
       countCostmapBackedRobots() :
       0;
     appendStatusText(
@@ -1526,7 +1515,6 @@ void FootballVisualizationNode::publishMarkers()
       stamp,
       costmap_dynamic_robot_count);
     field_marker_pub_->publish(field_markers);
-    robot_marker_pub_->publish(robot_markers);
     ball_marker_pub_->publish(ball_markers);
     approach_marker_pub_->publish(approach_markers);
     tracking_marker_pub_->publish(tracking_markers);

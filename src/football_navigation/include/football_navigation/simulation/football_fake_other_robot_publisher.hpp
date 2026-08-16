@@ -108,6 +108,9 @@ private:
 
     bool simulate_selected_robot_{true};
     bool scripted_peer_motion_enabled_{true};
+    bool randomize_initial_poses_{false};
+    int random_seed_{2026};
+    double minimum_initial_separation_m_{0.90};
 
     double scripted_peer_linear_speed_mps_{0.08};
     double scripted_peer_lateral_speed_mps_{0.04};
@@ -124,8 +127,8 @@ private:
     std::size_t selected_robot_index_{0};
     std::size_t demo_blocker_index_{1};
 
-    double selected_initial_global_x_{0.5};
-    double selected_initial_global_y_{-1.2};
+    double selected_initial_global_x_{0.0};
+    double selected_initial_global_y_{0.0};
 
     std::string cmd_vel_topic_template_;
     std::string odom_out_topic_template_;
@@ -153,7 +156,9 @@ private:
     double field_max_x_{8.0};
     double field_min_y_{-3.0};
     double field_max_y_{3.0};
-    double robot_collision_radius_m_{0.38};
+    double robot_collision_length_m_{0.562};
+    double robot_collision_width_m_{0.339};
+    double collision_ellipse_expansion_m_{0.05};
     double boundary_margin_m_{0.10};
 
     rclcpp::Time simulation_start_time_;

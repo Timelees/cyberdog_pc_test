@@ -8,6 +8,7 @@
 #include <exception>
 #include <iomanip>
 #include <memory>
+#include <map>
 #include <mutex>
 #include <sstream>
 #include <string>
@@ -15,7 +16,6 @@
 #include "builtin_interfaces/msg/time.hpp"
 #include "football_navigation/core/football_geometry.hpp"
 #include "geometry_msgs/msg/point.hpp"
-#include "geometry_msgs/msg/pose_array.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
@@ -114,10 +114,11 @@ private:
   visualization_msgs::msg::MarkerArray & array,
   const nav_msgs::msg::Odometry & odom,
   const rclcpp::Time & stamp);
-  void appendOtherRobots(
+  void appendRobot(
   visualization_msgs::msg::MarkerArray & array,
-  const geometry_msgs::msg::PoseArray & poses,
-  const rclcpp::Time & stamp);
+  const std::string & robot_namespace,
+  const nav_msgs::msg::Odometry & odom,
+  const rclcpp::Time & stamp) const;
   void appendCostmapPoints(
   visualization_msgs::msg::MarkerArray & array,
   const nav_msgs::msg::OccupancyGrid & grid,
@@ -126,19 +127,6 @@ private:
   bool lookupRobotPoseInTarget(
   const std::string & robot_frame,
   geometry_msgs::msg::Pose & pose) const;
-  bool isStrikerNamespace(const std::string & ns) const;
-  void appendInflationRing(
-  visualization_msgs::msg::MarkerArray & array,
-  const geometry_msgs::msg::Pose & pose,
-  const std::string & ns,
-  int id,
-  float r,
-  float g,
-  float b,
-  const rclcpp::Time & stamp) const;
-  void appendAllTeamRobotInflations(
-  visualization_msgs::msg::MarkerArray & array,
-  const rclcpp::Time & stamp) const;
   bool lookupEgoPoseInTarget(geometry_msgs::msg::Pose & pose) const;
   void appendEgoRobot(
   visualization_msgs::msg::MarkerArray & array,
@@ -184,7 +172,9 @@ private:
   std::string approach_pose_topic_;
   std::string tracking_pose_topic_;
   std::string goal_pose_topic_;
-  std::string other_robot_poses_topic_;
+  std::string robot_namespaces_csv_;
+  std::string robot_odom_topic_template_;
+  std::string robot_marker_topic_template_;
   std::string cmd_vel_topic_;
   std::string motion_servo_cmd_topic_;
   std::string costmap_topic_;
@@ -192,7 +182,6 @@ private:
   std::string local_trajectory_topic_;
   std::string odom_topic_;
   std::string field_marker_topic_;
-  std::string robot_marker_topic_;
   std::string ball_marker_topic_;
   std::string approach_marker_topic_;
   std::string tracking_marker_topic_;
@@ -208,9 +197,8 @@ private:
   bool show_goal_markers_{true};
   bool show_ego_robot_marker_{true};
   bool show_other_robot_markers_{true};
-  bool show_robot_inflation_markers_{true};
-  double inflation_radius_m_{0.35};
-  int team_robot_count_{10};
+  bool show_robot_collision_ellipses_{true};
+  double collision_ellipse_expansion_m_{0.05};
   std::string team_a_striker_topic_;
   std::string team_b_striker_topic_;
   double ego_robot_length_m_{0.562};
@@ -232,7 +220,6 @@ private:
   double other_robot_length_m_;
   double other_robot_width_m_;
   double other_robot_height_m_;
-  double other_robot_radius_;
   double z_offset_;
   double command_panel_x_{-3.0};
   double command_panel_y_{-5.0};
@@ -252,7 +239,6 @@ private:
   bool have_approach_{false};
   bool have_tracking_{false};
   bool have_goal_{false};
-  bool have_other_robots_{false};
   bool have_cmd_vel_{false};
   bool have_motion_servo_cmd_{false};
   bool have_costmap_{false};
@@ -276,7 +262,9 @@ private:
   geometry_msgs::msg::PoseStamped approach_pose_;
   geometry_msgs::msg::PoseStamped tracking_pose_;
   geometry_msgs::msg::PoseStamped goal_pose_;
-  geometry_msgs::msg::PoseArray other_robot_poses_;
+  std::vector<std::string> robot_namespaces_;
+  std::map<std::string, nav_msgs::msg::Odometry> robot_odoms_;
+  std::map<std::string, rclcpp::Time> robot_odom_times_;
   geometry_msgs::msg::Twist cmd_vel_;
   protocol::msg::MotionServoCmd motion_servo_cmd_;
   nav_msgs::msg::OccupancyGrid costmap_;
@@ -288,7 +276,6 @@ private:
   rclcpp::Time approach_time_;
   rclcpp::Time tracking_time_;
   rclcpp::Time goal_time_;
-  rclcpp::Time other_robot_time_;
   rclcpp::Time cmd_vel_time_;
   rclcpp::Time motion_servo_cmd_time_;
   rclcpp::Time costmap_time_;
@@ -302,7 +289,8 @@ private:
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr field_marker_pub_;
-  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr robot_marker_pub_;
+  std::map<std::string,
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr> robot_marker_pubs_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr ball_marker_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr approach_marker_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr tracking_marker_pub_;
@@ -315,7 +303,7 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr approach_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr tracking_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr other_robots_sub_;
+  std::vector<rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr> robot_odom_subs_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
   rclcpp::Subscription<protocol::msg::MotionServoCmd>::SharedPtr motion_servo_cmd_sub_;
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_sub_;

@@ -406,8 +406,6 @@ set(football_identity_sources
   src/visualization/football_visualization_main.cpp
   src/plugins/dynamic_obstacle_marker.cpp
   src/plugins/multi_robot_obstacle_layer.cpp
-  launch/football_navigation.launch.py
-  launch/football_robot_runtime.launch.py
   launch/football_single_robot_simulation.launch.py
   params/football_single_robot_simulation.yaml
   params/football_robot_runtime.yaml
@@ -515,7 +513,6 @@ install(FILES
   football_navigation_plugins.xml
   football_navigation_dwb_plugins.xml
   "${CMAKE_CURRENT_BINARY_DIR}/football_build_identity.json"
-  VERIFICATION.md
   DESTINATION share/${PROJECT_NAME}
 )
 
@@ -536,27 +533,31 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_cmake_pytest REQUIRED)
 
-  ament_add_gtest(test_football_navigation
-    test/test_football_navigation.cpp
-  )
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/test_football_navigation.cpp")
+    ament_add_gtest(test_football_navigation
+      test/test_football_navigation.cpp
+    )
+    ament_target_dependencies(test_football_navigation
+      ${dependencies}
+    )
+    target_link_libraries(test_football_navigation
+      football_navigation_core
+    )
+  endif()
 
-  ament_target_dependencies(test_football_navigation
-    ${dependencies}
-  )
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/test_football_contract.py")
+    ament_add_pytest_test(
+      test_football_contract
+      test/test_football_contract.py
+    )
+  endif()
 
-  target_link_libraries(test_football_navigation
-    football_navigation_core
-  )
-
-  ament_add_pytest_test(
-    test_football_contract
-    test/test_football_contract.py
-  )
-
-  ament_add_pytest_test(
-    test_football_all_fake_contract
-    test/test_football_all_fake_contract.py
-  )
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/test_football_all_fake_contract.py")
+    ament_add_pytest_test(
+      test_football_all_fake_contract
+      test/test_football_all_fake_contract.py
+    )
+  endif()
 endif()
 
 ament_export_include_directories(include)

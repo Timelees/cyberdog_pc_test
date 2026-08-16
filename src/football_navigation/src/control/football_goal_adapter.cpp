@@ -9,11 +9,40 @@
 #include <cmath>
 #include <functional>
 #include <limits>
+#include <sstream>
 #include <stdexcept>
 #include <utility>
 
 namespace football_navigation
 {
+namespace
+{
+std::vector<std::string> splitRobotNamespaces(const std::string & csv)
+{
+  std::vector<std::string> result;
+  std::stringstream stream(csv);
+  std::string value;
+  while (std::getline(stream, value, ',')) {
+    const auto first = value.find_first_not_of(" \t\r\n/");
+    const auto last = value.find_last_not_of(" \t\r\n/");
+    if (first != std::string::npos) {
+      result.push_back(value.substr(first, last - first + 1));
+    }
+  }
+  return result;
+}
+
+std::string expandRobotTopic(std::string pattern, const std::string & robot_namespace)
+{
+  const std::string token = "{namespace}";
+  const auto position = pattern.find(token);
+  if (position == std::string::npos) {
+    throw std::invalid_argument("robot_odom_topic_template must contain {namespace}");
+  }
+  pattern.replace(position, token.size(), robot_namespace);
+  return pattern;
+}
+}  // namespace
 
 FootballGoalAdapter::FootballGoalAdapter()
 : Node("football_goal_adapter"), have_last_output_time_(false), have_kick_target_(false)
@@ -22,7 +51,7 @@ FootballGoalAdapter::FootballGoalAdapter()
   last_output_time_ = kickoff_hold_until_ = last_ball_stamp_ = last_kick_target_stamp_ = zero;
   last_striker_assignment_time_ = last_valid_ball_time_ = latest_odom_time_ = zero;
   last_tactical_role_time_ = last_tactical_target_stamp_ = zero;
-  last_robot_pose_time_ = last_other_robot_stamp_ = latest_other_robot_time_ = zero;
+  last_robot_pose_time_ = zero;
   last_cmd_vel_time_ = progress_anchor_time_ = recovery_hold_until_ = zero;
   previous_opponents_stamp_ = zero;
   kick_alignment_since_ = alignment_bad_since_ = alignment_started_ =
@@ -47,8 +76,12 @@ FootballGoalAdapter::FootballGoalAdapter()
     "control_valid_topic", "football/control_valid");
   localization_valid_topic_ = declare_parameter<std::string>(
     "localization_valid_topic", "football/localization_valid");
-  other_robot_poses_topic_ = declare_parameter<std::string>(
-    "other_robot_poses_topic", "football/other_robot_poses");
+  robot_namespaces_csv_ = declare_parameter<std::string>(
+    "robot_namespaces_csv",
+    "cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,"
+    "cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10");
+  robot_odom_topic_template_ = declare_parameter<std::string>(
+    "robot_odom_topic_template", "/global_vio/{namespace}/odom");
   cmd_vel_topic_ = declare_parameter<std::string>("cmd_vel_topic", "cmd_vel");
   speed_limit_topic_ = declare_parameter<std::string>("speed_limit_topic", "speed_limit");
 
@@ -100,10 +133,6 @@ FootballGoalAdapter::FootballGoalAdapter()
   max_ball_jump_m_ = declare_parameter<double>("max_ball_jump_m", 0.35);
   odom_timeout_sec_ = declare_parameter<double>("odom_timeout_sec", 0.45);
   max_ball_odom_skew_sec_ = declare_parameter<double>("max_ball_odom_skew_sec", 0.12);
-  max_other_robot_odom_skew_sec_ = declare_parameter<double>(
-    "max_other_robot_odom_skew_sec", 0.15);
-  max_other_robot_message_age_sec_ = declare_parameter<double>(
-    "max_other_robot_message_age_sec", 0.70);
   role_timeout_sec_ = declare_parameter<double>("role_timeout_sec", 0.80);
   tactical_target_timeout_sec_ = declare_parameter<double>("tactical_target_timeout_sec", 0.80);
   require_other_robot_poses_ = declare_parameter<bool>("require_other_robot_poses", true);
@@ -139,15 +168,20 @@ FootballGoalAdapter::FootballGoalAdapter()
     "contact_acquire_speed_limit_mps", 0.07);
   push_speed_limit_mps_ = declare_parameter<double>(
     "push_speed_limit_mps", 0.12);
-  // Center-distance safety envelope. 0.80 m covers the two standing
-  // footprints plus the required edge clearance; 1.45 m leaves room for
-  // one command timeout, measured closing motion and controller braking.
+  robot_collision_length_m_ = declare_parameter<double>(
+    "robot_collision_length_m", 0.562);
+  robot_collision_width_m_ = declare_parameter<double>(
+    "robot_collision_width_m", 0.339);
+  collision_ellipse_expansion_m_ = declare_parameter<double>(
+    "collision_ellipse_expansion_m", 0.05);
+  // These thresholds are signed edge clearances between the two oriented
+  // circumscribed ellipses, rather than robot-center distances.
   obstacle_slowdown_distance_m_ = declare_parameter<double>(
-    "obstacle_slowdown_distance_m", 1.45);
+    "obstacle_slowdown_clearance_m", 0.45);
   obstacle_slowdown_exit_distance_m_ = declare_parameter<double>(
-    "obstacle_slowdown_exit_distance_m", 1.60);
+    "obstacle_slowdown_exit_clearance_m", 0.60);
   obstacle_stop_distance_m_ = declare_parameter<double>(
-    "obstacle_stop_distance_m", 0.80);
+    "obstacle_stop_clearance_m", 0.03);
   obstacle_reaction_time_sec_ = declare_parameter<double>(
     "obstacle_reaction_time_sec", 0.35);
   obstacle_braking_deceleration_mps2_ = declare_parameter<double>(
@@ -247,6 +281,8 @@ FootballGoalAdapter::FootballGoalAdapter()
     push_speed_limit_mps_ <= 0.0 ||
     contact_acquire_speed_limit_mps_ >= push_speed_limit_mps_ ||
     push_speed_limit_mps_ >= ball_approach_speed_limit_mps_ ||
+    robot_collision_length_m_ <= 0.0 || robot_collision_width_m_ <= 0.0 ||
+    collision_ellipse_expansion_m_ < 0.0 ||
     obstacle_slowdown_distance_m_ <= obstacle_stop_distance_m_ ||
     obstacle_slowdown_exit_distance_m_ <= obstacle_slowdown_distance_m_ ||
     obstacle_stop_distance_m_ <= 0.0 ||
@@ -361,9 +397,18 @@ FootballGoalAdapter::FootballGoalAdapter()
   odom_global_sub_ = create_subscription<nav_msgs::msg::Odometry>(
     odom_global_topic_, rclcpp::SensorDataQoS().keep_last(30),
     std::bind(&FootballGoalAdapter::odomGlobalCallback, this, std::placeholders::_1));
-  other_robot_poses_sub_ = create_subscription<geometry_msgs::msg::PoseArray>(
-    other_robot_poses_topic_, rclcpp::SensorDataQoS().keep_last(5),
-    std::bind(&FootballGoalAdapter::otherRobotPosesCallback, this, std::placeholders::_1));
+  robot_namespaces_ = splitRobotNamespaces(robot_namespaces_csv_);
+  for (const auto & robot_namespace : robot_namespaces_) {
+    if (robot_namespace == self_namespace_) {
+      continue;
+    }
+    other_robot_odom_subs_.push_back(create_subscription<nav_msgs::msg::Odometry>(
+      expandRobotTopic(robot_odom_topic_template_, robot_namespace),
+      rclcpp::SensorDataQoS().keep_last(5),
+      [this, robot_namespace](const nav_msgs::msg::Odometry::SharedPtr msg) {
+        otherRobotOdomCallback(robot_namespace, msg);
+      }));
+  }
   cmd_vel_sub_ = create_subscription<geometry_msgs::msg::Twist>(
     cmd_vel_topic_, rclcpp::SensorDataQoS().keep_last(5),
     std::bind(&FootballGoalAdapter::cmdVelCallback, this, std::placeholders::_1));
@@ -467,48 +512,31 @@ void FootballGoalAdapter::kickTargetCallback(
   have_kick_target_ = true;
 }
 
-void FootballGoalAdapter::otherRobotPosesCallback(
-  const geometry_msgs::msg::PoseArray::SharedPtr msg)
+void FootballGoalAdapter::otherRobotOdomCallback(
+  const std::string & robot_namespace,
+  const nav_msgs::msg::Odometry::SharedPtr msg)
 {
-  if (!msg || msg->header.frame_id != base_frame_) {
+  if (!msg || msg->header.frame_id != field_frame_ || !validFinitePose(msg->pose.pose)) {
     return;
   }
   const rclcpp::Time stamp(msg->header.stamp, get_clock()->get_clock_type());
   const double age = stamp.nanoseconds() > 0 ?
     (now() - stamp).seconds() : std::numeric_limits<double>::infinity();
-  if (stamp.nanoseconds() <= 0 || age > max_other_robot_message_age_sec_ ||
-    age < -future_tolerance_sec_ ||
-    (last_other_robot_stamp_.nanoseconds() > 0 && stamp <= last_other_robot_stamp_))
-  {
+  if (stamp.nanoseconds() <= 0 || age > other_robot_timeout_sec_ ||
+    age < -future_tolerance_sec_) {
     return;
   }
-  geometry_msgs::msg::PoseArray accepted = *msg;
-  accepted.poses.clear();
-  for (const auto & pose : msg->poses) {
-    if (validFinitePose(pose)) {
-      accepted.poses.push_back(pose);
-    }
-  }
-  nav_msgs::msg::Odometry matched_odom;
-  if (!findOdomAt(stamp, matched_odom, max_other_robot_odom_skew_sec_)) {
-    return;
-  }
-  updateOpponentKinematics(accepted, matched_odom, stamp);
-  latest_other_robot_poses_ = std::move(accepted);
-  other_robot_pose_odom_ = matched_odom;
-  last_other_robot_stamp_ = stamp;
-  latest_other_robot_time_ = now();
-  have_other_robot_poses_ = true;
-  have_other_robot_pose_odom_ = true;
+  latest_other_robot_odoms_[robot_namespace] = *msg;
+  latest_other_robot_times_.insert_or_assign(robot_namespace, now());
 }
 
 void FootballGoalAdapter::updateOpponentKinematics(
-  const geometry_msgs::msg::PoseArray & poses,
+  const std::vector<OpponentPoint2D> & positions,
   const nav_msgs::msg::Odometry & robot_odom,
   const rclcpp::Time & stamp)
 {
   std::vector<OpponentPoint2D> current;
-  current.reserve(poses.poses.size());
+  current = positions;
 
   double robot_yaw = 0.0;
   if (!yawFromQuaternion(robot_odom.pose.pose.orientation, robot_yaw)) {
@@ -521,11 +549,6 @@ void FootballGoalAdapter::updateOpponentKinematics(
 
   const double cosine = std::cos(robot_yaw);
   const double sine = std::sin(robot_yaw);
-  for (const auto & pose : poses.poses) {
-    current.emplace_back(
-      robot_odom.pose.pose.position.x + cosine * pose.position.x - sine * pose.position.y,
-      robot_odom.pose.pose.position.y + sine * pose.position.x + cosine * pose.position.y);
-  }
 
   const double self_vx =
     cosine * robot_odom.twist.twist.linear.x -
@@ -583,10 +606,14 @@ void FootballGoalAdapter::updateOpponentKinematics(
 
 bool FootballGoalAdapter::otherRobotPosesFresh() const
 {
-  return have_other_robot_poses_ && have_other_robot_pose_odom_ &&
-         static_cast<int>(latest_other_robot_poses_.poses.size()) >= minimum_other_robot_count_ &&
-         latest_other_robot_time_.nanoseconds() > 0 &&
-         (now() - latest_other_robot_time_).seconds() <= other_robot_timeout_sec_;
+  int fresh_count = 0;
+  const auto current = now();
+  for (const auto & entry : latest_other_robot_times_) {
+    if ((current - entry.second).seconds() <= other_robot_timeout_sec_) {
+      ++fresh_count;
+    }
+  }
+  return fresh_count >= minimum_other_robot_count_;
 }
 
 void FootballGoalAdapter::cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
@@ -837,25 +864,25 @@ bool FootballGoalAdapter::lookupRobotPoseInFieldFrame(
 
 std::vector<OpponentPoint2D> FootballGoalAdapter::collectOpponentPositions()
 {
-  // other_robot_poses 以本机 base_frame 表达。利用时间匹配的全局里程计将其
-  // 转换到 field_frame，使几何模块得到坐标统一的障碍机器人中心点 (x, y)。
+  // 所有机器人直接使用 mutil_robot_odom 提供的共享 field_frame 位姿，
+  // 不再通过本机 base_frame 下的聚合 PoseArray 做二次坐标变换。
   std::vector<OpponentPoint2D> output;
   if (!otherRobotPosesFresh()) {
     return output;
   }
-  const auto & robot = other_robot_pose_odom_.pose.pose;
-  double robot_yaw = 0.0;
-  if (!yawFromQuaternion(robot.orientation, robot_yaw)) {
-    return {};
-  }
-  const double c = std::cos(robot_yaw);
-  const double s = std::sin(robot_yaw);
-  for (const auto & pose : latest_other_robot_poses_.poses) {
-    const double field_x = robot.position.x + c * pose.position.x - s * pose.position.y;
-    const double field_y = robot.position.y + s * pose.position.x + c * pose.position.y;
-    if (std::isfinite(field_x) && std::isfinite(field_y)) {
-      output.emplace_back(field_x, field_y);
+  const auto current = now();
+  for (const auto & entry : latest_other_robot_odoms_) {
+    const auto time = latest_other_robot_times_.find(entry.first);
+    if (time != latest_other_robot_times_.end() &&
+      (current - time->second).seconds() <= other_robot_timeout_sec_)
+    {
+      output.emplace_back(
+        entry.second.pose.pose.position.x,
+        entry.second.pose.pose.position.y);
     }
+  }
+  if (have_synchronized_odom_) {
+    updateOpponentKinematics(output, synchronized_odom_, current);
   }
   return output;
 }
@@ -1795,15 +1822,28 @@ double FootballGoalAdapter::nearestOpponentDistance(
   const geometry_msgs::msg::PoseStamped & robot,
   const std::vector<OpponentPoint2D> & opponents) const
 {
+  (void)opponents;
   double nearest = std::numeric_limits<double>::infinity();
-  for (const auto & obstacle : opponents) {
-    nearest = std::min(
-      nearest,
-      planarDistance(
-        robot.pose.position.x,
-        robot.pose.position.y,
-        obstacle.first,
-        obstacle.second));
+  double robot_yaw = 0.0;
+  if (!yawFromQuaternion(robot.pose.orientation, robot_yaw)) {
+    return nearest;
+  }
+  const auto collision_ellipse = makeCircumscribedCollisionEllipse(
+    robot_collision_length_m_, robot_collision_width_m_, collision_ellipse_expansion_m_);
+  const auto stamp = now();
+  for (const auto & entry : latest_other_robot_odoms_) {
+    const auto received = latest_other_robot_times_.find(entry.first);
+    double obstacle_yaw = 0.0;
+    if (received == latest_other_robot_times_.end() ||
+      (stamp - received->second).seconds() > other_robot_timeout_sec_ ||
+      !yawFromQuaternion(entry.second.pose.pose.orientation, obstacle_yaw))
+    {
+      continue;
+    }
+    nearest = std::min(nearest, orientedEllipseClearance(
+      robot.pose.position.x, robot.pose.position.y, robot_yaw, collision_ellipse,
+      entry.second.pose.pose.position.x, entry.second.pose.pose.position.y,
+      obstacle_yaw, collision_ellipse));
   }
   return nearest;
 }

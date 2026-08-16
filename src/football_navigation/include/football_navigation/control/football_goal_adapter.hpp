@@ -7,11 +7,11 @@
 
 #include <deque>
 #include <limits>
+#include <map>
 #include <string>
 #include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
-#include "geometry_msgs/msg/pose_array.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "nav2_msgs/msg/speed_limit.hpp"
@@ -38,7 +38,9 @@ private:
   void goalEventCallback(const std_msgs::msg::String::SharedPtr msg);
   void matchStateCallback(const std_msgs::msg::String::SharedPtr msg);
   void odomGlobalCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
-  void otherRobotPosesCallback(const geometry_msgs::msg::PoseArray::SharedPtr msg);
+  void otherRobotOdomCallback(
+    const std::string & robot_namespace,
+    const nav_msgs::msg::Odometry::SharedPtr msg);
   void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
   void safetyWatchdog();
   bool inKickoffHold(const rclcpp::Time & stamp) const;
@@ -80,7 +82,7 @@ private:
     const geometry_msgs::msg::PoseStamped & robot_pose,
     const std::vector<OpponentPoint2D> & opponents) const;
   void updateOpponentKinematics(
-    const geometry_msgs::msg::PoseArray & poses,
+    const std::vector<OpponentPoint2D> & positions,
     const nav_msgs::msg::Odometry & robot_odom,
     const rclcpp::Time & stamp);
   double speedLimitForState(const std::string & state) const;
@@ -110,7 +112,9 @@ private:
   std::string state_topic_;
   std::string control_valid_topic_;
   std::string localization_valid_topic_;
-  std::string other_robot_poses_topic_;
+  std::string robot_namespaces_csv_;
+  std::string robot_odom_topic_template_;
+  std::vector<std::string> robot_namespaces_;
   std::string cmd_vel_topic_;
   std::string speed_limit_topic_;
   bool require_striker_role_{false};
@@ -131,8 +135,6 @@ private:
   double max_ball_jump_m_;
   double odom_timeout_sec_;
   double max_ball_odom_skew_sec_;
-  double max_other_robot_odom_skew_sec_;
-  double max_other_robot_message_age_sec_;
   double kick_target_timeout_sec_;
   double role_timeout_sec_;
   double tactical_target_timeout_sec_{0.80};
@@ -153,6 +155,9 @@ private:
   double ball_approach_speed_limit_mps_;
   double contact_acquire_speed_limit_mps_;
   double push_speed_limit_mps_;
+  double robot_collision_length_m_{0.562};
+  double robot_collision_width_m_{0.339};
+  double collision_ellipse_expansion_m_{0.05};
   double obstacle_slowdown_distance_m_;
   double obstacle_slowdown_exit_distance_m_;
   double obstacle_stop_distance_m_;
@@ -215,8 +220,6 @@ private:
   rclcpp::Time last_valid_ball_time_;
   rclcpp::Time latest_odom_time_;
   rclcpp::Time last_robot_pose_time_;
-  rclcpp::Time last_other_robot_stamp_;
-  rclcpp::Time latest_other_robot_time_;
   rclcpp::Time last_cmd_vel_time_;
   rclcpp::Time progress_anchor_time_;
   rclcpp::Time recovery_hold_until_;
@@ -238,10 +241,10 @@ private:
   geometry_msgs::msg::PoseStamped last_published_approach_field_;
   nav_msgs::msg::Odometry latest_odom_global_;
   nav_msgs::msg::Odometry synchronized_odom_;
-  nav_msgs::msg::Odometry other_robot_pose_odom_;
   std::deque<nav_msgs::msg::Odometry> odom_history_;
   std::size_t odom_history_limit_{30};
-  geometry_msgs::msg::PoseArray latest_other_robot_poses_;
+  std::map<std::string, nav_msgs::msg::Odometry> latest_other_robot_odoms_;
+  std::map<std::string, rclcpp::Time> latest_other_robot_times_;
   std::vector<OpponentPoint2D> previous_opponents_field_;
   rclcpp::Time previous_opponents_stamp_;
   bool have_last_ball_{false};
@@ -250,8 +253,6 @@ private:
   bool last_published_control_valid_{false};
   bool have_published_control_state_{false};
   bool have_synchronized_odom_{false};
-  bool have_other_robot_pose_odom_{false};
-  bool have_other_robot_poses_{false};
   bool have_progress_anchor_{false};
   bool have_alignment_anchor_{false};
   bool obstacle_slowdown_latched_{false};
@@ -295,7 +296,7 @@ private:
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr goal_event_sub_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr match_state_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_global_sub_;
-  rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr other_robot_poses_sub_;
+  std::vector<rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr> other_robot_odom_subs_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr approach_pose_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr control_valid_pub_;

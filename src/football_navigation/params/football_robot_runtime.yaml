@@ -1,7 +1,6 @@
 football_goal_adapter:
   ros__parameters:
-    # 几何计算统一在 tag_global 下执行；other_robot_poses 和最终发布的局部
-    # 导航目标以本机 base_link 表达。
+    # 所有机器人位姿直接使用 tag_global；最终导航目标以本机 base_link 表达。
     target_frame: base_link
     field_frame: tag_global
     base_frame: base_link
@@ -14,7 +13,8 @@ football_goal_adapter:
     tactical_target_timeout_sec: 0.8
     # 团队 kick_target 是期望的球目的地，不是机器人导航目标。
     use_team_kick_target: true
-    other_robot_poses_topic: football/other_robot_poses
+    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
+    robot_odom_topic_template: /global_vio/{namespace}/odom
     cmd_vel_topic: cmd_vel
     update_rate_hz: 15.0
     ball_timeout_sec: 0.45
@@ -27,8 +27,6 @@ football_goal_adapter:
     minimum_other_robot_count: 9
     kick_target_timeout_sec: 0.8
     max_ball_odom_skew_sec: 0.12
-    max_other_robot_odom_skew_sec: 0.15
-    max_other_robot_message_age_sec: 0.7
     cmd_vel_timeout_sec: 0.35
     # 球位置 - 单位向量(球->射门目标) * 距离：得到标准球后点。
     approach_distance_m: 0.6
@@ -85,9 +83,12 @@ football_goal_adapter:
     ball_approach_speed_limit_mps: 0.20
     contact_acquire_speed_limit_mps: 0.07
     push_speed_limit_mps: 0.12
-    obstacle_slowdown_distance_m: 1.45
-    obstacle_slowdown_exit_distance_m: 1.60
-    obstacle_stop_distance_m: 0.80
+    robot_collision_length_m: 0.562
+    robot_collision_width_m: 0.339
+    collision_ellipse_expansion_m: 0.05
+    obstacle_slowdown_clearance_m: 0.45
+    obstacle_slowdown_exit_clearance_m: 0.60
+    obstacle_stop_clearance_m: 0.03
     obstacle_reaction_time_sec: 0.35
     obstacle_braking_deceleration_mps2: 0.65
     obstacle_prediction_horizon_sec: 0.65
@@ -179,5 +180,8 @@ football_fake_world:
     field_max_x: 8.0
     field_min_y: -3.0
     field_max_y: 3.0
-    robot_collision_radius_m: 0.28
+    robot_collision_length_m: 0.562
+    robot_collision_width_m: 0.339
+    collision_ellipse_expansion_m: 0.05
+    minimum_initial_separation_m: 0.90
     boundary_margin_m: 0.1

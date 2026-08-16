@@ -596,6 +596,50 @@ double planarDistance(const double ax, const double ay, const double bx, const d
   return std::hypot(ax - bx, ay - by);
 }
 
+CollisionEllipse makeCircumscribedCollisionEllipse(
+  const double robot_length_m, const double robot_width_m,
+  const double expansion_m)
+{
+  constexpr double inverse_sqrt_two = 0.70710678118654752440;
+  return {
+    robot_length_m * inverse_sqrt_two + expansion_m,
+    robot_width_m * inverse_sqrt_two + expansion_m};
+}
+
+double ellipseSupportRadius(
+  const CollisionEllipse & ellipse, const double ellipse_yaw,
+  const double direction_x, const double direction_y)
+{
+  const double direction_norm = std::hypot(direction_x, direction_y);
+  if (direction_norm <= 1e-12) {
+    return std::max(ellipse.semi_major_m, ellipse.semi_minor_m);
+  }
+  const double unit_x = direction_x / direction_norm;
+  const double unit_y = direction_y / direction_norm;
+  const double cosine = std::cos(ellipse_yaw);
+  const double sine = std::sin(ellipse_yaw);
+  const double local_x = cosine * unit_x + sine * unit_y;
+  const double local_y = -sine * unit_x + cosine * unit_y;
+  return std::hypot(
+    ellipse.semi_major_m * local_x,
+    ellipse.semi_minor_m * local_y);
+}
+
+double orientedEllipseClearance(
+  const double first_x, const double first_y, const double first_yaw,
+  const CollisionEllipse & first,
+  const double second_x, const double second_y, const double second_yaw,
+  const CollisionEllipse & second)
+{
+  const double direction_x = second_x - first_x;
+  const double direction_y = second_y - first_y;
+  const double center_distance = std::hypot(direction_x, direction_y);
+  const double occupied_distance =
+    ellipseSupportRadius(first, first_yaw, direction_x, direction_y) +
+    ellipseSupportRadius(second, second_yaw, -direction_x, -direction_y);
+  return center_distance - occupied_distance;
+}
+
 std::pair<double, double> worldVelocityToBody(
   const double world_vx, const double world_vy, const double yaw)
 {

@@ -7,6 +7,8 @@
 #include <functional>
 #include <iterator>
 #include <memory>
+#include <map>
+#include <random>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -28,6 +30,13 @@ namespace football_navigation
   {
 
     constexpr double kPi = 3.14159265358979323846;
+
+    struct InitialPose2D
+    {
+      double x;
+      double y;
+      double yaw;
+    };
 
     std::vector<std::string> splitCsv(const std::string &csv)
     {
@@ -108,6 +117,12 @@ namespace football_navigation
           declare_parameter<bool>(
               "scripted_peer_motion_enabled",
               true);
+
+      randomize_initial_poses_ = declare_parameter<bool>(
+        "randomize_initial_poses", false);
+      random_seed_ = declare_parameter<int>("random_seed", 2026);
+      minimum_initial_separation_m_ = declare_parameter<double>(
+        "minimum_initial_separation_m", 0.90);
 
       scripted_peer_linear_speed_mps_ =
           declare_parameter<double>(
@@ -252,10 +267,16 @@ namespace football_navigation
               "field_max_y",
               3.0);
 
-      robot_collision_radius_m_ =
-          declare_parameter<double>(
-              "robot_collision_radius_m",
-              0.38);
+      robot_collision_length_m_ = declare_parameter<double>(
+        "robot_collision_length_m", 0.562);
+      robot_collision_width_m_ = declare_parameter<double>(
+        "robot_collision_width_m", 0.339);
+      collision_ellipse_expansion_m_ = declare_parameter<double>(
+        "collision_ellipse_expansion_m", 0.05);
+      const auto collision_ellipse = makeCircumscribedCollisionEllipse(
+        robot_collision_length_m_, robot_collision_width_m_, collision_ellipse_expansion_m_);
+      const double maximum_collision_extent = std::max(
+        collision_ellipse.semi_major_m, collision_ellipse.semi_minor_m);
 
       boundary_margin_m_ =
           declare_parameter<double>(
@@ -264,8 +285,11 @@ namespace football_navigation
 
       if (field_min_x_ >= field_max_x_ ||
           field_min_y_ >= field_max_y_ ||
-          robot_collision_radius_m_ <= 0.0 ||
-          boundary_margin_m_ < 0.0)
+          robot_collision_length_m_ <= 0.0 ||
+          robot_collision_width_m_ <= 0.0 ||
+          collision_ellipse_expansion_m_ < 0.0 ||
+          boundary_margin_m_ < 0.0 ||
+          minimum_initial_separation_m_ < 2.0 * maximum_collision_extent)
       {
         throw std::invalid_argument(
             "invalid fake world field geometry");
@@ -324,13 +348,10 @@ namespace football_navigation
           selected_row_start +
           (selected_column < 4 ? selected_column + 1 : selected_column - 1);
 
-      selected_initial_global_x_ =
-          0.5 +
-          1.2 *
-              static_cast<double>(selected_column);
-
-      selected_initial_global_y_ =
-          selected_robot_index_ < 5 ? -1.2 : 1.2;
+      selected_initial_global_x_ = declare_parameter<double>(
+        "selected_initial_global_x", 0.0);
+      selected_initial_global_y_ = declare_parameter<double>(
+        "selected_initial_global_y", 0.0);
 
       if (!std::isfinite(
               scripted_peer_linear_speed_mps_) ||
@@ -346,7 +367,7 @@ namespace football_navigation
             "scripted peer speeds must be finite and non-negative");
       }
 
-      if (!std::isfinite(
+      if (continuous_demo_enabled_ && (!std::isfinite(
               demo_peer_motion_start_delay_sec_) ||
           !std::isfinite(
               demo_peer_motion_period_sec_) ||
@@ -367,13 +388,64 @@ namespace football_navigation
               field_max_x_ - boundary_margin_m_ ||
           demo_peer_crossing_y_amplitude_m_ >=
               std::min(-field_min_y_, field_max_y_) -
-                  boundary_margin_m_)
+                  boundary_margin_m_))
       {
         throw std::invalid_argument(
             "invalid continuous demo peer trajectory parameters");
       }
 
       robots_.reserve(robot_namespaces_.size());
+
+      std::map<std::string, std::vector<double>> configured_initial_poses;
+      for (const auto & robot_namespace : robot_namespaces_) {
+        auto pose = declare_parameter<std::vector<double>>(
+          "initial_pose_" + robot_namespace, std::vector<double>{});
+        if (!pose.empty() && (pose.size() != 3 ||
+          !std::all_of(pose.begin(), pose.end(), [](const double value) {
+            return std::isfinite(value);
+          })))
+        {
+          throw std::invalid_argument(
+            "initial_pose_<namespace> must be empty or [x, y, yaw]");
+        }
+        if (pose.size() == 3) {
+          configured_initial_poses.emplace(robot_namespace, std::move(pose));
+        }
+      }
+
+      std::mt19937 random_engine(static_cast<std::mt19937::result_type>(random_seed_));
+      std::uniform_real_distribution<double> random_x(
+        field_min_x_ + boundary_margin_m_ + maximum_collision_extent,
+        field_max_x_ - boundary_margin_m_ - maximum_collision_extent);
+      std::uniform_real_distribution<double> random_y(
+        field_min_y_ + boundary_margin_m_ + maximum_collision_extent,
+        field_max_y_ - boundary_margin_m_ - maximum_collision_extent);
+      std::uniform_real_distribution<double> random_yaw(-kPi, kPi);
+      std::vector<InitialPose2D> occupied_poses{
+        {selected_initial_global_x_, selected_initial_global_y_, 0.0}};
+      for (const auto & configured : configured_initial_poses) {
+        if (configured.first == selected_namespace_ && !simulate_selected_robot_) {
+          continue;
+        }
+        const double configured_x = configured.second[0];
+        const double configured_y = configured.second[1];
+        const double configured_yaw = configured.second[2];
+        if (configured_x <= field_min_x_ + boundary_margin_m_ + maximum_collision_extent ||
+          configured_x >= field_max_x_ - boundary_margin_m_ - maximum_collision_extent ||
+          configured_y <= field_min_y_ + boundary_margin_m_ + maximum_collision_extent ||
+          configured_y >= field_max_y_ - boundary_margin_m_ - maximum_collision_extent ||
+          std::any_of(occupied_poses.begin(), occupied_poses.end(),
+          [&collision_ellipse, configured_x, configured_y, configured_yaw](const auto & occupied) {
+            return orientedEllipseClearance(
+              configured_x, configured_y, configured_yaw, collision_ellipse,
+              occupied.x, occupied.y, occupied.yaw, collision_ellipse) < 0.0;
+          }))
+        {
+          throw std::invalid_argument(
+            "configured initial robot poses must stay inside the field and not overlap");
+        }
+        occupied_poses.push_back({configured_x, configured_y, configured_yaw});
+      }
 
       for (std::size_t index = 0;
            index < robot_namespaces_.size();
@@ -391,14 +463,43 @@ namespace football_navigation
         Robot robot;
         robot.id = robot_namespace;
         robot.index = index;
-        robot.initial_global_x =
-            0.5 +
-            1.2 *
-                static_cast<double>(index % 5);
-        robot.initial_global_y =
-            index < 5 ? -1.2 : 1.2;
-        robot.initial_global_yaw =
-            index < 5 ? 0.0 : kPi;
+        const auto configured_pose = configured_initial_poses.find(robot_namespace);
+        if (configured_pose != configured_initial_poses.end()) {
+          robot.initial_global_x = configured_pose->second[0];
+          robot.initial_global_y = configured_pose->second[1];
+          robot.initial_global_yaw = configured_pose->second[2];
+        } else if (randomize_initial_poses_) {
+          bool placed = false;
+          for (int attempt = 0; attempt < 1000 && !placed; ++attempt) {
+            const double candidate_x = random_x(random_engine);
+            const double candidate_y = random_y(random_engine);
+            const double candidate_yaw = random_yaw(random_engine);
+            placed = std::all_of(
+              occupied_poses.begin(), occupied_poses.end(),
+              [this, &collision_ellipse, candidate_x, candidate_y, candidate_yaw](
+                const auto & occupied) {
+                return std::hypot(candidate_x - occupied.x, candidate_y - occupied.y) >=
+                       minimum_initial_separation_m_ &&
+                       orientedEllipseClearance(
+                         candidate_x, candidate_y, candidate_yaw, collision_ellipse,
+                         occupied.x, occupied.y, occupied.yaw, collision_ellipse) >= 0.0;
+              });
+            if (placed) {
+              robot.initial_global_x = candidate_x;
+              robot.initial_global_y = candidate_y;
+              robot.initial_global_yaw = candidate_yaw;
+              occupied_poses.push_back({candidate_x, candidate_y, candidate_yaw});
+            }
+          }
+          if (!placed) {
+            throw std::runtime_error(
+              "unable to place all simulated robots with requested separation");
+          }
+        } else {
+          robot.initial_global_x = 0.5 + 1.2 * static_cast<double>(index % 5);
+          robot.initial_global_y = index < 5 ? -1.2 : 1.2;
+          robot.initial_global_yaw = index < 5 ? 0.0 : kPi;
+        }
         robot.latest_cmd_vel_time =
             rclcpp::Time(
                 0,
@@ -944,6 +1045,8 @@ void FootballFakeOtherRobotPublisher::update()
                   .seconds());
 
       std::vector<Robot> proposed = robots_;
+      const auto collision_ellipse = makeCircumscribedCollisionEllipse(
+        robot_collision_length_m_, robot_collision_width_m_, collision_ellipse_expansion_m_);
 
       for (auto &robot : proposed)
       {
@@ -953,29 +1056,30 @@ void FootballFakeOtherRobotPublisher::update()
             elapsed_time,
             stamp);
 
+        const double robot_yaw = robot.initial_global_yaw + robot.local_yaw;
+        const double x_extent = ellipseSupportRadius(collision_ellipse, robot_yaw, 1.0, 0.0);
+        const double y_extent = ellipseSupportRadius(collision_ellipse, robot_yaw, 0.0, 1.0);
+
         robot.local_x =
             std::clamp(
                 robot.local_x,
                 field_min_x_ +
-                    boundary_margin_m_ -
+                    boundary_margin_m_ + x_extent -
                     robot.initial_global_x,
                 field_max_x_ -
-                    boundary_margin_m_ -
+                    boundary_margin_m_ - x_extent -
                     robot.initial_global_x);
 
         robot.local_y =
             std::clamp(
                 robot.local_y,
                 field_min_y_ +
-                    boundary_margin_m_ -
+                    boundary_margin_m_ + y_extent -
                     robot.initial_global_y,
                 field_max_y_ -
-                    boundary_margin_m_ -
+                    boundary_margin_m_ - y_extent -
                     robot.initial_global_y);
       }
-
-      const double minimum_distance =
-          2.0 * robot_collision_radius_m_;
 
       std::vector<double> correction_x(
           proposed.size(),
@@ -1005,10 +1109,18 @@ void FootballFakeOtherRobotPublisher::update()
               (proposed[i].initial_global_y +
                proposed[i].local_y);
 
-          const double distance =
-              std::hypot(dx, dy);
+          const double distance = std::hypot(dx, dy);
+          const double clearance = orientedEllipseClearance(
+            proposed[i].initial_global_x + proposed[i].local_x,
+            proposed[i].initial_global_y + proposed[i].local_y,
+            proposed[i].initial_global_yaw + proposed[i].local_yaw,
+            collision_ellipse,
+            proposed[j].initial_global_x + proposed[j].local_x,
+            proposed[j].initial_global_y + proposed[j].local_y,
+            proposed[j].initial_global_yaw + proposed[j].local_yaw,
+            collision_ellipse);
 
-          if (distance >= minimum_distance)
+          if (clearance >= 0.0)
           {
             continue;
           }
@@ -1019,8 +1131,7 @@ void FootballFakeOtherRobotPublisher::update()
           const double uy =
               distance > 1e-9 ? dy / distance : 0.0;
 
-          const double separation =
-              minimum_distance - distance;
+          const double separation = -clearance;
 
           const bool fixed_i =
               proposed[i].id ==
@@ -1065,15 +1176,18 @@ void FootballFakeOtherRobotPublisher::update()
            i < proposed.size();
            ++i)
       {
+        const double robot_yaw = proposed[i].initial_global_yaw + proposed[i].local_yaw;
+        const double x_extent = ellipseSupportRadius(collision_ellipse, robot_yaw, 1.0, 0.0);
+        const double y_extent = ellipseSupportRadius(collision_ellipse, robot_yaw, 0.0, 1.0);
         proposed[i].local_x =
             std::clamp(
                 proposed[i].local_x +
                     correction_x[i],
                 field_min_x_ +
-                    boundary_margin_m_ -
+                    boundary_margin_m_ + x_extent -
                     proposed[i].initial_global_x,
                 field_max_x_ -
-                    boundary_margin_m_ -
+                    boundary_margin_m_ - x_extent -
                     proposed[i].initial_global_x);
 
         proposed[i].local_y =
@@ -1081,10 +1195,10 @@ void FootballFakeOtherRobotPublisher::update()
                 proposed[i].local_y +
                     correction_y[i],
                 field_min_y_ +
-                    boundary_margin_m_ -
+                    boundary_margin_m_ + y_extent -
                     proposed[i].initial_global_y,
                 field_max_y_ -
-                    boundary_margin_m_ -
+                    boundary_margin_m_ - y_extent -
                     proposed[i].initial_global_y);
       }
 

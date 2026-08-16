@@ -6,11 +6,12 @@
 
 #include <cstddef>
 #include <mutex>
+#include <map>
 #include <string>
 #include <vector>
 
 #include "geometry_msgs/msg/point.hpp"
-#include "geometry_msgs/msg/pose_array.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav2_costmap_2d/costmap_layer.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -56,7 +57,9 @@ private:
     double yaw_rate{0.0};
   };
 
-  void poseArrayCallback(const geometry_msgs::msg::PoseArray::SharedPtr msg);
+  void robotOdomCallback(
+    const std::string & robot_namespace, std::size_t source_index,
+    const nav_msgs::msg::Odometry::SharedPtr msg);
   bool validPose(const geometry_msgs::msg::Pose & pose) const;
   bool stampAcceptable(const rclcpp::Time & stamp) const;
   bool makeObstacleFromPose(
@@ -92,8 +95,6 @@ private:
   double other_robot_width_m_{0.339};
   double data_timeout_{0.70};
   int minimum_obstacle_count_{1};
-  bool pose_array_includes_self_{false};
-  double self_filter_radius_{0.05};
   double max_message_age_{0.50};
   double future_tolerance_{0.08};
   double transform_tolerance_sec_{0.25};
@@ -116,7 +117,10 @@ private:
   bool use_maximum_{true};
   std::string global_frame_;
   std::string target_frame_;
-  std::string pose_array_topic_;
+  std::string self_namespace_;
+  std::string robot_namespaces_csv_;
+  std::string robot_odom_topic_template_;
+  std::vector<std::string> robot_namespaces_;
   std::vector<geometry_msgs::msg::Point> other_robot_footprint_;
 
   std::mutex data_mutex_;
@@ -137,7 +141,8 @@ private:
   double last_update_bounds_ms_{0.0};
   double last_update_costs_ms_{0.0};
   bool have_received_data_{false};
-  rclcpp::Subscription<geometry_msgs::msg::PoseArray>::SharedPtr pose_array_sub_;
+  std::map<std::string, rclcpp::Time> robot_odom_times_;
+  std::vector<rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr> robot_odom_subs_;
 };
 
 }  // namespace football_navigation

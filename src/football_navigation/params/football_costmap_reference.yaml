@@ -21,9 +21,10 @@ local_costmap:
       multi_robot_obstacle_layer:
         plugin: "football_navigation::MultiRobotObstacleLayer"
         enabled: true
-        input_mode: "pose_array"
         target_frame: vodom
-        pose_array_topic: football/other_robot_poses
+        self_namespace: cyberdog_1
+        robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
+        robot_odom_topic_template: /global_vio/{namespace}/odom
         use_oriented_footprint: true
         other_robot_length_m: 0.562
         other_robot_width_m: 0.339
@@ -33,8 +34,6 @@ local_costmap:
         obstacle_radius: 0.55
         obstacle_timeout_sec: 0.7
         transform_tolerance: 0.2
-        pose_array_includes_self: false
-        self_filter_radius: 0.05
         max_message_age: 0.7
         future_tolerance: 0.1
         cost_value: 254

@@ -1,19 +1,20 @@
-# Test template for the per-robot, already-relative PoseArray contract.
-# The PC role authority owns conversion from named global odometry to this topic.
+# 10 台机器人直接使用 mutil_robot_odom 的共享全局里程计接口。
 local_costmap_tracking:
   local_costmap_tracking:
     ros__parameters:
       multi_robot_obstacle_layer:
-        input_mode: pose_array
         target_frame: vodom
-        pose_array_topic: football/other_robot_poses
+        self_namespace: cyberdog_1
+        robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
+        robot_odom_topic_template: /global_vio/{namespace}/odom
         obstacle_timeout_sec: 0.7
 
 rolling_window_costmap:
   rolling_window_costmap:
     ros__parameters:
       multi_robot_obstacle_layer:
-        input_mode: pose_array
         target_frame: vodom
-        pose_array_topic: football/other_robot_poses
+        self_namespace: cyberdog_1
+        robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
+        robot_odom_topic_template: /global_vio/{namespace}/odom
         obstacle_timeout_sec: 0.7

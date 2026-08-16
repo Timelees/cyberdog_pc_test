@@ -15,7 +15,6 @@
 #include <vector>
 
 #include "football_navigation/core/football_geometry.hpp"
-#include "geometry_msgs/msg/pose_array.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -222,9 +221,6 @@ FootballTeamRoleAssigner::FootballTeamRoleAssigner()
         [this, robot_id](const nav_msgs::msg::Odometry::SharedPtr msg) {
           odomCallback(robot_id, msg);
         }));
-      other_robot_pubs_[robot_id] = create_publisher<geometry_msgs::msg::PoseArray>(
-        "/" + robot_id + "/football/other_robot_poses",
-        rclcpp::QoS(2).best_effort());
       role_pubs_[robot_id] = create_publisher<std_msgs::msg::String>(
         "/" + robot_id + "/football/role", latchedQos());
       tactical_target_pubs_[robot_id] = create_publisher<geometry_msgs::msg::PoseStamped>(
@@ -659,47 +655,6 @@ void FootballTeamRoleAssigner::publishTeamTactics(
     }
   }
 
-void FootballTeamRoleAssigner::publishOtherRobots(const std::vector<RobotPose2D> & all)
-{
-    for (const auto & ego : all) {
-      if (!ego.valid) {
-        continue;
-      }
-      const auto ego_state = robot_odoms_.find(ego.id);
-      if (ego_state == robot_odoms_.end()) {
-        continue;
-      }
-      geometry_msgs::msg::PoseArray output;
-      output.header.stamp = ego_state->second.odom.header.stamp;
-      output.header.frame_id = "base_link";
-      const double c = std::cos(ego.yaw);
-      const double s = std::sin(ego.yaw);
-      for (const auto & other : all) {
-        if (!other.valid || other.id == ego.id ||
-          std::fabs(other.stamp_sec - ego.stamp_sec) > max_pose_skew_sec_)
-        {
-          continue;
-        }
-        const double dt = ego.stamp_sec - other.stamp_sec;
-        if (std::fabs(dt) > max_pose_skew_sec_) {
-          continue;
-        }
-        const double predicted_x = other.x + other.vx * dt;
-        const double predicted_y = other.y + other.vy * dt;
-        geometry_msgs::msg::Pose pose;
-        const double dx = predicted_x - ego.x;
-        const double dy = predicted_y - ego.y;
-        pose.position.x = c * dx + s * dy;
-        pose.position.y = -s * dx + c * dy;
-        pose.orientation = quaternionFromYaw(other.yaw - ego.yaw);
-        output.poses.push_back(pose);
-      }
-      if (static_cast<int>(output.poses.size()) >= minimum_other_robot_count_) {
-        other_robot_pubs_.at(ego.id)->publish(output);
-      }
-    }
-  }
-
 std::string FootballTeamRoleAssigner::selectNearestStriker(
   const std::vector<RobotPose2D> & robots, const std::string & current,
   rclcpp::Time & current_since, std::string & challenger,
@@ -859,7 +814,6 @@ void FootballTeamRoleAssigner::update()
     auto team_b = teamPoses(team_b_namespaces_);
     std::vector<RobotPose2D> all = team_a;
     all.insert(all.end(), team_b.begin(), team_b.end());
-    publishOtherRobots(all);
     publishKickTargets();
 
     if (authorityConflictActive()) {
