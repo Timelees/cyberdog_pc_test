@@ -1,0 +1,161 @@
+#!/usr/bin/python3
+"""Fixed-ball, single-striker simulation with RViz visualization."""
+
+import os
+
+import yaml
+from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
+from launch.conditions import IfCondition
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+
+
+def node_params(data, node_name):
+    return dict(data.get(node_name, {}).get('ros__parameters', {}))
+
+
+def launch_nodes(context):
+    params_file = LaunchConfiguration('params_file').perform(context)
+    with open(params_file, 'r', encoding='utf-8') as stream:
+        params = yaml.safe_load(stream) or {}
+
+    simulation = node_params(params, 'football_simulation_input_publisher')
+    robot_namespace = str(simulation.get(
+        'robot_namespace', 'cyberdog_1')).strip().strip('/')
+    if not robot_namespace:
+        raise RuntimeError('robot_namespace must not be empty')
+
+    field_frame = str(simulation.get('field_frame', 'tag_global'))
+    odom_template = str(simulation.get(
+        'odom_topic_template', '/global_vio/{namespace}/odom'))
+    if '{namespace}' not in odom_template:
+        raise RuntimeError('odom_topic_template must contain {namespace}')
+    odom_topic = odom_template.replace('{namespace}', robot_namespace)
+
+    team_id = 'a' if int(robot_namespace.rsplit('_', 1)[1]) <= 5 else 'b'
+    approach_topic = '/{}/football/approach_pose'.format(robot_namespace)
+    path_topic = '/{}/plan'.format(robot_namespace)
+    cmd_vel_topic = '/{}/cmd_vel'.format(robot_namespace)
+    simulation.update({
+        'approach_topic': approach_topic,
+        'path_topic': path_topic,
+        'striker_topic': '/football/team_{}/striker'.format(team_id),
+        'kick_target_topic': '/football/team_{}/kick_target'.format(team_id),
+        'cmd_vel_topic': cmd_vel_topic,
+    })
+
+    goal = node_params(params, 'football_goal_adapter')
+    goal.update({
+        'self_namespace': robot_namespace,
+        'team_id': team_id,
+        'field_frame': field_frame,
+        'target_frame': field_frame,
+        'odom_global_topic': odom_topic,
+    })
+
+    visualization = node_params(params, 'football_visualization_node')
+    visualization.update({
+        'self_namespace': robot_namespace,
+        'team_id': team_id,
+        'field_frame': field_frame,
+        'target_frame': field_frame,
+        'odom_topic': odom_topic,
+        'approach_pose_topic': approach_topic,
+        'path_topic': path_topic,
+        'cmd_vel_topic': cmd_vel_topic,
+        'expect_motion_cmds': True,
+    })
+
+    trajectory = node_params(params, 'football_trajectory_adapter')
+    trajectory.update({'target_frame': field_frame})
+
+    tracking = node_params(params, 'football_tracking_action_client')
+    tracking.update({
+        'self_namespace': robot_namespace,
+        'team_id': team_id,
+        'expected_tracking_frame': field_frame,
+    })
+
+    navigator = node_params(params, 'football_simulation_navigator')
+    navigator.update({
+        'field_frame': field_frame,
+        'odom_topic': odom_topic,
+        'cmd_vel_topic': cmd_vel_topic,
+    })
+
+    rviz_config = os.path.join(
+        get_package_share_directory('football_navigation'),
+        'rviz', 'football_single_robot_simulation.rviz')
+
+    return [
+        Node(
+            package='football_navigation',
+            executable='football_simulation_input_publisher',
+            name='football_simulation_input_publisher',
+            output='screen',
+            parameters=[simulation],
+        ),
+        Node(
+            package='football_navigation',
+            executable='football_goal_adapter',
+            name='football_goal_adapter',
+            namespace=robot_namespace,
+            output='screen',
+            parameters=[goal],
+        ),
+        Node(
+            package='football_navigation',
+            executable='football_trajectory_adapter',
+            name='football_trajectory_adapter',
+            namespace=robot_namespace,
+            output='screen',
+            parameters=[trajectory],
+        ),
+        Node(
+            package='football_navigation',
+            executable='football_tracking_action_client',
+            name='football_tracking_action_client',
+            namespace=robot_namespace,
+            output='screen',
+            parameters=[tracking],
+        ),
+        Node(
+            package='football_navigation',
+            executable='football_simulation_navigator',
+            name='football_simulation_navigator',
+            namespace=robot_namespace,
+            output='screen',
+            parameters=[navigator],
+        ),
+        Node(
+            package='football_navigation',
+            executable='football_visualization_node',
+            name='football_visualization_node',
+            namespace=robot_namespace,
+            output='screen',
+            parameters=[visualization],
+        ),
+        Node(
+            condition=IfCondition(LaunchConfiguration('use_rviz')),
+            package='rviz2',
+            executable='rviz2',
+            name='football_simulation_rviz',
+            output='screen',
+            arguments=['-d', rviz_config],
+        ),
+    ]
+
+
+def generate_launch_description():
+    share = get_package_share_directory('football_navigation')
+    return LaunchDescription([
+        DeclareLaunchArgument(
+            'params_file',
+            default_value=os.path.join(
+                share, 'params', 'football_single_robot_simulation.yaml'),
+        ),
+        DeclareLaunchArgument('use_rviz', default_value='true'),
+        OpaqueFunction(function=launch_nodes),
+    ])

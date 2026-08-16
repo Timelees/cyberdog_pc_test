@@ -16,7 +16,10 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
 
-option(TOPIC_VISUALIZATION_BUILD_ROS_TOPIC_VISUAL "Build ros_topic_visual_node (may ICE on GCC7)" ON)
+# The source for ros_topic_visual_node is not part of this workspace.
+# Keep the remaining visualization nodes buildable by default; callers that
+# provide the optional source can explicitly enable this target.
+option(TOPIC_VISUALIZATION_BUILD_ROS_TOPIC_VISUAL "Build ros_topic_visual_node (may ICE on GCC7)" OFF)
 
 set(_topic_visual_targets "")
 

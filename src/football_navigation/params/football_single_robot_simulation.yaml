@@ -1,0 +1,133 @@
+football_simulation_input_publisher:
+  ros__parameters:
+    # 第一版固定场景。机器人命名空间和所有全局坐标都由本文件提供。
+    robot_namespace: cyberdog_1
+    field_frame: tag_global
+    odom_topic_template: /global_vio/{namespace}/odom
+    cmd_vel_topic: /cyberdog_1/cmd_vel
+    publish_rate_hz: 20.0
+    cmd_vel_timeout_sec: 0.5
+    robot_x: 0.0
+    robot_y: 0.0
+    robot_yaw: 0.0
+    ball_x: 3.0
+    ball_y: 2.0
+    kick_target_x: 8.0
+    kick_target_y: 0.0
+    stop_at_ball: true
+    ball_contact_distance_m: 0.42
+    simulate_ball_push: true
+    ball_push_transfer_gain: 1.0
+    ball_push_lateral_gain: 0.05
+
+football_goal_adapter:
+  ros__parameters:
+    field_frame: tag_global
+    target_frame: tag_global
+    base_frame: base_link
+    ball_pose_topic: /football/ball_pose
+    approach_pose_topic: football/approach_pose
+    speed_limit_topic: speed_limit
+    require_striker_role: true
+    use_team_kick_target: true
+    require_other_robot_poses: false
+    update_rate_hz: 15.0
+    approach_distance_m: 0.5
+    default_kick_yaw: 0.0
+    ball_approach_speed_limit_mps: 0.20
+    contact_acquire_speed_limit_mps: 0.07
+    push_speed_limit_mps: 0.12
+    field_min_x: -2.0
+    field_max_x: 8.0
+    field_min_y: -4.0
+    field_max_y: 4.0
+
+football_trajectory_adapter:
+  ros__parameters:
+    target_frame: tag_global
+    input_approach_pose_topic: football/approach_pose
+    output_tracking_pose_topic: tracking_pose
+    output_tracking_heartbeat_topic: tracking_pose_heartbeat
+    publish_tracking_pose: true
+    publish_goal_pose: false
+    tracking_pose_heartbeat_hz: 10.0
+
+football_tracking_action_client:
+  ros__parameters:
+    enabled: true
+    tracking_pose_topic: tracking_pose_heartbeat
+    action_name: navigate_to_pose
+    expected_tracking_frame: tag_global
+    require_striker_role: true
+    require_costmap_ready: false
+    tick_rate_hz: 10.0
+    send_period_sec: 0.2
+    tracking_pose_timeout_sec: 0.6
+    role_timeout_sec: 0.8
+    control_valid_topic: football/control_valid
+
+football_simulation_navigator:
+  ros__parameters:
+    field_frame: tag_global
+    action_name: navigate_to_pose
+    odom_topic: /global_vio/cyberdog_1/odom
+    cmd_vel_topic: cmd_vel
+    push_cmd_vel_topic: football/push_cmd_vel
+    speed_limit_topic: speed_limit
+    control_state_topic: football/state
+    control_rate_hz: 20.0
+    linear_gain: 0.9
+    angular_gain: 1.5
+    push_bearing_gain: 0.6
+    max_linear_speed_mps: 0.45
+    max_angular_speed_rps: 0.8
+    position_tolerance_m: 0.06
+    yaw_tolerance_rad: 0.08
+    odom_timeout_sec: 0.5
+
+football_visualization_node:
+  ros__parameters:
+    field_frame: tag_global
+    target_frame: tag_global
+    base_frame: base_link
+    ball_topic: /football/ball_pose
+    approach_pose_topic: football/approach_pose
+    path_topic: plan
+    odom_topic: /global_vio/cyberdog_1/odom
+    field_marker_topic: /football/markers/field
+    robot_marker_topic: /football/markers/robots
+    ball_marker_topic: /football/markers/ball
+    approach_marker_topic: /football/markers/approach_pose
+    tracking_marker_topic: /football/markers/tracking_pose
+    path_marker_topic: /football/markers/paths
+    goal_marker_topic: /football/markers/goals
+    costmap_marker_topic: /football/markers/costmap
+    command_marker_topic: /football/markers/commands
+    status_marker_topic: /football/markers/status
+    self_namespace: cyberdog_1
+    team_id: a
+    team_robot_count: 1
+    show_field_boundary: true
+    show_ball_marker: true
+    show_goal_markers: true
+    show_ego_robot_marker: true
+    show_other_robot_markers: false
+    show_robot_inflation_markers: false
+    enable_costmap_markers: false
+    expect_motion_cmds: false
+    use_delete_all_before_publish: true
+    # 可视化场地以全局原点为中心，不复用仅覆盖当前仿真工作区的导航边界。
+    field_center_x: 0.0
+    field_center_y: 0.0
+    field_length_m: 16.0
+    field_width_m: 8.0
+    center_circle_radius_m: 0.75
+    team_a_attack_goal_x: 8.0
+    team_a_attack_goal_y: 0.0
+    team_b_attack_goal_x: -8.0
+    team_b_attack_goal_y: 0.0
+    # 命令与状态面板固定放在边线外，不随机器人运动。
+    command_panel_x: -3.0
+    command_panel_y: -5.0
+    status_panel_x: 1.0
+    status_panel_y: -5.0

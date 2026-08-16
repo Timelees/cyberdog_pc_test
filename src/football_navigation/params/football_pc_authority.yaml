@@ -1,0 +1,170 @@
+global_vio_odom:
+  ros__parameters:
+    status_period_sec: 5.0
+
+    robot_namespaces:
+      - cyberdog_1
+      - cyberdog_2
+      - cyberdog_3
+      - cyberdog_4
+      - cyberdog_5
+      - cyberdog_6
+      - cyberdog_7
+      - cyberdog_8
+      - cyberdog_9
+      - cyberdog_10
+
+    input_odom_topic: /odom_global
+
+    output_topic_prefix: /global_vio
+    output_odom_topic: odom
+
+    target_frame_id: tag_global
+    base_frame_name: base_link
+
+    # robot odom_global 由队友 odom_transform
+    # 使用 SensorDataQoS/BestEffort 发布。
+    subscribe_best_effort: true
+
+    # PC 内部向角色节点提供 Reliable 数据。
+    publish_best_effort: false
+
+    # 队友使用唯一 child frame：
+    # cyberdog_N_base_link，不会与本机 base_link 冲突。
+    publish_tf: true
+    tf_publish_every_n: 1
+
+    # 禁止创建 map -> tag_global。
+    publish_map_anchor_tf: false
+
+mutil_robot_tag_visual:
+  ros__parameters:
+    status_period_sec: 5.0
+    robot_namespaces:
+      - cyberdog_1
+      - cyberdog_2
+      - cyberdog_3
+      - cyberdog_4
+      - cyberdog_5
+      - cyberdog_6
+      - cyberdog_7
+      - cyberdog_8
+      - cyberdog_9
+      - cyberdog_10
+    input_topic_prefix: /global_vio
+    input_odom_topic: odom
+    target_frame_id: tag_global
+    output_topic_prefix: /global_vio
+    subscribe_best_effort: false
+    publish_best_effort: false
+    path_enabled: true
+    pose_text_enabled: true
+    robot_marker_enabled: true
+    path_publish_every_n: 1
+    marker_publish_every_n: 5
+    path_max_poses: 3000
+    pose_text_z_offset: 0.6
+    pose_text_scale: 0.18
+football_ball_fusion:
+  ros__parameters:
+    # 原始球位姿已经位于 tag_global；只有通过校验的数据才重新发布到
+    # /football/ball_pose，供下游足球控制模块使用。
+    mode: global_external
+    field_frame: tag_global
+    global_input_topic: /football/ball_pose_raw
+    output_topic: /football/ball_pose
+    max_detection_age_sec: 0.30
+    future_tolerance_sec: 0.08
+    max_odom_age_sec: 0.30
+    max_detection_odom_skew_sec: 0.12
+    max_fusion_time_skew_sec: 0.08
+    minimum_inlier_count: 2
+    inlier_radius_m: 0.45
+    max_ball_speed_mps: 6.0
+    field_min_x: -2.0
+    field_max_x: 8.0
+    field_min_y: -3.0
+    field_max_y: 3.0
+
+football_goal_adapter:
+  ros__parameters:
+    field_min_x: -2.0
+    field_max_x: 8.0
+    field_min_y: -3.0
+    field_max_y: 3.0
+    ball_boundary_margin_m: 0.12
+    approach_boundary_margin_m: 0.25
+
+football_fake_ball_publisher:
+  ros__parameters:
+    # 球的初始/重置位置位于 tag_global。假球仍发布到原始话题，使其经过与
+    # 真实感知数据相同的融合检查。
+    frame_id: tag_global
+    ball_topic: /football/ball_pose_raw
+    ball_x: 3.0
+    ball_y: 0.0
+    kickoff_x: 3.0
+    kickoff_y: 0.0
+    push_contact_m: 0.22
+    max_contact_angle_rad: 0.70
+    minimum_contact_speed_mps: 0.03
+    team_a_attack_goal_x: 8.0
+    team_a_attack_goal_y: 0.0
+    team_b_attack_goal_x: -2.0
+    team_b_attack_goal_y: 0.0
+    goal_width_m: 1.2
+    goal_line_depth_m: 0.15
+    field_min_x: -2.0
+    field_max_x: 8.0
+    field_min_y: -3.0
+    field_max_y: 3.0
+    ball_radius_m: 0.11
+    out_of_bounds_reset_sec: 1.0
+
+football_team_role_assigner:
+  ros__parameters:
+    field_frame: tag_global
+    ball_topic: /football/ball_pose
+    odom_source_mode: pc_forwarded
+    odom_topic_template: /global_vio/{namespace}/odom
+    authority_id: football_pc_primary
+    authority_topic: /football/role_authority
+    team_a_namespaces_csv: "cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5"
+    team_b_namespaces_csv: "cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10"
+    team_a_attack_goal_x: 8.0
+    team_a_attack_goal_y: 0.0
+    team_b_attack_goal_x: -2.0
+    team_b_attack_goal_y: 0.0
+    update_rate_hz: 15.0
+    max_pose_age_sec: 0.40
+    max_pose_skew_sec: 0.15
+    ball_timeout_sec: 0.45
+    future_tolerance_sec: 0.08
+    authority_timeout_sec: 1.0
+    initial_match_state: STOP
+    match_state_command_topic: /football/match_state_command
+    striker_min_hold_sec: 1.5
+    striker_benefit_threshold: 0.45
+    max_robot_speed_mps: 0.50
+    kickoff_hold_sec: 3.0
+    kickoff_release_distance_m: 0.25
+    kickoff_max_duration_sec: 10.0
+    minimum_online_per_team: 1
+    minimum_other_robot_count: 9
+
+football_visualization_node:
+  ros__parameters:
+    field_frame: tag_global
+    target_frame: tag_global
+    show_ego_robot_marker: false
+    show_robot_inflation_markers: false
+    field_marker_topic: /football/markers/field
+    robot_marker_topic: /football/markers/robots
+    ball_marker_topic: /football/markers/ball
+    approach_marker_topic: /football/markers/approach_pose
+    tracking_marker_topic: /football/markers/tracking_pose
+    path_marker_topic: /football/markers/paths
+    goal_marker_topic: /football/markers/goals
+    costmap_marker_topic: /football/markers/costmap
+    command_marker_topic: /football/markers/commands
+    status_marker_topic: /football/markers/status

@@ -1,0 +1,19 @@
+# Test template for the per-robot, already-relative PoseArray contract.
+# The PC role authority owns conversion from named global odometry to this topic.
+local_costmap_tracking:
+  local_costmap_tracking:
+    ros__parameters:
+      multi_robot_obstacle_layer:
+        input_mode: pose_array
+        target_frame: vodom
+        pose_array_topic: football/other_robot_poses
+        obstacle_timeout_sec: 0.7
+
+rolling_window_costmap:
+  rolling_window_costmap:
+    ros__parameters:
+      multi_robot_obstacle_layer:
+        input_mode: pose_array
+        target_frame: vodom
+        pose_array_topic: football/other_robot_poses
+        obstacle_timeout_sec: 0.7

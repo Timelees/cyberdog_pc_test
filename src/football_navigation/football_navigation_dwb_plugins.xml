@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<class_libraries>
+  <library path="football_multi_robot_obstacle_layer">
+    <class
+      type="football_navigation::FootballPreferForwardCritic"
+      base_class_type="dwb_core::TrajectoryCritic">
+      <description>Continuous forward-progress scoring for football alignment.</description>
+    </class>
+  </library>
+</class_libraries>

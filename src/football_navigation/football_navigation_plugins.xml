@@ -1,0 +1,28 @@
+<class_libraries>
+  <library path="football_multi_robot_obstacle_layer">
+    <class
+        name="football_navigation/MultiRobotObstacleLayer"
+        type="football_navigation::MultiRobotObstacleLayer"
+        base_class_type="nav2_costmap_2d::Layer">
+      <description>Marks peer CyberDog robots as current, predicted, and swept dynamic obstacles in a Nav2 rolling costmap.</description>
+    </class>
+    <class
+        name="football_navigation::MultiRobotObstacleLayer"
+        type="football_navigation::MultiRobotObstacleLayer"
+        base_class_type="nav2_costmap_2d::Layer">
+      <description>Marks peer CyberDog robots as current, predicted, and swept dynamic obstacles in a Nav2 rolling costmap.</description>
+    </class>
+    <class
+        name="football_navigation/FootballProgressChecker"
+        type="football_navigation::FootballProgressChecker"
+        base_class_type="nav2_core::ProgressChecker">
+      <description>Accepts translational or rotational progress so bounded in-place football alignment is not misclassified as a stalled controller.</description>
+    </class>
+    <class
+        name="football_navigation::FootballProgressChecker"
+        type="football_navigation::FootballProgressChecker"
+        base_class_type="nav2_core::ProgressChecker">
+      <description>Accepts translational or rotational progress so bounded in-place football alignment is not misclassified as a stalled controller.</description>
+    </class>
+  </library>
+</class_libraries>
