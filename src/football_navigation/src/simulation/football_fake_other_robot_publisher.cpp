@@ -108,6 +108,12 @@ namespace football_navigation
                   "selected_namespace",
                   "cyberdog_2"));
 
+      keyboard_controlled_namespace_ =
+          normalizeRobotNamespace(
+              declare_parameter<std::string>(
+                  "keyboard_controlled_namespace",
+                  ""));
+
       simulate_selected_robot_ =
           declare_parameter<bool>(
               "simulate_selected_robot",
@@ -121,8 +127,29 @@ namespace football_navigation
       randomize_initial_poses_ = declare_parameter<bool>(
         "randomize_initial_poses", false);
       random_seed_ = declare_parameter<int>("random_seed", 2026);
+      random_engine_.seed(static_cast<std::mt19937::result_type>(random_seed_));
       minimum_initial_separation_m_ = declare_parameter<double>(
         "minimum_initial_separation_m", 0.90);
+      random_peer_motion_enabled_ = declare_parameter<bool>(
+        "random_peer_motion_enabled", false);
+      random_peer_motion_start_delay_sec_ = declare_parameter<double>(
+        "random_peer_motion_start_delay_sec", 0.5);
+      random_peer_min_speed_mps_ = declare_parameter<double>(
+        "random_peer_min_speed_mps", 0.08);
+      random_peer_max_speed_mps_ = declare_parameter<double>(
+        "random_peer_max_speed_mps", 0.18);
+      random_peer_min_target_duration_sec_ = declare_parameter<double>(
+        "random_peer_min_target_duration_sec", 4.0);
+      random_peer_max_target_duration_sec_ = declare_parameter<double>(
+        "random_peer_max_target_duration_sec", 9.0);
+      random_peer_goal_tolerance_m_ = declare_parameter<double>(
+        "random_peer_goal_tolerance_m", 0.25);
+      random_peer_min_travel_distance_m_ = declare_parameter<double>(
+        "random_peer_min_travel_distance_m", 1.0);
+      random_peer_turn_gain_ = declare_parameter<double>(
+        "random_peer_turn_gain", 1.8);
+      random_peer_min_clearance_m_ = declare_parameter<double>(
+        "random_peer_min_clearance_m", 0.03);
 
       scripted_peer_linear_speed_mps_ =
           declare_parameter<double>(
@@ -216,6 +243,10 @@ namespace football_navigation
           declare_parameter<std::string>(
               "acceptance_global_odom_topic_template",
               "/{namespace}/odom_global");
+
+      selected_global_odom_topic_ = declare_parameter<std::string>(
+        "selected_global_odom_topic",
+        expandTopic("/global_vio/{namespace}/odom", selected_namespace_));
 
       publish_integrated_cmd_vel_ =
           declare_parameter<bool>(
@@ -332,6 +363,23 @@ namespace football_navigation
             "selected_namespace must be in robot_namespaces_csv");
       }
 
+      if (!keyboard_controlled_namespace_.empty() &&
+          std::find(
+              robot_namespaces_.begin(),
+              robot_namespaces_.end(),
+              keyboard_controlled_namespace_) == robot_namespaces_.end())
+      {
+        throw std::invalid_argument(
+            "keyboard_controlled_namespace must be in robot_namespaces_csv");
+      }
+
+      if (!keyboard_controlled_namespace_.empty() &&
+          keyboard_controlled_namespace_ == selected_namespace_)
+      {
+        throw std::invalid_argument(
+            "keyboard_controlled_namespace must not be selected_namespace");
+      }
+
       selected_robot_index_ =
           static_cast<std::size_t>(
               std::distance(
@@ -365,6 +413,39 @@ namespace football_navigation
       {
         throw std::invalid_argument(
             "scripted peer speeds must be finite and non-negative");
+      }
+
+      if (random_peer_motion_enabled_ && (
+          !std::isfinite(random_peer_motion_start_delay_sec_) ||
+          !std::isfinite(random_peer_min_speed_mps_) ||
+          !std::isfinite(random_peer_max_speed_mps_) ||
+          !std::isfinite(random_peer_min_target_duration_sec_) ||
+          !std::isfinite(random_peer_max_target_duration_sec_) ||
+          !std::isfinite(random_peer_goal_tolerance_m_) ||
+          !std::isfinite(random_peer_min_travel_distance_m_) ||
+          !std::isfinite(random_peer_turn_gain_) ||
+          !std::isfinite(random_peer_min_clearance_m_) ||
+          random_peer_motion_start_delay_sec_ < 0.0 ||
+          random_peer_min_speed_mps_ <= 0.0 ||
+          random_peer_max_speed_mps_ < random_peer_min_speed_mps_ ||
+          random_peer_max_speed_mps_ > max_linear_speed_mps_ ||
+          random_peer_min_target_duration_sec_ <= 0.0 ||
+          random_peer_max_target_duration_sec_ < random_peer_min_target_duration_sec_ ||
+          random_peer_goal_tolerance_m_ <= 0.0 ||
+          random_peer_min_travel_distance_m_ <= random_peer_goal_tolerance_m_ ||
+          random_peer_turn_gain_ <= 0.0 ||
+          random_peer_min_clearance_m_ < 0.0))
+      {
+        throw std::invalid_argument("invalid random peer motion parameters");
+      }
+
+      const int enabled_peer_motion_modes =
+        (random_peer_motion_enabled_ ? 1 : 0) +
+        (scripted_peer_motion_enabled_ ? 1 : 0) +
+        (continuous_demo_enabled_ ? 1 : 0);
+      if (enabled_peer_motion_modes > 1) {
+        throw std::invalid_argument(
+          "enable only one of random, scripted, or continuous peer motion");
       }
 
       if (continuous_demo_enabled_ && (!std::isfinite(
@@ -413,7 +494,6 @@ namespace football_navigation
         }
       }
 
-      std::mt19937 random_engine(static_cast<std::mt19937::result_type>(random_seed_));
       std::uniform_real_distribution<double> random_x(
         field_min_x_ + boundary_margin_m_ + maximum_collision_extent,
         field_max_x_ - boundary_margin_m_ - maximum_collision_extent);
@@ -471,9 +551,9 @@ namespace football_navigation
         } else if (randomize_initial_poses_) {
           bool placed = false;
           for (int attempt = 0; attempt < 1000 && !placed; ++attempt) {
-            const double candidate_x = random_x(random_engine);
-            const double candidate_y = random_y(random_engine);
-            const double candidate_yaw = random_yaw(random_engine);
+            const double candidate_x = random_x(random_engine_);
+            const double candidate_y = random_y(random_engine_);
+            const double candidate_yaw = random_yaw(random_engine_);
             placed = std::all_of(
               occupied_poses.begin(), occupied_poses.end(),
               [this, &collision_ellipse, candidate_x, candidate_y, candidate_yaw](
@@ -591,10 +671,37 @@ namespace football_navigation
                   .transient_local()
                   .reliable());
 
+      if (!simulate_selected_robot_) {
+        selected_global_odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
+          selected_global_odom_topic_, rclcpp::SensorDataQoS().keep_last(5),
+          [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
+            if (!msg || !std::isfinite(msg->pose.pose.position.x) ||
+              !std::isfinite(msg->pose.pose.position.y))
+            {
+              return;
+            }
+            selected_global_x_ = msg->pose.pose.position.x;
+            selected_global_y_ = msg->pose.pose.position.y;
+            have_selected_global_pose_ = yawFromQuaternion(
+              msg->pose.pose.orientation, selected_global_yaw_);
+          });
+      }
+
       publishRawTagObservations();
 
       simulation_start_time_ = now();
       last_update_ = simulation_start_time_;
+
+      RCLCPP_INFO(
+        get_logger(),
+        "fake multi-robot motion: selected=%s externally_driven=%d peers=%zu "
+        "keyboard=%s mode=%s random_speed=[%.2f,%.2f] seed=%d",
+        selected_namespace_.c_str(), !simulate_selected_robot_, robots_.size(),
+        keyboard_controlled_namespace_.empty() ? "none" : keyboard_controlled_namespace_.c_str(),
+        random_peer_motion_enabled_ ? "random_waypoint" :
+        (continuous_demo_enabled_ ? "continuous_demo" :
+        (scripted_peer_motion_enabled_ ? "scripted" : "stationary")),
+        random_peer_min_speed_mps_, random_peer_max_speed_mps_, random_seed_);
 
       const double period =
           publish_rate_hz_ > 0.0 ? 1.0 / publish_rate_hz_ : 0.1;
@@ -756,6 +863,116 @@ void FootballFakeOtherRobotPublisher::setContinuousDemoPeerMotion(
       robot.wz = 0.0;
     }
 
+void FootballFakeOtherRobotPublisher::assignRandomPeerTarget(
+    Robot &robot,
+    const double elapsed_time)
+{
+      const auto collision_ellipse = makeCircumscribedCollisionEllipse(
+        robot_collision_length_m_, robot_collision_width_m_, collision_ellipse_expansion_m_);
+      const double boundary_extent = std::max(
+        collision_ellipse.semi_major_m, collision_ellipse.semi_minor_m);
+      std::uniform_real_distribution<double> target_x_distribution(
+        field_min_x_ + boundary_margin_m_ + boundary_extent,
+        field_max_x_ - boundary_margin_m_ - boundary_extent);
+      std::uniform_real_distribution<double> target_y_distribution(
+        field_min_y_ + boundary_margin_m_ + boundary_extent,
+        field_max_y_ - boundary_margin_m_ - boundary_extent);
+      std::uniform_real_distribution<double> speed_distribution(
+        random_peer_min_speed_mps_, random_peer_max_speed_mps_);
+      std::uniform_real_distribution<double> duration_distribution(
+        random_peer_min_target_duration_sec_, random_peer_max_target_duration_sec_);
+
+      const double cosine = std::cos(robot.initial_global_yaw);
+      const double sine = std::sin(robot.initial_global_yaw);
+      const double current_x = robot.initial_global_x +
+        cosine * robot.local_x - sine * robot.local_y;
+      const double current_y = robot.initial_global_y +
+        sine * robot.local_x + cosine * robot.local_y;
+
+      for (int attempt = 0; attempt < 64; ++attempt) {
+        const double target_x = target_x_distribution(random_engine_);
+        const double target_y = target_y_distribution(random_engine_);
+        if (std::hypot(target_x - current_x, target_y - current_y) <
+          random_peer_min_travel_distance_m_)
+        {
+          continue;
+        }
+        bool separated = std::hypot(
+          target_x - selected_initial_global_x_,
+          target_y - selected_initial_global_y_) >= minimum_initial_separation_m_;
+        for (const auto &other : robots_) {
+          if (!separated || other.id == robot.id) {
+            continue;
+          }
+          const double other_cosine = std::cos(other.initial_global_yaw);
+          const double other_sine = std::sin(other.initial_global_yaw);
+          const double other_x = other.initial_global_x +
+            other_cosine * other.local_x - other_sine * other.local_y;
+          const double other_y = other.initial_global_y +
+            other_sine * other.local_x + other_cosine * other.local_y;
+          separated = std::hypot(target_x - other_x, target_y - other_y) >=
+            minimum_initial_separation_m_;
+        }
+        if (!separated) {
+          continue;
+        }
+        robot.random_target_global_x = target_x;
+        robot.random_target_global_y = target_y;
+        robot.random_cruise_speed_mps = speed_distribution(random_engine_);
+        robot.random_target_expiry_sec = elapsed_time + duration_distribution(random_engine_);
+        robot.have_random_target = true;
+        return;
+      }
+
+      robot.have_random_target = false;
+      robot.random_target_expiry_sec = elapsed_time + 1.0;
+    }
+
+void FootballFakeOtherRobotPublisher::setRandomPeerMotion(
+    Robot &robot,
+    const double dt,
+    const double elapsed_time)
+{
+      const double initial_cosine = std::cos(robot.initial_global_yaw);
+      const double initial_sine = std::sin(robot.initial_global_yaw);
+      const double current_x = robot.initial_global_x +
+        initial_cosine * robot.local_x - initial_sine * robot.local_y;
+      const double current_y = robot.initial_global_y +
+        initial_sine * robot.local_x + initial_cosine * robot.local_y;
+      const double target_distance = robot.have_random_target ? std::hypot(
+        robot.random_target_global_x - current_x,
+        robot.random_target_global_y - current_y) : 0.0;
+      if (!robot.have_random_target ||
+        target_distance <= random_peer_goal_tolerance_m_ ||
+        elapsed_time >= robot.random_target_expiry_sec)
+      {
+        assignRandomPeerTarget(robot, elapsed_time);
+      }
+      if (!robot.have_random_target) {
+        return;
+      }
+
+      const double desired_global_yaw = std::atan2(
+        robot.random_target_global_y - current_y,
+        robot.random_target_global_x - current_x);
+      const double current_global_yaw = normalizeAngle(
+        robot.initial_global_yaw + robot.local_yaw);
+      const double yaw_error = signedYawError(desired_global_yaw, current_global_yaw);
+      const double heading_scale = std::fabs(yaw_error) >= 0.5 * kPi ?
+        0.0 : std::max(0.0, std::cos(yaw_error));
+      const double vx = robot.random_cruise_speed_mps * heading_scale;
+      const double wz = std::clamp(
+        random_peer_turn_gain_ * yaw_error,
+        -max_angular_speed_rps_, max_angular_speed_rps_);
+
+      robot.local_x += std::cos(robot.local_yaw) * vx * dt;
+      robot.local_y += std::sin(robot.local_yaw) * vx * dt;
+      robot.local_yaw = normalizeAngle(robot.local_yaw + wz * dt);
+      robot.local_vx = vx;
+      robot.local_vy = 0.0;
+      robot.wz = wz;
+    }
+
 void FootballFakeOtherRobotPublisher::integrateRobot(
     Robot &robot,
     const double dt,
@@ -766,8 +983,20 @@ void FootballFakeOtherRobotPublisher::integrateRobot(
       robot.local_vy = 0.0;
       robot.wz = 0.0;
 
+      if (random_peer_motion_enabled_ && robot.id != selected_namespace_ &&
+          robot.id != keyboard_controlled_namespace_)
+      {
+        if (elapsed_time < random_peer_motion_start_delay_sec_) {
+          return;
+        }
+        setRandomPeerMotion(
+          robot, dt, elapsed_time - random_peer_motion_start_delay_sec_);
+        return;
+      }
+
       if (continuous_demo_enabled_ &&
-          robot.id != selected_namespace_)
+          robot.id != selected_namespace_ &&
+          robot.id != keyboard_controlled_namespace_)
       {
         if (elapsed_time <
             demo_peer_motion_start_delay_sec_)
@@ -803,6 +1032,7 @@ void FootballFakeOtherRobotPublisher::integrateRobot(
       }
       else if (
           robot.id != selected_namespace_ &&
+          robot.id != keyboard_controlled_namespace_ &&
           scripted_peer_motion_enabled_)
       {
         const double phase =
@@ -863,6 +1093,27 @@ void FootballFakeOtherRobotPublisher::integrateRobot(
       robot.local_vy = vy;
       robot.wz = wz;
     }
+
+std::pair<double, double> FootballFakeOtherRobotPublisher::robotGlobalPosition(
+  const Robot & robot) const
+{
+  const double cosine = std::cos(robot.initial_global_yaw);
+  const double sine = std::sin(robot.initial_global_yaw);
+  return {
+    robot.initial_global_x + cosine * robot.local_x - sine * robot.local_y,
+    robot.initial_global_y + sine * robot.local_x + cosine * robot.local_y};
+}
+
+void FootballFakeOtherRobotPublisher::setRobotGlobalPosition(
+  Robot & robot, const double global_x, const double global_y) const
+{
+  const double dx = global_x - robot.initial_global_x;
+  const double dy = global_y - robot.initial_global_y;
+  const double cosine = std::cos(robot.initial_global_yaw);
+  const double sine = std::sin(robot.initial_global_yaw);
+  robot.local_x = cosine * dx + sine * dy;
+  robot.local_y = -sine * dx + cosine * dy;
+}
 
 nav_msgs::msg::Odometry FootballFakeOtherRobotPublisher::makeOdom(
     const Robot &robot,
@@ -1045,11 +1296,13 @@ void FootballFakeOtherRobotPublisher::update()
                   .seconds());
 
       std::vector<Robot> proposed = robots_;
+      std::vector<bool> random_motion_interrupted(proposed.size(), false);
       const auto collision_ellipse = makeCircumscribedCollisionEllipse(
         robot_collision_length_m_, robot_collision_width_m_, collision_ellipse_expansion_m_);
 
-      for (auto &robot : proposed)
+      for (std::size_t index = 0; index < proposed.size(); ++index)
       {
+        auto &robot = proposed[index];
         integrateRobot(
             robot,
             dt,
@@ -1060,25 +1313,17 @@ void FootballFakeOtherRobotPublisher::update()
         const double x_extent = ellipseSupportRadius(collision_ellipse, robot_yaw, 1.0, 0.0);
         const double y_extent = ellipseSupportRadius(collision_ellipse, robot_yaw, 0.0, 1.0);
 
-        robot.local_x =
-            std::clamp(
-                robot.local_x,
-                field_min_x_ +
-                    boundary_margin_m_ + x_extent -
-                    robot.initial_global_x,
-                field_max_x_ -
-                    boundary_margin_m_ - x_extent -
-                    robot.initial_global_x);
-
-        robot.local_y =
-            std::clamp(
-                robot.local_y,
-                field_min_y_ +
-                    boundary_margin_m_ + y_extent -
-                    robot.initial_global_y,
-                field_max_y_ -
-                    boundary_margin_m_ - y_extent -
-                    robot.initial_global_y);
+        const auto [unclamped_x, unclamped_y] = robotGlobalPosition(robot);
+        const double clamped_x = std::clamp(
+          unclamped_x, field_min_x_ + boundary_margin_m_ + x_extent,
+          field_max_x_ - boundary_margin_m_ - x_extent);
+        const double clamped_y = std::clamp(
+          unclamped_y, field_min_y_ + boundary_margin_m_ + y_extent,
+          field_max_y_ - boundary_margin_m_ - y_extent);
+        setRobotGlobalPosition(robot, clamped_x, clamped_y);
+        random_motion_interrupted[index] =
+          std::fabs(clamped_x - unclamped_x) > 1e-9 ||
+          std::fabs(clamped_y - unclamped_y) > 1e-9;
       }
 
       std::vector<double> correction_x(
@@ -1097,30 +1342,23 @@ void FootballFakeOtherRobotPublisher::update()
              j < proposed.size();
              ++j)
         {
-          const double dx =
-              (proposed[j].initial_global_x +
-               proposed[j].local_x) -
-              (proposed[i].initial_global_x +
-               proposed[i].local_x);
-
-          const double dy =
-              (proposed[j].initial_global_y +
-               proposed[j].local_y) -
-              (proposed[i].initial_global_y +
-               proposed[i].local_y);
+          const auto [first_x, first_y] = robotGlobalPosition(proposed[i]);
+          const auto [second_x, second_y] = robotGlobalPosition(proposed[j]);
+          const double dx = second_x - first_x;
+          const double dy = second_y - first_y;
 
           const double distance = std::hypot(dx, dy);
           const double clearance = orientedEllipseClearance(
-            proposed[i].initial_global_x + proposed[i].local_x,
-            proposed[i].initial_global_y + proposed[i].local_y,
+            first_x,
+            first_y,
             proposed[i].initial_global_yaw + proposed[i].local_yaw,
             collision_ellipse,
-            proposed[j].initial_global_x + proposed[j].local_x,
-            proposed[j].initial_global_y + proposed[j].local_y,
+            second_x,
+            second_y,
             proposed[j].initial_global_yaw + proposed[j].local_yaw,
             collision_ellipse);
 
-          if (clearance >= 0.0)
+          if (clearance >= random_peer_min_clearance_m_)
           {
             continue;
           }
@@ -1131,7 +1369,9 @@ void FootballFakeOtherRobotPublisher::update()
           const double uy =
               distance > 1e-9 ? dy / distance : 0.0;
 
-          const double separation = -clearance;
+          const double separation = random_peer_min_clearance_m_ - clearance;
+          random_motion_interrupted[i] = true;
+          random_motion_interrupted[j] = true;
 
           const bool fixed_i =
               proposed[i].id ==
@@ -1172,6 +1412,30 @@ void FootballFakeOtherRobotPublisher::update()
         }
       }
 
+      // The striker is integrated by the separate simulation input node.  Make
+      // random peers yield to its latest global pose so both simulators share
+      // the same no-overlap invariant.
+      if (!simulate_selected_robot_ && have_selected_global_pose_) {
+        for (std::size_t i = 0; i < proposed.size(); ++i) {
+          const auto [peer_x, peer_y] = robotGlobalPosition(proposed[i]);
+          const double dx = peer_x - selected_global_x_;
+          const double dy = peer_y - selected_global_y_;
+          const double distance = std::hypot(dx, dy);
+          const double clearance = orientedEllipseClearance(
+            selected_global_x_, selected_global_y_, selected_global_yaw_, collision_ellipse,
+            peer_x, peer_y,
+            proposed[i].initial_global_yaw + proposed[i].local_yaw, collision_ellipse);
+          if (clearance < random_peer_min_clearance_m_) {
+            const double ux = distance > 1e-9 ? dx / distance : 1.0;
+            const double uy = distance > 1e-9 ? dy / distance : 0.0;
+            const double separation = random_peer_min_clearance_m_ - clearance;
+            correction_x[i] += separation * ux;
+            correction_y[i] += separation * uy;
+            random_motion_interrupted[i] = true;
+          }
+        }
+      }
+
       for (std::size_t i = 0;
            i < proposed.size();
            ++i)
@@ -1179,27 +1443,21 @@ void FootballFakeOtherRobotPublisher::update()
         const double robot_yaw = proposed[i].initial_global_yaw + proposed[i].local_yaw;
         const double x_extent = ellipseSupportRadius(collision_ellipse, robot_yaw, 1.0, 0.0);
         const double y_extent = ellipseSupportRadius(collision_ellipse, robot_yaw, 0.0, 1.0);
-        proposed[i].local_x =
-            std::clamp(
-                proposed[i].local_x +
-                    correction_x[i],
-                field_min_x_ +
-                    boundary_margin_m_ + x_extent -
-                    proposed[i].initial_global_x,
-                field_max_x_ -
-                    boundary_margin_m_ - x_extent -
-                    proposed[i].initial_global_x);
-
-        proposed[i].local_y =
-            std::clamp(
-                proposed[i].local_y +
-                    correction_y[i],
-                field_min_y_ +
-                    boundary_margin_m_ + y_extent -
-                    proposed[i].initial_global_y,
-                field_max_y_ -
-                    boundary_margin_m_ - y_extent -
-                    proposed[i].initial_global_y);
+        const auto [global_x, global_y] = robotGlobalPosition(proposed[i]);
+        setRobotGlobalPosition(
+          proposed[i],
+          std::clamp(global_x + correction_x[i],
+            field_min_x_ + boundary_margin_m_ + x_extent,
+            field_max_x_ - boundary_margin_m_ - x_extent),
+          std::clamp(global_y + correction_y[i],
+            field_min_y_ + boundary_margin_m_ + y_extent,
+            field_max_y_ - boundary_margin_m_ - y_extent));
+        if (random_motion_interrupted[i] && random_peer_motion_enabled_) {
+          proposed[i].have_random_target = false;
+          proposed[i].local_vx = 0.0;
+          proposed[i].local_vy = 0.0;
+          proposed[i].wz = 0.0;
+        }
       }
 
       robots_ = std::move(proposed);

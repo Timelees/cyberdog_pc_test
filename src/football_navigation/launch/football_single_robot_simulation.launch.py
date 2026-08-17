@@ -104,6 +104,7 @@ def launch_nodes(context):
         'simulate_selected_robot': False,
         'selected_initial_global_x': float(simulation.get('robot_x', 0.0)),
         'selected_initial_global_y': float(simulation.get('robot_y', 0.0)),
+        'selected_global_odom_topic': odom_topic,
         'acceptance_global_odom_topic_template': odom_template,
     })
 

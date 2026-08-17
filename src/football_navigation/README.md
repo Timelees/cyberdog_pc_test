@@ -1,5 +1,7 @@
 # 足球导航
 
+后续开发 Agent 请先阅读 [AGENT_HANDOFF.md](AGENT_HANDOFF.md)，其中集中记录当前节点拓扑、已验证能力、功能边界、未完成事项和修改守则。
+
 ## 功能边界
 
 本包提供足球接近/推球状态机、球目标适配、多机器人代价地图障碍层、动态障碍预测、球融合和角色分配。`football_single_robot_simulation.launch.py` 使用轻量级动作服务器验证单台 striker 的闭环接口，并包含基于 10 路全局 odom 的局部绕障航点、减速和硬停车逻辑。该轻量规划器用于仿真功能验证；实机仍由加载 `football_multi_robot_obstacle_layer` 的 Nav2 局部规划器负责。
@@ -33,6 +35,16 @@ initial_pose_cyberdog_3: [-4.0, -2.5, 0.0]
 
 将某个 `initial_pose_cyberdog_N` 删除或设为 `[]`，并设置 `randomize_initial_poses: true`，可只随机生成该机器人的位置。配置会检查场地边界和 `minimum_initial_separation_m`，重叠位置会拒绝启动。
 
+默认动态仿真中，`cyberdog_1` 由导航器发布的 `cmd_vel` 驱动，九台 peer 静止，便于重复验证避障行为。`random_peer_motion_enabled` 默认是 `false`；设为 `true` 后，除键盘干扰机器人外的 peer 使用固定随机种子的随机航点运动。每台机器人采用仅前进加转向的非完整约束模型，到达航点、航点超时、触碰场地边界或进入其他机器人的安全净空后会重新选择航点。
+
+`cyberdog_2` 默认是红色键盘干扰机器人；其初始位姿由 `football_fake_other_robot_publisher.initial_pose_cyberdog_2: [x, y, yaw]` 配置。先启动单机仿真，再在另一个交互终端执行：
+
+```bash
+ros2 run football_navigation football_keyboard_robot_controller
+```
+
+按 `w/s` 前进/后退，`a/d` 左/右转，`x` 停止平移，`z` 停止转向，空格完全停止，`q` 退出。可通过两个节点同名的 `keyboard_controlled_namespace`（fake publisher）和 `keyboard_robot_namespace`（visualization）改用另一台 peer；键盘节点的 `robot_namespace` 也需改为相同名称。
+
 仿真避障使用随机器人 yaw 旋转的矩形外接椭圆。对于默认 `0.562 x 0.339 m`
 碰撞矩形，先取最小外接椭圆半轴 `length/sqrt(2)`、`width/sqrt(2)`，再分别
 增加可配置的 `collision_ellipse_expansion_m`。默认扩展 `0.05 m` 后，单台机器人
@@ -56,10 +68,10 @@ initial_pose_cyberdog_3: [-4.0, -2.5, 0.0]
   - 场景：在 ball-to-goal 走廊中放置静止机器人，球前 0.8--1.5 m；不得以穿过障碍物的方式继续推球。
   - 当前安全行为：进入减速/硬停车区时不再发布向障碍物推进的线速度，状态机可进入 `BLOCKED_RECOVERY`。后续需单独设计带球绕行或清障策略后再关闭此项。
 
-- [ ] 多机环境下，单机动态避障推球测试。
-  - 让一台非 striker 机器人以 0.08--0.25 m/s 横穿接近路径和推球走廊；先执行远离球的横穿，再执行迎面/横向接近。
-  - 验收：`multi_robot_obstacle_layer` 同时标记当前位置和预测扫掠区域；动态安全距离随闭合速度增大；机器人在安全距离内减速或停车，障碍离开并满足退出阈值后才恢复。不得发生碰撞、持续震荡或使用过期障碍数据。
-  - 关联实现：障碍层的 `enable_prediction`、`prediction_horizon_sec`、`max_prediction_distance_m`，以及目标适配器的闭合速度和制动距离计算。
+- [x] 多机环境下，单机动态避障推球测试（轻量仿真规划器）。
+  - 场景：`cyberdog_1` 作为 striker，其余九台机器人以 `0.08--0.18 m/s` 随机航点运动；移动机器人可横穿接近路径和推球走廊。
+  - 已验证：35 秒内收到全部 10 路全局 odom，九台 peer 均有效移动；局部路径产生 150 种采样形状，状态进入 `PUSH_BALL`，控制命令最大横向速度为 `0.0 m/s`。全体外接椭圆最小净空 `0.024 m`，striker 与 peer 最小净空 `0.029 m`，未发生碰撞。近距离阻挡时状态进入 `BLOCKED_RECOVERY`，障碍离开后恢复接近或推球。
+  - 关联实现：peer 随机航点、边界/椭圆碰撞约束和 `random_peer_min_clearance_m`，以及仿真导航器的障碍位姿变化触发重规划。实机 `multi_robot_obstacle_layer` 的预测扫掠区仍需在实机/完整 Nav2 场景单独验收。
 
 - [ ] 多机环境下，双方 striker 竞争球场景（可选，建议在前两项稳定后执行）。
   - 同时给 A、B 队发布同一球位置，并让两个候选 striker 到球距离相近；重复测试距离相等、当前 striker 失联和球位置突变。

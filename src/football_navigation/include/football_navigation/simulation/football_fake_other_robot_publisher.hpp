@@ -9,6 +9,7 @@
 #include <functional>
 #include <iterator>
 #include <memory>
+#include <random>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -47,6 +48,11 @@ private:
       double local_vy{0.0};
       double wz{0.0};
       bool have_cmd_vel{false};
+      bool have_random_target{false};
+      double random_target_global_x{0.0};
+      double random_target_global_y{0.0};
+      double random_cruise_speed_mps{0.0};
+      double random_target_expiry_sec{0.0};
 
       geometry_msgs::msg::Twist latest_cmd_vel;
       rclcpp::Time latest_cmd_vel_time;
@@ -73,6 +79,8 @@ private:
   void setContinuousDemoPeerMotion(
     Robot &robot,
     const double elapsed_time);
+  void assignRandomPeerTarget(Robot &robot, double elapsed_time);
+  void setRandomPeerMotion(Robot &robot, double dt, double elapsed_time);
   void integrateRobot(
     Robot &robot,
     const double dt,
@@ -101,16 +109,29 @@ private:
     const Robot &robot,
     const rclcpp::Time &stamp) const;
   void update();
+  void setRobotGlobalPosition(Robot & robot, double global_x, double global_y) const;
+  std::pair<double, double> robotGlobalPosition(const Robot & robot) const;
 
     std::string field_frame_;
     std::vector<std::string> robot_namespaces_;
     std::string selected_namespace_;
+    std::string keyboard_controlled_namespace_;
 
     bool simulate_selected_robot_{true};
     bool scripted_peer_motion_enabled_{true};
     bool randomize_initial_poses_{false};
     int random_seed_{2026};
     double minimum_initial_separation_m_{0.90};
+    bool random_peer_motion_enabled_{false};
+    double random_peer_motion_start_delay_sec_{0.5};
+    double random_peer_min_speed_mps_{0.08};
+    double random_peer_max_speed_mps_{0.18};
+    double random_peer_min_target_duration_sec_{4.0};
+    double random_peer_max_target_duration_sec_{9.0};
+    double random_peer_goal_tolerance_m_{0.25};
+    double random_peer_min_travel_distance_m_{1.0};
+    double random_peer_turn_gain_{1.8};
+    double random_peer_min_clearance_m_{0.03};
 
     double scripted_peer_linear_speed_mps_{0.08};
     double scripted_peer_lateral_speed_mps_{0.04};
@@ -144,6 +165,11 @@ private:
     bool publish_acceptance_global_odom_{false};
 
     std::string acceptance_global_odom_topic_template_;
+    std::string selected_global_odom_topic_;
+    bool have_selected_global_pose_{false};
+    double selected_global_x_{0.0};
+    double selected_global_y_{0.0};
+    double selected_global_yaw_{0.0};
     bool publish_integrated_cmd_vel_{false};
     std::string integrated_cmd_vel_topic_template_;
 
@@ -163,12 +189,14 @@ private:
 
     rclcpp::Time simulation_start_time_;
     rclcpp::Time last_update_;
+    std::mt19937 random_engine_;
 
     std::vector<Robot> robots_;
 
     rclcpp::Publisher<
         tf2_msgs::msg::TFMessage>::SharedPtr
         global_tf_static_pub_;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr selected_global_odom_sub_;
 
     rclcpp::TimerBase::SharedPtr timer_;
   };

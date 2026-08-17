@@ -114,6 +114,14 @@ FootballSimulationNavigator::FootballSimulationNavigator()
       "collision_slowdown_clearance_m", 0.35);
     collision_hard_stop_clearance_m_ = declare_parameter<double>(
       "collision_hard_stop_clearance_m", 0.02);
+    clearance_recovery_trigger_clearance_m_ = declare_parameter<double>(
+      "clearance_recovery_trigger_clearance_m", 0.16);
+    clearance_recovery_exit_clearance_m_ = declare_parameter<double>(
+      "clearance_recovery_exit_clearance_m", 0.24);
+    clearance_recovery_distance_m_ = declare_parameter<double>(
+      "clearance_recovery_distance_m", 1.0);
+    clearance_recovery_speed_mps_ = declare_parameter<double>(
+      "clearance_recovery_speed_mps", 0.20);
     detour_extra_clearance_m_ = declare_parameter<double>(
       "detour_extra_clearance_m", 0.08);
     local_path_lookahead_m_ = declare_parameter<double>("local_path_lookahead_m", 0.32);
@@ -131,6 +139,12 @@ FootballSimulationNavigator::FootballSimulationNavigator()
       "multi_obstacle_max_lane_change_m", 0.54);
     multi_obstacle_turn_penalty_ = declare_parameter<double>(
       "multi_obstacle_turn_penalty", 0.25);
+    dynamic_replan_min_period_sec_ = declare_parameter<double>(
+      "dynamic_replan_min_period_sec", 0.30);
+    dynamic_replan_translation_m_ = declare_parameter<double>(
+      "dynamic_replan_translation_m", 0.08);
+    dynamic_replan_yaw_rad_ = declare_parameter<double>(
+      "dynamic_replan_yaw_rad", 0.18);
     field_min_x_ = declare_parameter<double>("field_min_x", -8.0);
     field_max_x_ = declare_parameter<double>("field_max_x", 8.0);
     field_min_y_ = declare_parameter<double>("field_min_y", -4.0);
@@ -145,6 +159,13 @@ FootballSimulationNavigator::FootballSimulationNavigator()
       collision_path_clearance_m_ <= collision_hard_stop_clearance_m_ ||
       collision_hard_stop_clearance_m_ < 0.0 ||
       collision_slowdown_clearance_m_ <= collision_hard_stop_clearance_m_ ||
+      clearance_recovery_trigger_clearance_m_ <= collision_hard_stop_clearance_m_ ||
+      clearance_recovery_trigger_clearance_m_ >= clearance_recovery_exit_clearance_m_ ||
+      clearance_recovery_exit_clearance_m_ <= collision_hard_stop_clearance_m_ ||
+      clearance_recovery_exit_clearance_m_ > collision_slowdown_clearance_m_ ||
+      clearance_recovery_distance_m_ <= 0.0 ||
+      clearance_recovery_speed_mps_ <= 0.0 ||
+      clearance_recovery_speed_mps_ > max_linear_speed_mps_ ||
       detour_extra_clearance_m_ <= 0.0 || local_path_lookahead_m_ <= 0.0 ||
       path_heading_gain_ <= 0.0 || turn_in_place_threshold_rad_ <= 0.0 ||
       smooth_path_samples_ < 15 || smooth_path_samples_ > 201 ||
@@ -152,6 +173,8 @@ FootballSimulationNavigator::FootballSimulationNavigator()
       multi_obstacle_lateral_step_m_ <= 0.0 || multi_obstacle_max_lateral_m_ <= 0.0 ||
       multi_obstacle_max_lane_change_m_ < multi_obstacle_lateral_step_m_ ||
       multi_obstacle_turn_penalty_ < 0.0 ||
+      dynamic_replan_min_period_sec_ <= 0.0 || dynamic_replan_translation_m_ <= 0.0 ||
+      dynamic_replan_yaw_rad_ <= 0.0 ||
       field_min_x_ >= field_max_x_ || field_min_y_ >= field_max_y_)
     {
       throw std::invalid_argument("invalid simulation navigator parameters");
@@ -317,18 +340,179 @@ double FootballSimulationNavigator::nearestRobotClearance(
   return nearest;
 }
 
+bool FootballSimulationNavigator::buildClearanceRecoveryPath(
+  const double robot_x, const double robot_y, const double robot_yaw)
+{
+  const auto stamp = now();
+  const auto collision_ellipse = makeCircumscribedCollisionEllipse(
+    robot_collision_length_m_, robot_collision_width_m_, collision_ellipse_expansion_m_);
+  struct Obstacle
+  {
+    double x;
+    double y;
+    double yaw;
+  };
+  std::vector<Obstacle> obstacles;
+  double initial_clearance = std::numeric_limits<double>::infinity();
+  double nearest_x = robot_x;
+  double nearest_y = robot_y;
+  for (const auto & entry : other_robot_odoms_) {
+    const auto received = other_robot_times_.find(entry.first);
+    double obstacle_yaw = 0.0;
+    if (received == other_robot_times_.end() ||
+      (stamp - received->second).seconds() > other_robot_timeout_sec_ ||
+      !yawFromQuaternion(entry.second.pose.pose.orientation, obstacle_yaw))
+    {
+      continue;
+    }
+    const auto & position = entry.second.pose.pose.position;
+    const double clearance = orientedEllipseClearance(
+      robot_x, robot_y, robot_yaw, collision_ellipse,
+      position.x, position.y, obstacle_yaw, collision_ellipse);
+    if (clearance < initial_clearance) {
+      initial_clearance = clearance;
+      nearest_x = position.x;
+      nearest_y = position.y;
+    }
+    obstacles.push_back({position.x, position.y, obstacle_yaw});
+  }
+  if (obstacles.empty() || initial_clearance >= clearance_recovery_exit_clearance_m_) {
+    clearance_recovery_active_ = false;
+    return false;
+  }
+
+  const double away_heading = std::atan2(robot_y - nearest_y, robot_x - nearest_x);
+  constexpr int kHeadingSamples = 24;
+  constexpr int kPathSamples = 21;
+  double best_score = -std::numeric_limits<double>::infinity();
+  std::vector<std::pair<double, double>> best_path;
+  for (int heading_index = 0; heading_index < kHeadingSamples; ++heading_index) {
+    const double heading = away_heading + 2.0 * M_PI *
+      static_cast<double>(heading_index) / static_cast<double>(kHeadingSamples);
+    const double direction_x = std::cos(heading);
+    const double direction_y = std::sin(heading);
+    double previous_clearance = initial_clearance;
+    double endpoint_clearance = std::numeric_limits<double>::infinity();
+    bool valid = true;
+    std::vector<std::pair<double, double>> candidate;
+    candidate.reserve(kPathSamples);
+    candidate.emplace_back(robot_x, robot_y);
+    for (int sample = 1; sample < kPathSamples; ++sample) {
+      const double distance = clearance_recovery_distance_m_ *
+        static_cast<double>(sample) / static_cast<double>(kPathSamples - 1);
+      const double x = robot_x + direction_x * distance;
+      const double y = robot_y + direction_y * distance;
+      const double x_extent = ellipseSupportRadius(collision_ellipse, heading, 1.0, 0.0);
+      const double y_extent = ellipseSupportRadius(collision_ellipse, heading, 0.0, 1.0);
+      if (x <= field_min_x_ + x_extent || x >= field_max_x_ - x_extent ||
+        y <= field_min_y_ + y_extent || y >= field_max_y_ - y_extent)
+      {
+        valid = false;
+        break;
+      }
+      double sample_clearance = std::numeric_limits<double>::infinity();
+      for (const auto & obstacle : obstacles) {
+        sample_clearance = std::min(sample_clearance, orientedEllipseClearance(
+          x, y, heading, collision_ellipse,
+          obstacle.x, obstacle.y, obstacle.yaw, collision_ellipse));
+      }
+      // A recovery route may begin inside the hard-stop domain, but every
+      // translational sample must move toward greater clearance.
+      if (sample_clearance + 0.005 < previous_clearance) {
+        valid = false;
+        break;
+      }
+      previous_clearance = sample_clearance;
+      endpoint_clearance = sample_clearance;
+      candidate.emplace_back(x, y);
+    }
+    if (!valid || endpoint_clearance < clearance_recovery_exit_clearance_m_) {
+      continue;
+    }
+    const double away_alignment = std::cos(signedYawError(heading, away_heading));
+    const double heading_change = std::fabs(signedYawError(heading, robot_yaw));
+    const double score = endpoint_clearance + 0.06 * away_alignment -
+      0.01 * heading_change;
+    if (score > best_score) {
+      best_score = score;
+      best_path = std::move(candidate);
+    }
+  }
+  if (best_path.empty()) {
+    clearance_recovery_active_ = false;
+    return false;
+  }
+
+  local_path_points_ = std::move(best_path);
+  avoidance_active_ = true;
+  clearance_recovery_active_ = true;
+  avoidance_strategy_ = "clearance_recovery";
+  RCLCPP_INFO_THROTTLE(
+    get_logger(), *get_clock(), 1000,
+    "close obstacle clearance=%.3f: following active recovery path to %.3f m",
+    initial_clearance, clearance_recovery_exit_clearance_m_);
+  return true;
+}
+
 bool FootballSimulationNavigator::buildSmoothLocalPath(
   const double robot_x, const double robot_y,
   const double target_x, const double target_y)
 {
-  if (!isPushState() && have_local_path_target_ && !local_path_points_.empty() &&
-    std::hypot(target_x - local_path_target_x_, target_y - local_path_target_y_) < 0.08)
-  {
-    return avoidance_active_;
+  const auto stamp = now();
+  const bool same_target = have_local_path_target_ &&
+    std::hypot(target_x - local_path_target_x_, target_y - local_path_target_y_) < 0.08;
+  if (!isPushState() && same_target && !local_path_points_.empty()) {
+    if (last_local_path_plan_time_.nanoseconds() > 0 &&
+      (stamp - last_local_path_plan_time_).seconds() < dynamic_replan_min_period_sec_)
+    {
+      return avoidance_active_;
+    }
+    bool obstacle_changed = false;
+    std::size_t fresh_obstacle_count = 0;
+    for (const auto & entry : other_robot_odoms_) {
+      const auto received = other_robot_times_.find(entry.first);
+      if (received == other_robot_times_.end() ||
+        (stamp - received->second).seconds() > other_robot_timeout_sec_)
+      {
+        continue;
+      }
+      ++fresh_obstacle_count;
+      double yaw = 0.0;
+      const auto planned = planned_obstacle_poses_.find(entry.first);
+      if (!yawFromQuaternion(entry.second.pose.pose.orientation, yaw) ||
+        planned == planned_obstacle_poses_.end() ||
+        std::hypot(
+          entry.second.pose.pose.position.x - planned->second[0],
+          entry.second.pose.pose.position.y - planned->second[1]) >=
+        dynamic_replan_translation_m_ ||
+        std::fabs(signedYawError(yaw, planned->second[2])) >= dynamic_replan_yaw_rad_)
+      {
+        obstacle_changed = true;
+        break;
+      }
+    }
+    if (!obstacle_changed && fresh_obstacle_count == planned_obstacle_poses_.size()) {
+      return avoidance_active_;
+    }
+  }
+
+  last_local_path_plan_time_ = stamp;
+  planned_obstacle_poses_.clear();
+  for (const auto & entry : other_robot_odoms_) {
+    const auto received = other_robot_times_.find(entry.first);
+    double yaw = 0.0;
+    if (received != other_robot_times_.end() &&
+      (stamp - received->second).seconds() <= other_robot_timeout_sec_ &&
+      yawFromQuaternion(entry.second.pose.pose.orientation, yaw))
+    {
+      planned_obstacle_poses_[entry.first] = {
+        entry.second.pose.pose.position.x, entry.second.pose.pose.position.y, yaw};
+    }
   }
   const double path_dx = target_x - robot_x;
   const double path_dy = target_y - robot_y;
   const double path_length = std::hypot(path_dx, path_dy);
+  const std::string previous_strategy = avoidance_strategy_;
   avoidance_strategy_ = "planning";
   local_path_points_.clear();
   local_path_target_x_ = target_x;
@@ -339,7 +523,6 @@ bool FootballSimulationNavigator::buildSmoothLocalPath(
     return false;
   }
 
-  const auto stamp = now();
   const auto collision_ellipse = makeCircumscribedCollisionEllipse(
     robot_collision_length_m_, robot_collision_width_m_, collision_ellipse_expansion_m_);
   const double path_yaw = std::atan2(path_dy, path_dx);
@@ -652,7 +835,7 @@ bool FootballSimulationNavigator::buildSmoothLocalPath(
   if (avoidance_strategy_ != "multi_obstacle_lattice") {
     avoidance_strategy_ = "single_smooth_curve";
   }
-  if (!avoidance_active_ || avoidance_strategy_ == "multi_obstacle_lattice") {
+  if (!avoidance_active_ || avoidance_strategy_ != previous_strategy) {
     const auto & obstacle = blocker->pose.pose.position;
     RCLCPP_INFO(
       get_logger(),
@@ -771,8 +954,16 @@ void FootballSimulationNavigator::controlTick()
       return;
     }
 
-    buildSmoothLocalPath(
-      robot_x, robot_y, target.pose.position.x, target.pose.position.y);
+    const double nearest_robot_clearance = nearestRobotClearance(
+      robot_x, robot_y, robot_yaw);
+    const bool clearance_recovery = !isPushState() &&
+      nearest_robot_clearance <= clearance_recovery_trigger_clearance_m_ &&
+      buildClearanceRecoveryPath(robot_x, robot_y, robot_yaw);
+    if (!clearance_recovery) {
+      clearance_recovery_active_ = false;
+      buildSmoothLocalPath(
+        robot_x, robot_y, target.pose.position.x, target.pose.position.y);
+    }
     publishLocalPlan(now());
     const auto lookahead = localLookahead(robot_x, robot_y);
     const double navigation_x = lookahead.first;
@@ -814,11 +1005,15 @@ void FootballSimulationNavigator::controlTick()
         path_heading_gain_ * signedYawError(heading_target, robot_yaw),
         -max_angular_speed_rps_, max_angular_speed_rps_);
     }
-    const double nearest_robot_clearance = nearestRobotClearance(
-      robot_x, robot_y, robot_yaw);
     if (nearest_robot_clearance <= collision_hard_stop_clearance_m_) {
-      command.linear.x = 0.0;
-      command.linear.y = 0.0;
+      if (clearance_recovery_active_ && !isPushState()) {
+        command.linear.x = std::min(
+          command.linear.x, clearance_recovery_speed_mps_);
+        command.linear.y = 0.0;
+      } else {
+        command.linear.x = 0.0;
+        command.linear.y = 0.0;
+      }
     } else if (nearest_robot_clearance < collision_slowdown_clearance_m_) {
       const double scale = std::clamp(
         (nearest_robot_clearance - collision_hard_stop_clearance_m_) /

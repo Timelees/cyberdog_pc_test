@@ -248,6 +248,15 @@ target_link_libraries(football_fake_other_robot_publisher
   football_geometry_lib
 )
 
+add_executable(football_keyboard_robot_controller
+  src/test/football_keyboard_robot_controller.cpp
+)
+
+ament_target_dependencies(football_keyboard_robot_controller
+  rclcpp
+  geometry_msgs
+)
+
 # GCC 7.5 in the ARM64 build environment can crash while compiling the
 # two large Football translation units. Keep the package ABI and compiler
 # unchanged, but disable memory-intensive optimisation/debug bookkeeping
@@ -394,6 +403,7 @@ set(football_identity_sources
   src/simulation/football_simulation_navigator_node.cpp
   src/simulation/football_fake_other_robot_publisher.cpp
   src/simulation/football_fake_other_robot_publisher_node.cpp
+  src/test/football_keyboard_robot_controller.cpp
   src/coordination/football_ball_fusion.cpp
   src/coordination/football_ball_fusion_node.cpp
   src/control/football_trajectory_adapter.cpp
@@ -486,6 +496,7 @@ install(TARGETS
   football_simulation_input_publisher
   football_simulation_navigator
   football_fake_other_robot_publisher
+  football_keyboard_robot_controller
   football_trajectory_adapter
   football_tracking_action_client
   football_team_role_assigner

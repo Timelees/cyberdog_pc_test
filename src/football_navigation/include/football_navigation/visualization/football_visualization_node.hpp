@@ -230,6 +230,7 @@ private:
   bool expect_motion_cmds_{false};
   std::string field_frame_;
   std::string self_namespace_;
+  std::string keyboard_robot_namespace_;
   std::string team_id_;
   std::vector<std::string> ego_base_frames_;
 

@@ -118,6 +118,8 @@ FootballVisualizationNode::FootballVisualizationNode()
     target_frame_ = declare_parameter<std::string>("target_frame", "base_link");
     base_frame_ = declare_parameter<std::string>("base_frame", "base_link");
     field_frame_ = declare_parameter<std::string>("field_frame", "tag_global");
+    keyboard_robot_namespace_ = declare_parameter<std::string>(
+      "keyboard_robot_namespace", "");
 
     ball_topic_ = declare_parameter<std::string>("ball_topic", "/football/ball_pose");
     approach_pose_topic_ =
@@ -857,8 +859,11 @@ void FootballVisualizationNode::appendRobot(
       box.scale.x = other_robot_length_m_;
       box.scale.y = other_robot_width_m_;
       box.scale.z = other_robot_height_m_;
+      const bool keyboard_robot = robot_namespace == keyboard_robot_namespace_;
       if (robot_namespace == self_namespace_) {
         setColor(box, 0.0, 0.95, 1.0, 0.75);
+      } else if (keyboard_robot) {
+        setColor(box, 1.0, 0.05, 0.05, 0.85);
       } else if (team_a) {
         setColor(box, 0.15, 0.95, 0.25, 0.65);
       } else {
@@ -877,7 +882,9 @@ void FootballVisualizationNode::appendRobot(
          << " (" << std::fixed << std::setprecision(2)
          << pose.position.x << "," << pose.position.y << ")";
       text.text = ss.str();
-      setColor(text, team_a ? 0.3f : 0.45f, team_a ? 1.0f : 0.65f, 1.0f, 1.0f);
+      setColor(text, keyboard_robot ? 1.0f : (team_a ? 0.3f : 0.45f),
+        keyboard_robot ? 0.15f : (team_a ? 1.0f : 0.65f),
+        keyboard_robot ? 0.15f : 1.0f, 1.0f);
       array.markers.push_back(text);
 
       if (show_robot_collision_ellipses_) {
@@ -891,18 +898,18 @@ void FootballVisualizationNode::appendRobot(
         collision_area.scale.x = 2.0 * ellipse.semi_major_m;
         collision_area.scale.y = 2.0 * ellipse.semi_minor_m;
         collision_area.scale.z = 0.018;
-        setColor(
-          collision_area, team_a ? 0.1f : 0.25f,
-          team_a ? 1.0f : 0.55f, 1.0f, 0.20f);
+        setColor(collision_area, keyboard_robot ? 1.0f : (team_a ? 0.1f : 0.25f),
+          keyboard_robot ? 0.05f : (team_a ? 1.0f : 0.55f),
+          keyboard_robot ? 0.05f : 1.0f, 0.20f);
         array.markers.push_back(collision_area);
 
         auto ellipse_outline = makeBaseMarker(
           target_frame_, robot_namespace, 4,
           visualization_msgs::msg::Marker::LINE_STRIP, stamp);
         ellipse_outline.scale.x = 0.025;
-        setColor(
-          ellipse_outline, team_a ? 0.1f : 0.25f,
-          team_a ? 1.0f : 0.55f, 1.0f, 0.95f);
+        setColor(ellipse_outline, keyboard_robot ? 1.0f : (team_a ? 0.1f : 0.25f),
+          keyboard_robot ? 0.05f : (team_a ? 1.0f : 0.55f),
+          keyboard_robot ? 0.05f : 1.0f, 0.95f);
         const double yaw = tf2::getYaw(pose.orientation);
         const double cosine = std::cos(yaw);
         const double sine = std::sin(yaw);

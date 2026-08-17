@@ -4,6 +4,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <functional>
@@ -47,6 +48,8 @@ private:
     const nav_msgs::msg::Odometry::SharedPtr msg);
   bool buildSmoothLocalPath(
     double robot_x, double robot_y, double target_x, double target_y);
+  bool buildClearanceRecoveryPath(
+    double robot_x, double robot_y, double robot_yaw);
   double nearestRobotClearance(double robot_x, double robot_y, double robot_yaw);
   void publishLocalPlan(const rclcpp::Time & stamp);
   std::pair<double, double> localLookahead(double robot_x, double robot_y) const;
@@ -79,6 +82,10 @@ private:
   double collision_path_clearance_m_{0.08};
   double collision_slowdown_clearance_m_{0.35};
   double collision_hard_stop_clearance_m_{0.02};
+  double clearance_recovery_trigger_clearance_m_{0.16};
+  double clearance_recovery_exit_clearance_m_{0.24};
+  double clearance_recovery_distance_m_{1.0};
+  double clearance_recovery_speed_mps_{0.20};
   double detour_extra_clearance_m_{0.08};
   double local_path_lookahead_m_{0.32};
   double path_heading_gain_{2.0};
@@ -89,6 +96,9 @@ private:
   double multi_obstacle_max_lateral_m_{3.0};
   double multi_obstacle_max_lane_change_m_{0.54};
   double multi_obstacle_turn_penalty_{0.25};
+  double dynamic_replan_min_period_sec_{0.30};
+  double dynamic_replan_translation_m_{0.08};
+  double dynamic_replan_yaw_rad_{0.18};
   double field_min_x_{-8.0};
   double field_max_x_{8.0};
   double field_min_y_{-4.0};
@@ -103,10 +113,13 @@ private:
   std::vector<std::string> robot_namespaces_;
   std::vector<std::pair<double, double>> local_path_points_;
   bool avoidance_active_{false};
+  bool clearance_recovery_active_{false};
   std::string avoidance_strategy_{"direct"};
   bool have_local_path_target_{false};
   double local_path_target_x_{0.0};
   double local_path_target_y_{0.0};
+  rclcpp::Time last_local_path_plan_time_;
+  std::map<std::string, std::array<double, 3>> planned_obstacle_poses_;
   rclcpp::Time latest_odom_time_;
   rclcpp::Time goal_started_time_;
   std::shared_ptr<GoalHandle> active_goal_;

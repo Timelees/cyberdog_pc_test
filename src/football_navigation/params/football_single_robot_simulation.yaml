@@ -26,6 +26,9 @@ football_fake_other_robot_publisher:
     frame_id: tag_global
     robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
     selected_namespace: cyberdog_1
+    # 此 peer 只接受键盘节点发布的 cmd_vel，不受随机、scripted 或 demo 运动驱动。
+    # 初始位置由同名 initial_pose_cyberdog_2 的 [x, y, yaw] 配置。
+    keyboard_controlled_namespace: cyberdog_2
     simulate_selected_robot: false
     publish_acceptance_global_odom: true
     acceptance_global_odom_topic_template: /global_vio/{namespace}/odom
@@ -45,6 +48,19 @@ football_fake_other_robot_publisher:
     initial_pose_cyberdog_10: [1.4, 0.3, 3.14159]
     selected_initial_global_x: 0.0
     selected_initial_global_y: 0.0
+    # cyberdog_1 由 striker cmd_vel 驱动；其余 peer 默认静止，便于动态避障测试。
+    # 设为 true 时，除 keyboard_controlled_namespace 外的 peer 使用可复现随机航点。
+    random_peer_motion_enabled: false
+    random_peer_motion_start_delay_sec: 0.5
+    random_peer_min_speed_mps: 0.08
+    random_peer_max_speed_mps: 0.18
+    random_peer_min_target_duration_sec: 4.0
+    random_peer_max_target_duration_sec: 9.0
+    random_peer_goal_tolerance_m: 0.25
+    random_peer_min_travel_distance_m: 1.0
+    random_peer_turn_gain: 1.8
+    # 外接椭圆之间额外保留的动态净空，吸收一个发布周期内的运动误差。
+    random_peer_min_clearance_m: 0.03
     scripted_peer_motion_enabled: false
     continuous_demo_enabled: false
     publish_odom_slam: false
@@ -145,6 +161,12 @@ football_simulation_navigator:
     collision_ellipse_expansion_m: 0.05
     # 以下三个值均为两台有向椭圆边界之间的净空，而不是机器人中心距离。
     collision_hard_stop_clearance_m: 0.02
+    # lattice 的首段要求 0.16 m 净空；低于该值时先搜索只会增大净空的短路径，
+    # 避免首段被拒绝后在原地停车。恢复到 0.24 m 后才交还普通绕行规划。
+    clearance_recovery_trigger_clearance_m: 0.16
+    clearance_recovery_exit_clearance_m: 0.24
+    clearance_recovery_distance_m: 1.0
+    clearance_recovery_speed_mps: 0.20
     collision_path_clearance_m: 0.08
     collision_slowdown_clearance_m: 0.35
     detour_extra_clearance_m: 0.08
@@ -158,6 +180,10 @@ football_simulation_navigator:
     multi_obstacle_max_lateral_m: 3.0
     multi_obstacle_max_lane_change_m: 0.54
     multi_obstacle_turn_penalty: 0.25
+    # 障碍移动或转向后使缓存轨迹失效，避免继续跟踪静态快照。
+    dynamic_replan_min_period_sec: 0.30
+    dynamic_replan_translation_m: 0.08
+    dynamic_replan_yaw_rad: 0.18
     field_min_x: -8.0
     field_max_x: 8.0
     field_min_y: -4.0
@@ -185,6 +211,8 @@ football_visualization_node:
     command_marker_topic: /football/markers/commands
     status_marker_topic: /football/markers/status
     self_namespace: cyberdog_1
+    # 该机器人显示为红色，便于在 RViz 中识别人工干扰源。
+    keyboard_robot_namespace: cyberdog_2
     team_id: a
     show_field_boundary: true
     show_ball_marker: true
