@@ -29,6 +29,7 @@ football_goal_adapter:
     push_target_lead_m: 0.32  # 触球阶段机器人中心在球前的目标引导距离。
     push_enter_lateral_error_m: 0.08  # 进入推球的最大横向误差。
     push_exit_lateral_error_m: 0.14  # 退出推球的横向误差迟滞阈值。
+    push_realign_lateral_error_m: 0.09  # 推球中球发生轻微横向偏移时触发左右重新对齐。
     push_enter_yaw_error_rad: 0.10  # 进入推球的最大航向误差。
     push_exit_yaw_error_rad: 0.18  # 退出推球的航向误差迟滞阈值。
     robot_collision_length_m: 0.562  # 机器人碰撞矩形长度。

@@ -1,5 +1,6 @@
 football_simulation_input_publisher:
   ros__parameters:
+    ball_override_topic: /football/simulation/ball_override  # 测试时运行中注入偏球位置；无人发布时不影响仿真。
     # 第一版固定场景。机器人命名空间和所有全局坐标都由本文件提供。
     robot_namespace: cyberdog_1  # 单机仿真 striker 的命名空间。
     robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10  # 仿真中的十台机器人。
@@ -42,7 +43,7 @@ football_fake_other_robot_publisher:
     initial_pose_cyberdog_3: [-4.0, -2.5, 0.0]  # cyberdog_3 初始 [x, y, yaw]。
     initial_pose_cyberdog_4: [0.4, 1.52, 0.0]  # cyberdog_4 初始 [x, y, yaw]。
     initial_pose_cyberdog_5: [-4.0, 2.5, 0.0]  # cyberdog_5 初始 [x, y, yaw]。
-    initial_pose_cyberdog_6: [0.0, -3.0, 3.14159]  # cyberdog_6 初始 [x, y, yaw]。
+    initial_pose_cyberdog_6: [-2.0, -3.35, 3.14159]  # cyberdog_6 初始 [x, y, yaw]。
     initial_pose_cyberdog_7: [3.5, -3.0, 3.14159]  # cyberdog_7 初始 [x, y, yaw]。
     initial_pose_cyberdog_8: [6.5, -3.0, 3.14159]  # cyberdog_8 初始 [x, y, yaw]。
     initial_pose_cyberdog_9: [6.5, 3.0, 3.14159]  # cyberdog_9 初始 [x, y, yaw]。

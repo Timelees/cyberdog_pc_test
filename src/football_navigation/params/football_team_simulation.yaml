@@ -1,0 +1,137 @@
+football_team_simulation_input_publisher:
+  ros__parameters:
+    field_frame: tag_global
+    ball_topic: /football/ball_pose
+    odom_topic_template: /global_vio/{namespace}/odom
+    state_topic_template: /{namespace}/football/state
+    striker_topic: /football/team_a/striker
+    kick_target_topic: /football/team_a/kick_target
+    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5
+    publish_rate_hz: 20.0
+    ball_x: 3.0
+    ball_y: -2.0
+    ball_motion_enabled: false
+    ball_motion_x_amplitude_m: 1.0
+    ball_motion_y_amplitude_m: 1.2
+    ball_motion_period_sec: 12.0
+
+football_fake_other_robot_publisher:
+  ros__parameters:
+    frame_id: tag_global
+    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
+    selected_namespace: cyberdog_1
+    simulate_selected_robot: true
+    scripted_peer_motion_enabled: false
+    random_peer_motion_enabled: false
+    continuous_demo_enabled: false
+    publish_rate_hz: 20.0
+    publish_odom_slam: false
+    publish_acceptance_global_odom: true
+    acceptance_global_odom_topic_template: /global_vio/{namespace}/odom
+    publish_integrated_cmd_vel: false
+    random_peer_min_clearance_m: 0.12
+    selected_initial_global_x: 0.0
+    selected_initial_global_y: -2.0
+    initial_pose_cyberdog_1: [0.0, -2.0, 0.0]
+    initial_pose_cyberdog_2: [0.0, -1.0, 0.0]
+    initial_pose_cyberdog_3: [0.0, 1.0, 0.0]
+    initial_pose_cyberdog_4: [0.0, 2.0, 0.0]
+    initial_pose_cyberdog_5: [2.4, 0.0, 0.0]
+    # B 队沿上下边线分散，避开两侧球门区域，便于观察整场协作与避障。
+    initial_pose_cyberdog_6: [2.0, 3.2, 0.0]
+    initial_pose_cyberdog_7: [4.0, 3.2, 0.0]
+    initial_pose_cyberdog_8: [6.0, 3.2, 0.0]
+    initial_pose_cyberdog_9: [0.0, -3.2, 3.141592653589793]
+    initial_pose_cyberdog_10: [6.0, -3.2, 3.141592653589793]
+    field_min_x: -8.0
+    field_max_x: 8.0
+    field_min_y: -4.0
+    field_max_y: 4.0
+
+football_team_role_assigner:
+  ros__parameters:
+    field_frame: tag_global
+    ball_topic: /football/ball_pose
+    odom_source_mode: pc_forwarded
+    odom_topic_template: /global_vio/{namespace}/odom
+    team_a_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5
+    team_b_namespaces_csv: cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
+    initial_match_state: PLAY
+    authority_id: football_team_simulation
+    update_rate_hz: 5.0
+    max_pose_age_sec: 0.40
+    max_pose_skew_sec: 0.15
+    ball_timeout_sec: 0.35
+    minimum_online_per_team: 5
+    minimum_other_robot_count: 9
+    striker_min_hold_sec: 1.5
+    striker_benefit_threshold: 0.45
+    striker_switch_confirm_sec: 0.80
+    team_a_attack_goal_x: 8.0
+    team_a_attack_goal_y: 0.0
+    team_b_attack_goal_x: -8.0
+    team_b_attack_goal_y: 0.0
+    field_min_x: -8.0
+    field_max_x: 8.0
+    field_min_y: -4.0
+    field_max_y: 4.0
+    tactical_boundary_margin_m: 0.30
+
+football_simulation_navigator:
+  ros__parameters:
+    field_frame: tag_global
+    action_name: navigate_to_pose
+    ball_pose_topic: /football/ball_pose
+    control_rate_hz: 20.0
+    linear_gain: 1.7
+    angular_gain: 1.5
+    max_linear_speed_mps: 0.65
+    max_angular_speed_rps: 1.4
+    position_tolerance_m: 0.06
+    yaw_tolerance_rad: 0.08
+    odom_timeout_sec: 0.5
+    other_robot_timeout_sec: 0.7
+    robot_collision_length_m: 0.562
+    robot_collision_width_m: 0.339
+    collision_ellipse_expansion_m: 0.05
+    collision_hard_stop_clearance_m: 0.02
+    collision_slowdown_clearance_m: 0.35
+    collision_path_clearance_m: 0.08
+    enable_holonomic_avoidance: true
+    field_min_x: -8.0
+    field_max_x: 8.0
+    field_min_y: -4.0
+    field_max_y: 4.0
+
+football_visualization_node:
+  ros__parameters:
+    field_frame: tag_global
+    target_frame: tag_global
+    base_frame: base_link
+    ball_topic: /football/ball_pose
+    odom_topic: /global_vio/cyberdog_1/odom
+    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
+    robot_odom_topic_template: /global_vio/{namespace}/odom
+    robot_local_trajectory_topic_template: /{namespace}/local_plan
+    robot_approach_pose_topic_template: /{namespace}/football/approach_pose
+    self_namespace: ""
+    team_id: ""
+    show_field_boundary: true
+    show_ball_marker: true
+    show_ball_avoidance_zone: true
+    ball_avoidance_radius_m: 0.46
+    show_goal_markers: true
+    show_ego_robot_marker: false
+    show_other_robot_markers: true
+    show_robot_collision_ellipses: true
+    enable_costmap_markers: false
+    expect_motion_cmds: false
+    use_delete_all_before_publish: true
+    field_center_x: 0.0
+    field_center_y: 0.0
+    field_length_m: 16.0
+    field_width_m: 8.0
+    team_a_attack_goal_x: 8.0
+    team_a_attack_goal_y: 0.0
+    team_b_attack_goal_x: -8.0
+    team_b_attack_goal_y: 0.0

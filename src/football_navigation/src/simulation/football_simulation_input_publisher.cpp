@@ -51,6 +51,8 @@ FootballSimulationInputPublisher::FootballSimulationInputPublisher()
     odom_topic_template_ = declare_parameter<std::string>(
       "odom_topic_template", "/global_vio/{namespace}/odom");
     ball_topic_ = declare_parameter<std::string>("ball_topic", "/football/ball_pose");
+    ball_override_topic_ = declare_parameter<std::string>(
+      "ball_override_topic", "/football/simulation/ball_override");
     approach_topic_ = declare_parameter<std::string>(
       "approach_topic", "/cyberdog_1/football/approach_pose");
     path_topic_ = declare_parameter<std::string>("path_topic", "/cyberdog_1/plan");
@@ -92,6 +94,21 @@ FootballSimulationInputPublisher::FootballSimulationInputPublisher()
       rclcpp::SensorDataQoS().keep_last(10));
     ball_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(
       ball_topic_, rclcpp::SensorDataQoS().keep_last(5));
+    ball_override_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
+      ball_override_topic_, rclcpp::QoS(1).reliable(),
+      [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
+        if (!msg || msg->header.frame_id != field_frame_ ||
+          !std::isfinite(msg->pose.position.x) ||
+          !std::isfinite(msg->pose.position.y))
+        {
+          return;
+        }
+        ball_x_ = msg->pose.position.x;
+        ball_y_ = msg->pose.position.y;
+        ball_push_active_ = false;
+        RCLCPP_INFO(
+          get_logger(), "simulation ball overridden to (%.2f, %.2f)", ball_x_, ball_y_);
+      });
     path_pub_ = create_publisher<nav_msgs::msg::Path>(path_topic_, 10);
     striker_pub_ = create_publisher<std_msgs::msg::String>(striker_topic_, latchedQos());
     kick_target_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(
@@ -208,7 +225,9 @@ void FootballSimulationInputPublisher::publishScene()
           ball_push_lateral_gain_ * lateral_motion * kick_x;
         robot_x_ = next_x;
         robot_y_ = next_y;
-      } else if (!stop_at_ball_ || next_ball_distance >= ball_contact_distance_m_) {
+      } else if (!stop_at_ball_ || control_state_ == "PUSH_REALIGN" ||
+        next_ball_distance >= ball_contact_distance_m_)
+      {
         robot_x_ = next_x;
         robot_y_ = next_y;
       } else {

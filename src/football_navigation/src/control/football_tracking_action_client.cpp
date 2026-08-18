@@ -477,7 +477,14 @@ void FootballTrackingActionClient::maybeSendGoal()
     if ((now() - latest_pose_time_).seconds() > pose_timeout_sec_) {
       pose_stale = true;
     }
-    if ((goal_active_ || goal_pending_) && !pose_stale) {
+    if (goal_pending_ && !pose_stale) {
+      return;
+    }
+    if (goal_active_ && !pose_stale &&
+      isPoseNear(
+        latest_tracking_pose_, sent_goal_pose_,
+        completed_pose_xy_tolerance_, completed_pose_yaw_tolerance_))
+    {
       return;
     }
     completed_pose_unchanged =
@@ -630,7 +637,9 @@ void FootballTrackingActionClient::resultCallback(
   bool have_completed_goal = false;
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (generation != active_generation_) {
+    // A newer tracking goal may already be pending while Nav2 reports the
+    // preempted goal's result. Never let that stale result clear new state.
+    if (generation != active_generation_ || generation != goal_generation_) {
       return;
     }
 

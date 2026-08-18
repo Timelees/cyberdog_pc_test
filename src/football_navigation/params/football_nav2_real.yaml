@@ -1,0 +1,273 @@
+# Conservative, map-free Nav2 configuration for the real football test.
+# The launch file injects robot identity, odom topic and frame names.
+bt_navigator:
+  ros__parameters:
+    use_sim_time: false
+    global_frame: tag_global
+    robot_base_frame: base_link
+    odom_topic: /global_vio/cyberdog_1/odom
+    bt_loop_duration: 10
+    default_server_timeout: 20
+    enable_groot_monitoring: false
+    plugin_lib_names:
+      - nav2_compute_path_to_pose_action_bt_node
+      - nav2_compute_path_through_poses_action_bt_node
+      - nav2_follow_path_action_bt_node
+      - nav2_back_up_action_bt_node
+      - nav2_spin_action_bt_node
+      - nav2_wait_action_bt_node
+      - nav2_clear_costmap_service_bt_node
+      - nav2_is_stuck_condition_bt_node
+      - nav2_goal_reached_condition_bt_node
+      - nav2_goal_updated_condition_bt_node
+      - nav2_rate_controller_bt_node
+      - nav2_distance_controller_bt_node
+      - nav2_speed_controller_bt_node
+      - nav2_truncate_path_action_bt_node
+      - nav2_recovery_node_bt_node
+      - nav2_pipeline_sequence_bt_node
+      - nav2_round_robin_node_bt_node
+      - nav2_transform_available_condition_bt_node
+      - nav2_time_expired_condition_bt_node
+      - nav2_navigate_through_poses_action_bt_node
+      - nav2_navigate_to_pose_action_bt_node
+      - nav2_remove_passed_goals_action_bt_node
+      - nav2_planner_selector_bt_node
+      - nav2_controller_selector_bt_node
+      - nav2_goal_checker_selector_bt_node
+
+bt_navigator_rclcpp_node:
+  ros__parameters:
+    use_sim_time: false
+
+controller_server:
+  ros__parameters:
+    use_sim_time: false
+    controller_frequency: 15.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.001
+    min_theta_velocity_threshold: 0.001
+    failure_tolerance: 0.20
+    progress_checker_plugin: football_progress_checker
+    goal_checker_plugins: [football_goal_checker]
+    controller_plugins: [FollowPath]
+    football_progress_checker:
+      plugin: football_navigation::FootballProgressChecker
+      required_movement_radius: 0.08
+      movement_time_allowance: 4.0
+    football_goal_checker:
+      plugin: nav2_controller::SimpleGoalChecker
+      stateful: true
+      xy_goal_tolerance: 0.08
+      yaw_goal_tolerance: 0.10
+    FollowPath:
+      plugin: dwb_core::DWBLocalPlanner
+      debug_trajectory_details: false
+      trajectory_generator_name: dwb_plugins::LimitedAccelGenerator
+      min_vel_x: -0.20
+      max_vel_x: 0.30
+      min_vel_y: -0.20
+      max_vel_y: 0.20
+      max_vel_theta: 0.80
+      min_speed_xy: 0.0
+      max_speed_xy: 0.30
+      min_speed_theta: 0.0
+      acc_lim_x: 0.8
+      acc_lim_y: 0.8
+      acc_lim_theta: 1.5
+      decel_lim_x: -1.0
+      decel_lim_y: -1.0
+      decel_lim_theta: -2.0
+      vx_samples: 12
+      vy_samples: 9
+      vtheta_samples: 16
+      sim_time: 1.2
+      linear_granularity: 0.05
+      angular_granularity: 0.025
+      transform_tolerance: 0.30
+      xy_goal_tolerance: 0.08
+      trans_stopped_velocity: 0.05
+      short_circuit_trajectory_evaluation: true
+      stateful: true
+      critics: [RotateToGoal, ObstacleFootprint, BaseObstacle, GoalAlign, PathAlign, PathDist, GoalDist]
+      ObstacleFootprint.scale: 0.03
+      BaseObstacle.scale: 0.01
+      PathAlign.scale: 24.0
+      PathAlign.forward_point_distance: 0.15
+      GoalAlign.scale: 16.0
+      GoalAlign.forward_point_distance: 0.15
+      PathDist.scale: 24.0
+      GoalDist.scale: 20.0
+      RotateToGoal.scale: 16.0
+      RotateToGoal.slowing_factor: 5.0
+      RotateToGoal.lookahead_time: -1.0
+
+controller_server_rclcpp_node:
+  ros__parameters:
+    use_sim_time: false
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      update_frequency: 10.0
+      publish_frequency: 5.0
+      global_frame: tag_global
+      robot_base_frame: base_link
+      transform_tolerance: 0.30
+      use_sim_time: false
+      rolling_window: true
+      width: 8.0
+      height: 8.0
+      resolution: 0.05
+      footprint: "[[0.281, 0.1695], [0.281, -0.1695], [-0.281, -0.1695], [-0.281, 0.1695]]"
+      plugins: [obstacle_layer, multi_robot_obstacle_layer, inflation_layer]
+      obstacle_layer:
+        plugin: nav2_costmap_2d::ObstacleLayer
+        enabled: true
+        observation_sources: scan
+        scan:
+          topic: scan
+          data_type: LaserScan
+          marking: true
+          clearing: true
+          obstacle_max_range: 6.0
+          raytrace_max_range: 8.0
+          max_obstacle_height: 2.0
+      multi_robot_obstacle_layer:
+        plugin: football_navigation/MultiRobotObstacleLayer
+        enabled: true
+        target_frame: tag_global
+        self_namespace: cyberdog_1
+        robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
+        robot_odom_topic_template: /global_vio/{namespace}/odom
+        use_oriented_footprint: true
+        other_robot_length_m: 0.562
+        other_robot_width_m: 0.339
+        footprint_padding: 0.05
+        obstacle_timeout_sec: 0.70
+        minimum_obstacle_count: 9
+        max_message_age: 0.50
+        future_tolerance: 0.08
+        enable_prediction: true
+        prediction_horizon_sec: 0.90
+        max_prediction_distance_m: 0.40
+        max_obstacle_speed_mps: 1.00
+        max_obstacle_yaw_rate_rps: 2.00
+        max_observation_jump_m: 0.80
+        sweep_linear_step_m: 0.08
+        sweep_angular_step_rad: 0.15
+        max_sweep_samples: 20
+        mark_cost: 254
+        use_maximum: true
+      inflation_layer:
+        plugin: nav2_costmap_2d::InflationLayer
+        cost_scaling_factor: 4.0
+        inflation_radius: 0.55
+      always_send_full_costmap: true
+  local_costmap_client:
+    ros__parameters:
+      use_sim_time: false
+  local_costmap_rclcpp_node:
+    ros__parameters:
+      use_sim_time: false
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      update_frequency: 5.0
+      publish_frequency: 2.0
+      global_frame: tag_global
+      robot_base_frame: base_link
+      transform_tolerance: 0.30
+      use_sim_time: false
+      rolling_window: true
+      width: 16.0
+      height: 10.0
+      resolution: 0.10
+      footprint: "[[0.281, 0.1695], [0.281, -0.1695], [-0.281, -0.1695], [-0.281, 0.1695]]"
+      plugins: [obstacle_layer, multi_robot_obstacle_layer, inflation_layer]
+      obstacle_layer:
+        plugin: nav2_costmap_2d::ObstacleLayer
+        enabled: true
+        observation_sources: scan
+        scan:
+          topic: scan
+          data_type: LaserScan
+          marking: true
+          clearing: true
+          obstacle_max_range: 8.0
+          raytrace_max_range: 10.0
+          max_obstacle_height: 2.0
+      multi_robot_obstacle_layer:
+        plugin: football_navigation/MultiRobotObstacleLayer
+        enabled: true
+        target_frame: tag_global
+        self_namespace: cyberdog_1
+        robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
+        robot_odom_topic_template: /global_vio/{namespace}/odom
+        use_oriented_footprint: true
+        other_robot_length_m: 0.562
+        other_robot_width_m: 0.339
+        footprint_padding: 0.05
+        obstacle_timeout_sec: 0.70
+        minimum_obstacle_count: 9
+        max_message_age: 0.50
+        future_tolerance: 0.08
+        enable_prediction: true
+        prediction_horizon_sec: 0.90
+        max_prediction_distance_m: 0.40
+        max_obstacle_speed_mps: 1.00
+        max_obstacle_yaw_rate_rps: 2.00
+        max_observation_jump_m: 0.80
+        sweep_linear_step_m: 0.08
+        sweep_angular_step_rad: 0.15
+        max_sweep_samples: 20
+        mark_cost: 254
+        use_maximum: true
+      inflation_layer:
+        plugin: nav2_costmap_2d::InflationLayer
+        cost_scaling_factor: 3.0
+        inflation_radius: 0.60
+      always_send_full_costmap: true
+  global_costmap_client:
+    ros__parameters:
+      use_sim_time: false
+  global_costmap_rclcpp_node:
+    ros__parameters:
+      use_sim_time: false
+
+planner_server:
+  ros__parameters:
+    use_sim_time: false
+    expected_planner_frequency: 5.0
+    planner_plugins: [GridBased]
+    GridBased:
+      plugin: nav2_navfn_planner/NavfnPlanner
+      tolerance: 0.30
+      use_astar: true
+      allow_unknown: false
+
+planner_server_rclcpp_node:
+  ros__parameters:
+    use_sim_time: false
+
+recoveries_server:
+  ros__parameters:
+    use_sim_time: false
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+    recovery_plugins: [spin, backup, wait]
+    spin:
+      plugin: nav2_recoveries/Spin
+    backup:
+      plugin: nav2_recoveries/BackUp
+    wait:
+      plugin: nav2_recoveries/Wait
+    global_frame: tag_global
+    robot_base_frame: base_link
+    transform_timeout: 0.30
+    simulate_ahead_time: 1.0
+    max_rotational_vel: 0.8
+    min_rotational_vel: 0.2
+    rotational_acc_lim: 1.5

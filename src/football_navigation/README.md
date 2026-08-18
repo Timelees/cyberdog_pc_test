@@ -2,11 +2,13 @@
 
 后续开发 Agent 请先阅读 [AGENT_HANDOFF.md](AGENT_HANDOFF.md)，其中集中记录当前节点拓扑、已验证能力、功能边界、未完成事项和修改守则。
 
-参数分为 [football_runtime_common.yaml](params/football_runtime_common.yaml)（可复用运行参数）和 [football_single_robot_simulation.yaml](params/football_single_robot_simulation.yaml)（单机仿真覆盖项）。单机 launch 会按此顺序合并，后者优先；实机 bringup 应复用前者并提供自己的机器人、传感器和 Nav2 参数文件。
+参数分为 [football_runtime_common.yaml](params/football_runtime_common.yaml)（可复用运行参数）、[football_single_robot_simulation.yaml](params/football_single_robot_simulation.yaml)（单机仿真覆盖项）和 [football_team_simulation.yaml](params/football_team_simulation.yaml)（十机职责仿真）。单机 launch 会按此顺序合并，后者优先；实机 bringup 应复用前者并提供自己的机器人、传感器和 Nav2 参数文件。
 
 ## 功能边界
 
-本包提供足球接近/推球状态机、球目标适配、多机器人代价地图障碍层、动态障碍预测、球融合和角色分配。`football_single_robot_simulation.launch.py` 使用轻量级动作服务器验证单台 striker 的闭环接口，并包含基于 10 路全局 odom 的局部绕障航点、减速和硬停车逻辑。该轻量规划器用于仿真功能验证；实机仍由加载 `football_multi_robot_obstacle_layer` 的 Nav2 局部规划器负责。
+本包提供足球接近/推球状态机、球目标适配、多机器人代价地图障碍层、动态障碍预测、球融合和角色分配。`football_single_robot_simulation.launch.py` 使用轻量级动作服务器验证单台 striker 的闭环接口；实机使用 `football_real_robot.launch.py`，由标准 Nav2 controller/planner 和 `football_multi_robot_obstacle_layer` 负责局部/全局 rolling costmap。若机器人产品导航栈已由外部 bringup 启动，则只启动 `football_robot_runtime.launch.py`，避免重复启动 Nav2。
+
+实机入口默认 `enable_motion:=false`。先确认定位、10 路全局 odom、球/角色输入和两个 costmap 正常，再显式使用 `enable_motion:=true`。本包不启动 VIO、底盘驱动、球融合或角色权威；这些必须由实机/PC authority 系统提供。
 
 ## 运行前检查
 
@@ -23,6 +25,32 @@ source /opt/ros/<distro>/setup.bash
 source install/setup.bash
 ros2 launch football_navigation football_single_robot_simulation.launch.py use_rviz:=true
 ```
+
+实机安全启动与正式启动：
+
+```bash
+ros2 launch football_navigation football_real_robot.launch.py \
+  robot_namespace:=cyberdog_1 enable_motion:=false
+ros2 launch football_navigation football_real_robot.launch.py \
+  robot_namespace:=cyberdog_1 enable_motion:=true
+```
+
+已有外部 Nav2 时只启动足球控制链：
+
+```bash
+ros2 launch football_navigation football_robot_runtime.launch.py \
+  robot_namespace:=cyberdog_1 enable_motion:=true
+```
+
+职责分配仿真使用独立 launch，不会启动或修改单机 striker 控制链：
+
+```bash
+ros2 launch football_navigation football_team_simulation.launch.py use_rviz:=true
+```
+
+该 launch 启动十机假位姿、可配置移动球、唯一 `football_team_role_assigner` 和可视化。策略实现分别位于 `src/coordination/*_role_strategy.cpp`，角色权威只负责安全门控、前锋迟滞、身份绑定和消息发布。
+
+团队仿真默认将球固定在场地中心 `(3.0, 0.0)`，`cyberdog_1` 至 `cyberdog_5` 放在同一侧，`cyberdog_6` 至 `cyberdog_10` 沿远端边线布置。A 队五台机器人分别启动与单机仿真一致的 GoalAdapter、轨迹适配器、Action Client 和轻量导航器：距离球最近者成为 striker，先导航到球后方，再完成接触和推球；其他角色进入对应的 `TACTICAL_*` 状态并跟踪各自 tactical target。团队可视化不固定 ego/striker，机器人标签直接显示角色权威发布的职责和当前位置。假世界和导航器共同保持机器人椭圆碰撞净空，默认安全净空为 `0.12 m`。
 
 该启动文件会由 `football_simulation_input_publisher` 持续发布球、射门目标、比赛状态和 striker 身份。单障碍优先使用低开销的单峰平滑曲线；当多台机器人同时封住左右候选曲线时，规划器会沿前进方向搜索可切换绕行侧的多层横向走廊，并将结果插值为连续轨迹发布到 `/cyberdog_1/local_plan`。非推球阶段控制器只发布前向速度和转向速度，不发布横向侧移速度。
 
@@ -57,7 +85,7 @@ ros2 run football_navigation football_keyboard_robot_controller
 状态说明：`[x]` 表示已具备自动化/闭环覆盖；`[ ]` 表示必须保留现场记录后才能关闭，不能仅因代码路径存在而标记通过。
 
 - [x] 单机路径规划验证：起点 -> 足球后位置 -> 推球到目标点。
-  - 验收：状态依次出现 `NAV_TRANSIT`/`BALL_APPROACH`、`ALIGN_TO_GOAL`、`CONTACT_ACQUIRE`、`PUSH_BALL`；球沿 ball-to-target 方向前进，且推进阶段速度受 `push_speed_limit_mps` 限制。
+  - 验收：状态依次出现 `NAV_TRANSIT`/`BALL_APPROACH`、`ALIGN_TO_GOAL`、`CONTACT_ACQUIRE`、`PUSH_BALL`；球沿 ball-to-target 方向前进，且推进阶段速度受 `push_speed_limit_mps` 限制。推球中球横向偏离超过 `push_realign_lateral_error_m` 时进入 `PUSH_REALIGN`，striker 暂停前推并左右移动，对准至进入阈值后重新触球继续推球。
   - 覆盖实现：`football_goal_adapter` 的接近/对齐/接触状态机，`football_simulation_input_publisher` 的低速推球模型，以及 `football_simulation_navigator` 的动作闭环。
 
 - [x] 多机环境下，单机静态接近路径避障测试（轻量仿真规划器）。

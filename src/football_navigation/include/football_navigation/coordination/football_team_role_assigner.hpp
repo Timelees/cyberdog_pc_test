@@ -15,6 +15,11 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include "football_navigation/coordination/defender_left_role_strategy.hpp"
+#include "football_navigation/coordination/defender_right_role_strategy.hpp"
+#include "football_navigation/coordination/goalkeeper_role_strategy.hpp"
+#include "football_navigation/coordination/striker_role_strategy.hpp"
+#include "football_navigation/coordination/support_role_strategy.hpp"
 #include "football_navigation/core/football_geometry.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
@@ -30,8 +35,6 @@ public:
   FootballTeamRoleAssigner();
 
 private:
-
-private:
   struct OdomState
   {
     nav_msgs::msg::Odometry odom;
@@ -39,12 +42,6 @@ private:
     rclcpp::Time received;
   };
 
-  struct RoleCommand
-  {
-    std::string role{"STOP"};
-    double x{0.0};
-    double y{0.0};
-  };
   rclcpp::Time zeroTime() const;
   void validateTeamRosters() const;
   bool finitePose(const geometry_msgs::msg::Pose & pose) const;
@@ -78,6 +75,7 @@ private:
   void publishTeamTactics(
   const std::vector<RobotPose2D> & team, const std::string & team_id,
   const std::string & striker);
+  RoleStrategyContext makeStrategyContext(const std::string & team_id) const;
   std::string selectNearestStriker(
   const std::vector<RobotPose2D> & robots, const std::string & current,
   rclcpp::Time & current_since, std::string & challenger,
@@ -150,6 +148,11 @@ private:
   std::string challenger_a_;
   std::string challenger_b_;
   std::map<std::string, OdomState> robot_odoms_;
+  StrikerRoleStrategy striker_strategy_;
+  SupportRoleStrategy support_strategy_;
+  DefenderLeftRoleStrategy defender_left_strategy_;
+  DefenderRightRoleStrategy defender_right_strategy_;
+  GoalkeeperRoleStrategy goalkeeper_strategy_;
   std::map<std::string, rclcpp::Publisher<std_msgs::msg::String>::SharedPtr> role_pubs_;
   std::map<std::string, rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr>
     tactical_target_pubs_;

@@ -44,6 +44,7 @@ private:
   void handleAccepted(const std::shared_ptr<GoalHandle> goal_handle);
   void publishStop();
   bool isPushState() const;
+  bool isPushRealignState() const;
   void publishCommand(const geometry_msgs::msg::Twist & command);
   void otherRobotOdomCallback(
     const std::string & robot_namespace,

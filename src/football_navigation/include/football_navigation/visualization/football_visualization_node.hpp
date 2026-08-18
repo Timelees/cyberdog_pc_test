@@ -178,6 +178,8 @@ private:
   std::string goal_pose_topic_;
   std::string robot_namespaces_csv_;
   std::string robot_odom_topic_template_;
+  std::string robot_local_trajectory_topic_template_;
+  std::string robot_approach_pose_topic_template_;
   std::string robot_marker_topic_template_;
   std::string cmd_vel_topic_;
   std::string motion_servo_cmd_topic_;
@@ -262,6 +264,7 @@ private:
 
   std::string striker_a_;
   std::string striker_b_;
+  std::map<std::string, std::string> robot_roles_;
   std::string control_state_{"UNKNOWN"};
 
   geometry_msgs::msg::PoseStamped team_a_kick_default_;
@@ -275,6 +278,10 @@ private:
   std::vector<std::string> robot_namespaces_;
   std::map<std::string, nav_msgs::msg::Odometry> robot_odoms_;
   std::map<std::string, rclcpp::Time> robot_odom_times_;
+  std::map<std::string, nav_msgs::msg::Path> robot_local_trajectories_;
+  std::map<std::string, rclcpp::Time> robot_local_trajectory_times_;
+  std::map<std::string, geometry_msgs::msg::PoseStamped> robot_approach_poses_;
+  std::map<std::string, rclcpp::Time> robot_approach_times_;
   geometry_msgs::msg::Twist cmd_vel_;
   protocol::msg::MotionServoCmd motion_servo_cmd_;
   nav_msgs::msg::OccupancyGrid costmap_;
@@ -314,6 +321,8 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr tracking_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_sub_;
   std::vector<rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr> robot_odom_subs_;
+  std::vector<rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr> robot_local_trajectory_subs_;
+  std::vector<rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr> robot_approach_subs_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
   rclcpp::Subscription<protocol::msg::MotionServoCmd>::SharedPtr motion_servo_cmd_sub_;
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr costmap_sub_;
@@ -324,6 +333,7 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr team_b_kick_sub_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr striker_a_sub_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr striker_b_sub_;
+  std::vector<rclcpp::Subscription<std_msgs::msg::String>::SharedPtr> robot_role_subs_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr control_state_sub_;
   rclcpp::TimerBase::SharedPtr timer_;
 };

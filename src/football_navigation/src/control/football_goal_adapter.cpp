@@ -199,6 +199,8 @@ FootballGoalAdapter::FootballGoalAdapter()
     "push_enter_lateral_error_m", 0.08);
   push_exit_lateral_error_m_ = declare_parameter<double>(
     "push_exit_lateral_error_m", 0.14);
+  push_realign_lateral_error_m_ = declare_parameter<double>(
+    "push_realign_lateral_error_m", 0.09);
   push_enter_yaw_error_rad_ = declare_parameter<double>(
     "push_enter_yaw_error_rad", 0.10);
   push_exit_yaw_error_rad_ = declare_parameter<double>(
@@ -293,6 +295,8 @@ FootballGoalAdapter::FootballGoalAdapter()
     push_target_lead_m_ <= 0.0 ||
     push_enter_lateral_error_m_ <= 0.0 ||
     push_exit_lateral_error_m_ < push_enter_lateral_error_m_ ||
+    push_realign_lateral_error_m_ < push_enter_lateral_error_m_ ||
+    push_realign_lateral_error_m_ > push_exit_lateral_error_m_ ||
     push_enter_yaw_error_rad_ <= 0.0 ||
     push_exit_yaw_error_rad_ < push_enter_yaw_error_rad_ ||
     push_contact_acquire_timeout_sec_ <= 0.0 ||
@@ -1414,7 +1418,7 @@ void FootballGoalAdapter::ballPoseCallback(
     const bool alignment_lost_now =
       !robot_still_behind ||
       ball_forward_projection <= 0.0 ||
-      push_lateral_error > push_exit_lateral_error_m_ ||
+      push_lateral_error > push_realign_lateral_error_m_ ||
       push_yaw_error > push_exit_yaw_error_rad_;
 
     if (alignment_lost_now) {
@@ -1432,6 +1436,8 @@ void FootballGoalAdapter::ballPoseCallback(
       push_alignment_loss_sec_;
     const bool corridor_blocked =
       pushCorridorBlocked(drive_direction_x_, drive_direction_y_);
+    const bool lateral_realign_requested =
+      push_lateral_error > push_realign_lateral_error_m_;
 
     if (corridor_blocked) {
       RCLCPP_WARN(
@@ -1442,6 +1448,58 @@ void FootballGoalAdapter::ballPoseCallback(
       resetGoalStability();
       approach = behind;
       next_state = "BLOCKED_RECOVERY";
+    } else if (push_realign_active_ || lateral_realign_requested) {
+      if (!push_realign_active_) {
+        RCLCPP_WARN(
+          get_logger(),
+          "football push lateral realign: error=%.3f enter=%.3f trigger=%.3f",
+          push_lateral_error,
+          push_enter_lateral_error_m_,
+          push_realign_lateral_error_m_);
+        push_realign_active_ = true;
+        have_push_contact_ = false;
+        have_push_contact_progress_ = false;
+        front_contact_since_ = rclcpp::Time(0, 0, get_clock()->get_clock_type());
+        last_push_contact_time_ = rclcpp::Time(0, 0, get_clock()->get_clock_type());
+      }
+
+      const bool lateral_alignment_restored =
+        push_lateral_error <= push_enter_lateral_error_m_ &&
+        push_yaw_error <= push_exit_yaw_error_rad_ &&
+        robot_still_behind && ball_forward_projection > 0.0;
+      if (lateral_alignment_restored) {
+        push_realign_active_ = false;
+        assignPushTarget(drive_direction_x_, drive_direction_y_);
+        contact_acquire_started_ = push_now;
+        drive_through_started_ = push_now;
+        last_push_contact_progress_time_ = push_now;
+        push_contact_best_separation_m_ = std::numeric_limits<double>::infinity();
+        push_alignment_lost_since_ = rclcpp::Time(
+          0, 0, get_clock()->get_clock_type());
+        next_state = "CONTACT_ACQUIRE";
+      } else {
+        // Preserve the current longitudinal ball separation and remove only
+        // the lateral offset. This produces a short left/right correction
+        // instead of sending the striker back to the normal behind-ball pose.
+        const double longitudinal_from_ball =
+          (robot.pose.position.x - ball.pose.position.x) * drive_direction_x_ +
+          (robot.pose.position.y - ball.pose.position.y) * drive_direction_y_;
+        const double behind_separation = std::clamp(
+          -longitudinal_from_ball,
+          push_contact_offset_m,
+          approach_config_.approach_distance);
+        approach = ball;
+        approach.pose.position.x = std::clamp(
+          ball.pose.position.x - drive_direction_x_ * behind_separation,
+          field_min_x_ + boundary_margin_m_,
+          field_max_x_ - boundary_margin_m_);
+        approach.pose.position.y = std::clamp(
+          ball.pose.position.y - drive_direction_y_ * behind_separation,
+          field_min_y_ + boundary_margin_m_,
+          field_max_y_ - boundary_margin_m_);
+        approach.pose.orientation = quaternionFromYaw(push_yaw);
+        next_state = "PUSH_REALIGN";
+      }
     } else if (contact_acquire_hard_expired ||
       contact_progress_stalled || contact_lost || alignment_lost)
     {
@@ -1726,6 +1784,7 @@ bool FootballGoalAdapter::alignmentWatchdogTriggered(
 void FootballGoalAdapter::resetPushCommitment(const bool keep_alignment_position)
 {
   drive_through_committed_ = false;
+  push_realign_active_ = false;
   drive_direction_x_ = 1.0;
   drive_direction_y_ = 0.0;
   have_push_contact_ = false;
@@ -1868,7 +1927,7 @@ double FootballGoalAdapter::speedLimitForState(const std::string & state) const
   if (state == "BALL_APPROACH" || state == "APPROACH_BEHIND_BALL") {
     return ball_approach_speed_limit_mps_;
   }
-  if (state == "CONTACT_ACQUIRE") {
+  if (state == "CONTACT_ACQUIRE" || state == "PUSH_REALIGN") {
     return contact_acquire_speed_limit_mps_;
   }
   if (state == "PUSH_BALL") {

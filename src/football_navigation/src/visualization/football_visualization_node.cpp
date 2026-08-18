@@ -7,6 +7,7 @@
 // base_link and transform only through real TF data.
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <exception>
 #include <iomanip>
@@ -134,6 +135,10 @@ FootballVisualizationNode::FootballVisualizationNode()
       "cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10");
     robot_odom_topic_template_ = declare_parameter<std::string>(
       "robot_odom_topic_template", "/global_vio/{namespace}/odom");
+    robot_local_trajectory_topic_template_ = declare_parameter<std::string>(
+      "robot_local_trajectory_topic_template", "/{namespace}/local_plan");
+    robot_approach_pose_topic_template_ = declare_parameter<std::string>(
+      "robot_approach_pose_topic_template", "/{namespace}/football/approach_pose");
     cmd_vel_topic_ = declare_parameter<std::string>("cmd_vel_topic", "cmd_vel");
     motion_servo_cmd_topic_ =
       declare_parameter<std::string>("motion_servo_cmd_topic", "motion_servo_cmd");
@@ -277,6 +282,28 @@ FootballVisualizationNode::FootballVisualizationNode()
           robot_odoms_[robot_namespace] = *msg;
           robot_odom_times_.insert_or_assign(robot_namespace, now());
         }));
+      robot_local_trajectory_subs_.push_back(create_subscription<nav_msgs::msg::Path>(
+        expandNamespace(robot_local_trajectory_topic_template_, robot_namespace),
+        rclcpp::SystemDefaultsQoS(),
+        [this, robot_namespace](const nav_msgs::msg::Path::SharedPtr msg) {
+          if (!msg) {
+            return;
+          }
+          std::lock_guard<std::mutex> lock(mutex_);
+          robot_local_trajectories_[robot_namespace] = *msg;
+          robot_local_trajectory_times_.insert_or_assign(robot_namespace, now());
+        }));
+      robot_approach_subs_.push_back(create_subscription<geometry_msgs::msg::PoseStamped>(
+        expandNamespace(robot_approach_pose_topic_template_, robot_namespace),
+        rclcpp::SystemDefaultsQoS(),
+        [this, robot_namespace](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
+          if (!msg) {
+            return;
+          }
+          std::lock_guard<std::mutex> lock(mutex_);
+          robot_approach_poses_[robot_namespace] = *msg;
+          robot_approach_times_.insert_or_assign(robot_namespace, now());
+        }));
     }
     ball_marker_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>(
       ball_marker_topic_, marker_qos);
@@ -406,6 +433,18 @@ FootballVisualizationNode::FootballVisualizationNode()
         striker_b_ = msg->data;
         have_striker_b_ = true;
       });
+    for (const auto & robot_namespace : robot_namespaces_) {
+      robot_role_subs_.push_back(create_subscription<std_msgs::msg::String>(
+        "/" + robot_namespace + "/football/role",
+        rclcpp::QoS(1).reliable().transient_local(),
+        [this, robot_namespace](const std_msgs::msg::String::SharedPtr msg) {
+          if (!msg) {
+            return;
+          }
+          std::lock_guard<std::mutex> lock(mutex_);
+          robot_roles_[robot_namespace] = msg->data;
+        }));
+    }
     control_state_sub_ = create_subscription<std_msgs::msg::String>(
       control_state_topic_, rclcpp::QoS(1).reliable().transient_local(),
       [this](const std_msgs::msg::String::SharedPtr msg) {
@@ -705,7 +744,7 @@ void FootballVisualizationNode::appendBallAvoidanceZone(
     return;
   }
   const bool contact_phase = control_state_ == "CONTACT_ACQUIRE" ||
-    control_state_ == "PUSH_BALL";
+    control_state_ == "PUSH_BALL" || control_state_ == "PUSH_REALIGN";
 
   auto fill = makeBaseMarker(
     target_frame_, "ball_approach_exclusion", 60,
@@ -988,7 +1027,15 @@ void FootballVisualizationNode::appendRobot(
       text.pose.position.z += other_robot_height_m_ + 0.05;
       text.scale.z = 0.14;
       std::ostringstream ss;
-      ss << robot_namespace << (robot_namespace == self_namespace_ ? " [S]" : "")
+      const auto role_it = robot_roles_.find(robot_namespace);
+      const std::string role = role_it == robot_roles_.end() ? "ROLE?" : role_it->second;
+      const std::string role_description =
+        role == "STRIKER" ? "attacker" :
+        role == "SUPPORT" ? "relay" :
+        role == "DEFENDER_LEFT" ? "left defender" :
+        role == "DEFENDER_RIGHT" ? "right defender" :
+        role == "GOALKEEPER" ? "goalkeeper" : "stopped";
+      ss << robot_namespace << " [" << role << "/" << role_description << "]"
          << "\n(" << std::fixed << std::setprecision(2)
          << pose.position.x << "," << pose.position.y << ")";
       text.text = ss.str();
@@ -1554,6 +1601,41 @@ void FootballVisualizationNode::publishMarkers()
         0.25f,
         0.85f,
         stamp);
+    }
+    for (std::size_t index = 0; index < robot_namespaces_.size(); ++index) {
+      const auto & robot_namespace = robot_namespaces_[index];
+      const auto pose_it = robot_approach_poses_.find(robot_namespace);
+      const auto time_it = robot_approach_times_.find(robot_namespace);
+      const auto role_it = robot_roles_.find(robot_namespace);
+      if (pose_it == robot_approach_poses_.end() ||
+        time_it == robot_approach_times_.end() || !fresh(time_it->second, stamp) ||
+        role_it == robot_roles_.end() || role_it->second != "STRIKER")
+      {
+        continue;
+      }
+      appendPoseMarker(
+        approach_markers, pose_it->second,
+        "approach_" + robot_namespace, 100 + static_cast<int>(index) * 3,
+        robot_namespace + " ball-behind", 1.0f, 0.2f, 0.85f, 0.16, true, stamp);
+    }
+    const std::array<float, 3> trajectory_colors[] = {
+      {1.0f, 0.35f, 0.25f}, {1.0f, 0.75f, 0.20f}, {0.25f, 0.85f, 1.0f},
+      {0.35f, 1.0f, 0.45f}, {0.75f, 0.45f, 1.0f}, {1.0f, 0.55f, 0.20f},
+      {0.20f, 0.95f, 0.85f}, {0.85f, 0.85f, 0.25f}, {0.55f, 0.65f, 1.0f},
+      {1.0f, 0.35f, 0.75f}};
+    for (std::size_t index = 0; index < robot_namespaces_.size(); ++index) {
+      const auto & robot_namespace = robot_namespaces_[index];
+      const auto path_it = robot_local_trajectories_.find(robot_namespace);
+      const auto time_it = robot_local_trajectory_times_.find(robot_namespace);
+      if (path_it == robot_local_trajectories_.end() ||
+        time_it == robot_local_trajectory_times_.end() || !fresh(time_it->second, stamp))
+      {
+        continue;
+      }
+      const auto & color = trajectory_colors[index % (sizeof(trajectory_colors) / sizeof(trajectory_colors[0]))];
+      appendPath(
+        path_markers, path_it->second, "trajectory_" + robot_namespace,
+        700 + static_cast<int>(index), color[0], color[1], color[2], stamp);
     }
     if (have_odom_ && fresh(odom_time_, stamp)) {
       // The robot pose is already published with its body and label on the

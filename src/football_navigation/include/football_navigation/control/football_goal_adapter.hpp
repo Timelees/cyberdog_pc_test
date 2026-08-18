@@ -170,6 +170,7 @@ private:
   double push_target_lead_m_;
   double push_enter_lateral_error_m_;
   double push_exit_lateral_error_m_;
+  double push_realign_lateral_error_m_;
   double push_enter_yaw_error_rad_;
   double push_exit_yaw_error_rad_;
   double push_contact_acquire_timeout_sec_;
@@ -269,6 +270,7 @@ private:
   double kickoff_hold_sec_{3.0};
 
   bool drive_through_committed_{false};
+  bool push_realign_active_{false};
   bool alignment_position_latched_{false};
   bool alignment_watchdog_active_{false};
   double alignment_last_yaw_{0.0};

@@ -494,6 +494,12 @@ namespace football_navigation
         }
       }
 
+      const auto selected_configured = configured_initial_poses.find(selected_namespace_);
+      if (simulate_selected_robot_ && selected_configured != configured_initial_poses.end()) {
+        selected_initial_global_x_ = selected_configured->second[0];
+        selected_initial_global_y_ = selected_configured->second[1];
+      }
+
       std::uniform_real_distribution<double> random_x(
         field_min_x_ + boundary_margin_m_ + maximum_collision_extent,
         field_max_x_ - boundary_margin_m_ - maximum_collision_extent);
@@ -504,7 +510,7 @@ namespace football_navigation
       std::vector<InitialPose2D> occupied_poses{
         {selected_initial_global_x_, selected_initial_global_y_, 0.0}};
       for (const auto & configured : configured_initial_poses) {
-        if (configured.first == selected_namespace_ && !simulate_selected_robot_) {
+        if (configured.first == selected_namespace_) {
           continue;
         }
         const double configured_x = configured.second[0];
@@ -522,7 +528,8 @@ namespace football_navigation
           }))
         {
           throw std::invalid_argument(
-            "configured initial robot poses must stay inside the field and not overlap");
+            "configured initial pose for " + configured.first +
+            " must stay inside the field and not overlap");
         }
         occupied_poses.push_back({configured_x, configured_y, configured_yaw});
       }

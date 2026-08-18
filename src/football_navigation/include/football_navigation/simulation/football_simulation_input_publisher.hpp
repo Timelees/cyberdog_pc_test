@@ -33,6 +33,7 @@ private:
   std::string field_frame_;
   std::string odom_topic_template_;
   std::string ball_topic_;
+  std::string ball_override_topic_;
   std::string approach_topic_;
   std::string path_topic_;
   std::string striker_topic_;
@@ -69,6 +70,7 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr kick_target_pub_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr match_state_pub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr approach_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ball_override_sub_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr control_state_sub_;
   rclcpp::TimerBase::SharedPtr timer_;

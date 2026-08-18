@@ -361,7 +361,13 @@ void FootballSimulationNavigator::publishStop()
 
 bool FootballSimulationNavigator::isPushState() const
 {
-    return control_state_ == "CONTACT_ACQUIRE" || control_state_ == "PUSH_BALL";
+    return control_state_ == "CONTACT_ACQUIRE" || control_state_ == "PUSH_BALL" ||
+           isPushRealignState();
+  }
+
+bool FootballSimulationNavigator::isPushRealignState() const
+{
+    return control_state_ == "PUSH_REALIGN";
   }
 
 void FootballSimulationNavigator::publishCommand(const geometry_msgs::msg::Twist & command)
@@ -1566,7 +1572,14 @@ void FootballSimulationNavigator::controlTick()
       const double active_speed_limit = speed_limit_mps_ > 0.0 ?
         std::min(max_linear_speed_mps_, speed_limit_mps_) : max_linear_speed_mps_;
       const double world_speed = std::min(active_speed_limit, linear_gain_ * distance);
-      if (isPushState()) {
+      if (isPushRealignState()) {
+        // The GoalAdapter keeps the target at the current longitudinal ball
+        // separation, so only the body-frame lateral component is needed.
+        // Forward motion remains paused until the striker is centered again.
+        const double path_bearing_error = signedYawError(std::atan2(dy, dx), robot_yaw);
+        command.linear.x = 0.0;
+        command.linear.y = world_speed * std::sin(path_bearing_error);
+      } else if (isPushState()) {
         // During contact, forbid holonomic lateral translation. Move along
         // the robot heading and steer gently back toward the push corridor.
         push_bearing_error = signedYawError(std::atan2(dy, dx), robot_yaw);

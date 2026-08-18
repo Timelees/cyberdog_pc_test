@@ -1,0 +1,38 @@
+# Per-robot production overrides. Identity, frames and odom topics are injected by launch.
+football_goal_adapter:
+  ros__parameters:
+    approach_speed_limit_mps: 0.25
+    obstacle_speed_limit_mps: 0.15
+    ball_approach_speed_limit_mps: 0.12
+    contact_acquire_speed_limit_mps: 0.07
+    push_speed_limit_mps: 0.10
+    obstacle_reaction_time_sec: 0.35
+    obstacle_braking_deceleration_mps2: 0.60
+    obstacle_prediction_horizon_sec: 0.90
+
+football_trajectory_adapter:
+  ros__parameters:
+    output_tracking_pose_topic: tracking_pose
+    output_tracking_heartbeat_topic: tracking_pose_heartbeat
+    tracking_pose_heartbeat_hz: 10.0
+    planner_update_rate_hz: 2.0
+
+football_tracking_action_client:
+  ros__parameters:
+    action_name: navigate_to_pose
+    tracking_pose_topic: tracking_pose_heartbeat
+    require_costmap_ready: true
+    local_costmap_topic: local_costmap/costmap
+    planner_costmap_topic: global_costmap/costmap
+    costmap_timeout_sec: 1.50
+    minimum_costmap_marked_cells: 1
+    tick_rate_hz: 10.0
+    send_period_sec: 0.20
+
+football_visualization_node:
+  ros__parameters:
+    enable_costmap_markers: true
+    costmap_topic: local_costmap/costmap
+    path_topic: plan
+    show_robot_collision_ellipses: true
+    expect_motion_cmds: false

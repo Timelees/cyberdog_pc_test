@@ -591,26 +591,17 @@ void FootballTeamRoleAssigner::publishTeamTactics(
   const std::vector<RobotPose2D> & team, const std::string & team_id,
   const std::string & striker)
 {
-    std::map<std::string, RoleCommand> commands;
+    std::map<std::string, RoleDecision> commands;
     for (const auto & robot : team) {
-      commands.emplace(robot.id, RoleCommand{});
+      commands.emplace(robot.id, RoleDecision{});
     }
 
     if (matchStateAllowsMovement(team_id) && !striker.empty()) {
+      const auto context = makeStrategyContext(team_id);
       auto striker_command = commands.find(striker);
       if (striker_command != commands.end()) {
-        striker_command->second.role = "STRIKER";
-        striker_command->second.x = latest_ball_.pose.position.x;
-        striker_command->second.y = latest_ball_.pose.position.y;
+        striker_command->second = striker_strategy_.decide(context);
       }
-
-      const double attack_goal_x =
-        team_id == "a" ? team_a_attack_goal_x_ : team_b_attack_goal_x_;
-      const double home_goal_x =
-        team_id == "a" ? team_b_attack_goal_x_ : team_a_attack_goal_x_;
-      const double direction = attack_goal_x >= home_goal_x ? 1.0 : -1.0;
-      const double defensive_x = home_goal_x + direction * 1.2;
-      const double goalkeeper_x = home_goal_x + direction * 0.35;
 
       std::vector<RobotPose2D> remaining;
       for (const auto & robot : team) {
@@ -624,25 +615,11 @@ void FootballTeamRoleAssigner::publishTeamTactics(
           return numericRobotId(lhs.id) < numericRobotId(rhs.id);
         });
 
-      const std::string roles[] = {
-        "SUPPORT", "DEFENDER_LEFT", "DEFENDER_RIGHT", "GOALKEEPER"};
+      const RoleStrategy * strategies[] = {
+        &support_strategy_, &defender_left_strategy_,
+        &defender_right_strategy_, &goalkeeper_strategy_};
       for (std::size_t i = 0; i < remaining.size() && i < 4; ++i) {
-        RoleCommand command;
-        command.role = roles[i];
-        command.x = defensive_x;
-        command.y = 0.0;
-        if (i == 0) {
-          command.x = latest_ball_.pose.position.x - direction * 0.8;
-          command.y = latest_ball_.pose.position.y + 0.8;
-        } else if (i == 1) {
-          command.y = -1.1;
-        } else if (i == 2) {
-          command.y = 1.1;
-        } else {
-          command.x = goalkeeper_x;
-          command.y = std::clamp(latest_ball_.pose.position.y, -0.7, 0.7);
-        }
-        commands.at(remaining[i].id) = command;
+        commands.at(remaining[i].id) = strategies[i]->decide(context);
       }
     }
 
@@ -651,8 +628,28 @@ void FootballTeamRoleAssigner::publishTeamTactics(
     // a healthy action goal at every role-authority tick.
     for (const auto & robot : team) {
       const auto & command = commands.at(robot.id);
-      publishRole(robot.id, command.role, command.x, command.y);
+      publishRole(robot.id, command.role, command.target_x, command.target_y);
     }
+  }
+
+RoleStrategyContext FootballTeamRoleAssigner::makeStrategyContext(
+  const std::string & team_id) const
+{
+    RoleStrategyContext context;
+    context.ball_x = latest_ball_.pose.position.x;
+    context.ball_y = latest_ball_.pose.position.y;
+    if (team_id == "a") {
+      context.attack_goal_x = team_a_attack_goal_x_;
+      context.attack_goal_y = team_a_attack_goal_y_;
+      context.home_goal_x = team_b_attack_goal_x_;
+      context.home_goal_y = team_b_attack_goal_y_;
+    } else {
+      context.attack_goal_x = team_b_attack_goal_x_;
+      context.attack_goal_y = team_b_attack_goal_y_;
+      context.home_goal_x = team_a_attack_goal_x_;
+      context.home_goal_y = team_a_attack_goal_y_;
+    }
+    return context;
   }
 
 std::string FootballTeamRoleAssigner::selectNearestStriker(
@@ -688,12 +685,11 @@ std::string FootballTeamRoleAssigner::selectNearestStriker(
       return current;
     }
 
-    const double best_distance = planarDistance(
-      robots[best_index].x, robots[best_index].y,
-      latest_ball_.pose.position.x, latest_ball_.pose.position.y);
-    const double current_distance = planarDistance(
-      current_it->x, current_it->y,
-      latest_ball_.pose.position.x, latest_ball_.pose.position.y);
+    const auto context = makeStrategyContext("a");
+    const double best_distance = StrikerRoleStrategy::distanceToBall(
+      robots[best_index].x, robots[best_index].y, context);
+    const double current_distance = StrikerRoleStrategy::distanceToBall(
+      current_it->x, current_it->y, context);
     if (!(best_distance + striker_benefit_threshold_ < current_distance)) {
       resetPendingChallenger(challenger, challenger_since);
       return current;

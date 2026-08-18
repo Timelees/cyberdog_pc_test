@@ -321,6 +321,14 @@ target_link_libraries(football_tracking_action_client
   football_geometry_lib
 )
 
+add_library(football_role_strategies SHARED
+  src/coordination/striker_role_strategy.cpp
+  src/coordination/support_role_strategy.cpp
+  src/coordination/defender_left_role_strategy.cpp
+  src/coordination/defender_right_role_strategy.cpp
+  src/coordination/goalkeeper_role_strategy.cpp
+)
+
 add_executable(football_team_role_assigner
   src/coordination/football_team_role_assigner.cpp
   src/coordination/football_team_role_assigner_node.cpp
@@ -332,6 +340,18 @@ ament_target_dependencies(football_team_role_assigner
 
 target_link_libraries(football_team_role_assigner
   football_geometry_lib
+  football_role_strategies
+)
+
+add_executable(football_team_simulation_input_publisher
+  src/simulation/football_team_simulation_input_publisher.cpp
+  src/simulation/football_team_simulation_input_publisher_node.cpp
+)
+
+ament_target_dependencies(football_team_simulation_input_publisher
+  rclcpp
+  geometry_msgs
+  nav_msgs
 )
 
 add_executable(football_ball_fusion
@@ -385,12 +405,19 @@ set(football_identity_sources
   include/football_navigation/control/football_trajectory_adapter.hpp
   include/football_navigation/coordination/football_ball_fusion.hpp
   include/football_navigation/coordination/football_team_role_assigner.hpp
+  include/football_navigation/coordination/role_strategy.hpp
+  include/football_navigation/coordination/striker_role_strategy.hpp
+  include/football_navigation/coordination/support_role_strategy.hpp
+  include/football_navigation/coordination/defender_left_role_strategy.hpp
+  include/football_navigation/coordination/defender_right_role_strategy.hpp
+  include/football_navigation/coordination/goalkeeper_role_strategy.hpp
   include/football_navigation/plugins/dynamic_obstacle_marker.hpp
   include/football_navigation/plugins/multi_robot_obstacle_layer.hpp
   include/football_navigation/simulation/football_fake_ball_publisher.hpp
   include/football_navigation/simulation/football_fake_other_robot_publisher.hpp
   include/football_navigation/simulation/football_simulation_input_publisher.hpp
   include/football_navigation/simulation/football_simulation_navigator.hpp
+  include/football_navigation/simulation/football_team_simulation_input_publisher.hpp
   include/football_navigation/visualization/football_visualization_node.hpp
   src/core/football_geometry.cpp
   src/control/football_goal_adapter.cpp
@@ -403,6 +430,8 @@ set(football_identity_sources
   src/simulation/football_simulation_navigator_node.cpp
   src/simulation/football_fake_other_robot_publisher.cpp
   src/simulation/football_fake_other_robot_publisher_node.cpp
+  src/simulation/football_team_simulation_input_publisher.cpp
+  src/simulation/football_team_simulation_input_publisher_node.cpp
   src/test/football_keyboard_robot_controller.cpp
   src/coordination/football_ball_fusion.cpp
   src/coordination/football_ball_fusion_node.cpp
@@ -412,13 +441,25 @@ set(football_identity_sources
   src/control/football_tracking_action_client_node.cpp
   src/coordination/football_team_role_assigner.cpp
   src/coordination/football_team_role_assigner_node.cpp
+  src/coordination/striker_role_strategy.cpp
+  src/coordination/support_role_strategy.cpp
+  src/coordination/defender_left_role_strategy.cpp
+  src/coordination/defender_right_role_strategy.cpp
+  src/coordination/goalkeeper_role_strategy.cpp
+  test/test_role_strategies.cpp
   src/visualization/football_visualization_node.cpp
   src/visualization/football_visualization_main.cpp
   src/plugins/dynamic_obstacle_marker.cpp
   src/plugins/multi_robot_obstacle_layer.cpp
   launch/football_single_robot_simulation.launch.py
+  launch/football_team_simulation.launch.py
+  launch/football_robot_runtime.launch.py
+  launch/football_real_robot.launch.py
   params/football_single_robot_simulation.yaml
+  params/football_team_simulation.yaml
   params/football_runtime_common.yaml
+  params/football_real_robot.yaml
+  params/football_nav2_real.yaml
   football_navigation_plugins.xml
   football_navigation_dwb_plugins.xml
 )
@@ -490,6 +531,7 @@ file(WRITE
 install(TARGETS
   football_geometry_lib
   football_navigation_core
+  football_role_strategies
   football_multi_robot_obstacle_layer
   football_goal_adapter
   football_fake_ball_publisher
@@ -500,6 +542,7 @@ install(TARGETS
   football_trajectory_adapter
   football_tracking_action_client
   football_team_role_assigner
+  football_team_simulation_input_publisher
   football_ball_fusion
   football_visualization_node
   ARCHIVE DESTINATION lib
@@ -513,11 +556,22 @@ install(DIRECTORY include/
 
 install(DIRECTORY
   launch
-  params
   rviz
   DESTINATION share/${PROJECT_NAME}
   PATTERN "__pycache__" EXCLUDE
   PATTERN "*.pyc" EXCLUDE
+)
+
+# Install parameter files explicitly so regular and symlink installs both
+# refresh the files whenever the source YAML changes. Keeping this list
+# explicit also prevents an old copied params directory from masking updates.
+install(FILES
+  params/football_single_robot_simulation.yaml
+  params/football_team_simulation.yaml
+  params/football_runtime_common.yaml
+  params/football_real_robot.yaml
+  params/football_nav2_real.yaml
+  DESTINATION share/${PROJECT_NAME}/params
 )
 
 install(FILES
@@ -556,6 +610,13 @@ if(BUILD_TESTING)
     )
   endif()
 
+  ament_add_gtest(test_role_strategies
+    test/test_role_strategies.cpp
+  )
+  target_link_libraries(test_role_strategies
+    football_role_strategies
+  )
+
   if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/test_football_contract.py")
     ament_add_pytest_test(
       test_football_contract
@@ -576,6 +637,7 @@ ament_export_include_directories(include)
 ament_export_libraries(
   football_geometry_lib
   football_navigation_core
+  football_role_strategies
   football_multi_robot_obstacle_layer
 )
 
