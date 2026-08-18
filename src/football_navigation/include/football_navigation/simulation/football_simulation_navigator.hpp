@@ -8,6 +8,7 @@
 #include <chrono>
 #include <cmath>
 #include <functional>
+#include <fstream>
 #include <memory>
 #include <map>
 #include <mutex>
@@ -15,6 +16,7 @@
 #include <string>
 #include <vector>
 #include "football_navigation/core/football_geometry.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
 #include "nav2_msgs/msg/speed_limit.hpp"
@@ -49,8 +51,17 @@ private:
   bool buildSmoothLocalPath(
     double robot_x, double robot_y, double target_x, double target_y);
   bool buildClearanceRecoveryPath(
-    double robot_x, double robot_y, double robot_yaw);
+    double robot_x, double robot_y, double robot_yaw,
+    double target_x, double target_y);
+  bool buildBallAvoidancePath(
+    double robot_x, double robot_y, double robot_yaw,
+    double target_x, double target_y, bool & avoidance_required);
   double nearestRobotClearance(double robot_x, double robot_y, double robot_yaw);
+  void appendDiagnosticLog(
+    double robot_x, double robot_y, double robot_yaw,
+    double target_x, double target_y, double target_yaw, double yaw_error,
+    double clearance,
+    const geometry_msgs::msg::Twist & command);
   void publishLocalPlan(const rclcpp::Time & stamp);
   std::pair<double, double> localLookahead(double robot_x, double robot_y) const;
   void controlTick();
@@ -62,6 +73,7 @@ private:
   std::string push_cmd_vel_topic_;
   std::string speed_limit_topic_;
   std::string control_state_topic_;
+  std::string ball_pose_topic_;
   std::string self_namespace_;
   std::string robot_namespaces_csv_;
   std::string robot_odom_topic_template_;
@@ -73,6 +85,7 @@ private:
   double max_linear_speed_mps_{0.45};
   double max_angular_speed_rps_{0.8};
   double position_tolerance_m_{0.06};
+  double ball_goal_position_tolerance_m_{0.02};
   double yaw_tolerance_rad_{0.08};
   double odom_timeout_sec_{0.5};
   double other_robot_timeout_sec_{0.7};
@@ -80,15 +93,32 @@ private:
   double robot_collision_width_m_{0.339};
   double collision_ellipse_expansion_m_{0.05};
   double collision_path_clearance_m_{0.08};
+  double narrow_passage_bypass_clearance_m_{0.18};
   double collision_slowdown_clearance_m_{0.35};
   double collision_hard_stop_clearance_m_{0.02};
   double clearance_recovery_trigger_clearance_m_{0.16};
   double clearance_recovery_exit_clearance_m_{0.24};
+  double clearance_recovery_exit_tolerance_m_{0.03};
   double clearance_recovery_distance_m_{1.0};
+  double clearance_recovery_max_distance_m_{2.5};
+  double clearance_recovery_distance_step_m_{0.50};
   double clearance_recovery_speed_mps_{0.20};
+  double clearance_recovery_min_speed_mps_{0.08};
+  double clearance_recovery_goal_progress_weight_{0.30};
+  double ball_pose_timeout_sec_{0.50};
+  double ball_avoidance_radius_m_{0.46};
+  double ball_avoidance_max_radius_m_{1.20};
+  double ball_avoidance_radius_step_m_{0.12};
+  double ball_avoidance_sample_spacing_m_{0.06};
+  double ball_avoidance_lookahead_m_{0.10};
   double detour_extra_clearance_m_{0.08};
   double local_path_lookahead_m_{0.32};
   double path_heading_gain_{2.0};
+  bool enable_holonomic_avoidance_{true};
+  bool diagnostic_log_enabled_{true};
+  std::string diagnostic_log_path_{"/tmp/football_navigation_dynamic_avoidance.jsonl"};
+  std::vector<std::string> diagnostic_robot_namespaces_;
+  double diagnostic_state_period_sec_{0.50};
   double turn_in_place_threshold_rad_{0.75};
   int smooth_path_samples_{41};
   int multi_obstacle_lattice_stations_{17};
@@ -107,7 +137,9 @@ private:
   std::string control_state_{"SEARCH_BALL"};
   std::mutex mutex_;
   bool have_odom_{false};
+  bool have_ball_pose_{false};
   nav_msgs::msg::Odometry latest_odom_;
+  geometry_msgs::msg::PoseStamped latest_ball_pose_;
   std::map<std::string, nav_msgs::msg::Odometry> other_robot_odoms_;
   std::map<std::string, rclcpp::Time> other_robot_times_;
   std::vector<std::string> robot_namespaces_;
@@ -121,12 +153,17 @@ private:
   rclcpp::Time last_local_path_plan_time_;
   std::map<std::string, std::array<double, 3>> planned_obstacle_poses_;
   rclcpp::Time latest_odom_time_;
+  rclcpp::Time latest_ball_pose_time_;
+  rclcpp::Time last_diagnostic_state_time_;
+  std::string last_diagnostic_path_signature_;
+  std::ofstream diagnostic_log_stream_;
   rclcpp::Time goal_started_time_;
   std::shared_ptr<GoalHandle> active_goal_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr push_cmd_vel_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr local_plan_pub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ball_pose_sub_;
   rclcpp::Subscription<nav2_msgs::msg::SpeedLimit>::SharedPtr speed_limit_sub_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr control_state_sub_;
   std::vector<rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr>

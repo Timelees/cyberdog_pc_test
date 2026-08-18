@@ -62,6 +62,8 @@ FootballSimulationInputPublisher::FootballSimulationInputPublisher()
       "match_state_topic", "/football/match_state");
     cmd_vel_topic_ = declare_parameter<std::string>(
       "cmd_vel_topic", "/cyberdog_1/cmd_vel");
+    control_state_topic_ = declare_parameter<std::string>(
+      "control_state_topic", "/cyberdog_1/football/state");
     publish_rate_hz_ = declare_parameter<double>("publish_rate_hz", 20.0);
     cmd_vel_timeout_sec_ = declare_parameter<double>("cmd_vel_timeout_sec", 0.5);
     robot_x_ = declare_parameter<double>("robot_x", 0.0);
@@ -102,6 +104,13 @@ FootballSimulationInputPublisher::FootballSimulationInputPublisher()
           latest_cmd_vel_ = *msg;
           latest_cmd_vel_time_ = now();
           have_cmd_vel_ = true;
+        }
+      });
+    control_state_sub_ = create_subscription<std_msgs::msg::String>(
+      control_state_topic_, rclcpp::QoS(1).reliable().transient_local(),
+      [this](const std_msgs::msg::String::SharedPtr msg) {
+        if (msg) {
+          control_state_ = msg->data;
         }
       });
 
@@ -169,9 +178,25 @@ void FootballSimulationInputPublisher::publishScene()
       const double kick_y = kick_distance > 1e-6 ? kick_dy / kick_distance : 0.0;
       const double forward_motion = robot_dx * kick_x + robot_dy * kick_y;
       const double lateral_motion = -robot_dx * kick_y + robot_dy * kick_x;
+      // Use the swept step as well as the current pose for contact acquisition.
+      // Otherwise the anti-penetration branch can stop the robot just outside
+      // the threshold while the push branch waits for a current-pose contact,
+      // leaving a narrow floating-point dead zone around 0.425 m.
+      const bool reaches_ball_contact =
+        std::min(current_ball_distance, next_ball_distance) <=
+        ball_contact_distance_m_ + 0.005;
       const bool pushing_ball = simulate_ball_push_ &&
-        current_ball_distance <= ball_contact_distance_m_ + 0.005 &&
+        (control_state_ == "CONTACT_ACQUIRE" || control_state_ == "PUSH_BALL") &&
+        reaches_ball_contact &&
         forward_motion > 0.0;
+
+      if (pushing_ball != ball_push_active_) {
+        RCLCPP_INFO(
+          get_logger(), "simulation ball push %s state=%s separation=%.3f",
+          pushing_ball ? "ACTIVE" : "INACTIVE", control_state_.c_str(),
+          current_ball_distance);
+        ball_push_active_ = pushing_ball;
+      }
 
       if (pushing_ball) {
         // A low-speed dribble transfers forward motion to the ball while

@@ -39,6 +39,8 @@ private:
   std::string kick_target_topic_;
   std::string match_state_topic_;
   std::string cmd_vel_topic_;
+  std::string control_state_topic_;
+  std::string control_state_{"SEARCH_BALL"};
   double publish_rate_hz_{20.0};
   double cmd_vel_timeout_sec_{0.5};
   double robot_x_{0.0};
@@ -54,6 +56,7 @@ private:
   double ball_push_transfer_gain_{1.0};
   double ball_push_lateral_gain_{0.05};
   bool have_cmd_vel_{false};
+  bool ball_push_active_{false};
   geometry_msgs::msg::Twist latest_cmd_vel_;
   rclcpp::Time latest_cmd_vel_time_;
   rclcpp::Time last_update_time_;
@@ -67,6 +70,7 @@ private:
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr match_state_pub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr approach_sub_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr control_state_sub_;
   rclcpp::TimerBase::SharedPtr timer_;
 };
 

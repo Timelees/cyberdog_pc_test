@@ -95,8 +95,12 @@ private:
   int id,
   const rclcpp::Time & stamp);
   void appendFieldBoundary(
-  visualization_msgs::msg::MarkerArray & array,
-  const rclcpp::Time & stamp) const;
+    visualization_msgs::msg::MarkerArray & array,
+    const rclcpp::Time & stamp) const;
+  void appendBallAvoidanceZone(
+    visualization_msgs::msg::MarkerArray & array,
+    const geometry_msgs::msg::PoseStamped & ball,
+    const rclcpp::Time & stamp);
   void appendPath(
   visualization_msgs::msg::MarkerArray & array,
   const nav_msgs::msg::Path & path,
@@ -190,10 +194,13 @@ private:
   std::string costmap_marker_topic_;
   std::string command_marker_topic_;
   std::string status_marker_topic_;
+  std::string control_state_topic_;
   std::string team_a_kick_topic_;
   std::string team_b_kick_topic_;
   bool show_field_boundary_{true};
   bool show_ball_marker_{true};
+  bool show_ball_avoidance_zone_{true};
+  double ball_avoidance_radius_m_{0.46};
   bool show_goal_markers_{true};
   bool show_ego_robot_marker_{true};
   bool show_other_robot_markers_{true};
@@ -248,12 +255,14 @@ private:
   bool have_odom_{false};
   bool have_team_a_kick_{false};
   bool have_team_b_kick_{false};
+  bool have_control_state_{false};
   bool have_striker_a_{false};
   bool have_striker_b_{false};
   std::size_t costmap_obstacle_cell_count_{0};
 
   std::string striker_a_;
   std::string striker_b_;
+  std::string control_state_{"UNKNOWN"};
 
   geometry_msgs::msg::PoseStamped team_a_kick_default_;
   geometry_msgs::msg::PoseStamped team_b_kick_default_;
@@ -315,6 +324,7 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr team_b_kick_sub_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr striker_a_sub_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr striker_b_sub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr control_state_sub_;
   rclcpp::TimerBase::SharedPtr timer_;
 };
 

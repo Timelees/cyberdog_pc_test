@@ -169,7 +169,7 @@ GoalAdapter 自身不直接驱动机器人。它发布目标、状态、`control
 
 边界：
 
-- `params/football_costmap_reference.yaml` 只是参考片段，注释明确要求复制/合并到真实 tracking costmap；当前 football launch 不会自动加载它。
+- 当前仅保留轻量仿真参数；实机 Nav2 costmap 的参数仍需在后续实机 bringup 中另行维护。
 - 当前工作区未通过实机或完整 Nav2 launch 对动态预测扫掠区进行闭环验收。
 - 轻量仿真通过不等于 Nav2 插件实机通过。
 
@@ -277,16 +277,10 @@ continuous_demo_enabled: false
 
 | 文件 | 用途和注意事项 |
 | --- | --- |
-| `params/football_single_robot_simulation.yaml` | 当前唯一可直接 launch 的 10 机轻量仿真参数；随机 peer、striker 状态机、轻量规划器和可视化均在此 |
-| `params/football_robot_runtime.yaml` | 单机器人真实运行侧 GoalAdapter、TrajectoryAdapter、TrackingActionClient 等参数；需要外部 bringup 启动 |
-| `params/football_pc_authority.yaml` | PC 侧全局 odom 汇总、球融合、角色权威和团队可视化参数；需要外部 PC authority launch |
-| `params/football_costmap_reference.yaml` | Nav2 local costmap 集成参考，不能直接当作本包 launch 参数加载 |
-| `params/football_navigation_params.yaml` | 导航相关通用参数，修改前核对当前外部 bringup 是否实际引用 |
-| `params/football_robot_dimensions.yaml` | 统一机器人尺寸 |
-| `params/football_speed_limit_params.yaml` | 速度限制参考/相关参数 |
-| `params/fastdds_shm.xml`、`fastdds_udp_only.xml` | Fast DDS 传输配置，不属于规划算法 |
+| `params/football_single_robot_simulation.yaml` | 单机仿真场景、假世界、轻量规划器和 RViz 专属参数；由当前 launch 直接加载 |
+| `params/football_runtime_common.yaml` | 后续实机 bringup 可复用的 GoalAdapter、轨迹适配与 Nav2 Action 桥接参数；当前单机 launch 先加载它，再以仿真参数覆盖 |
 
-参数在 simulation、robot runtime、PC authority 三套配置中可能有同名项。修改碰撞尺寸、场地边界、超时或速度时，必须检查所有实际运行节点的配置是否一致。
+当前所有仿真参数都集中在 `football_single_robot_simulation.yaml`。修改碰撞尺寸、场地边界、超时或速度时，只需核对当前 launch 实际加载的该文件。
 
 ## 12. 已完成验证
 

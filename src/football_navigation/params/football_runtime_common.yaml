@@ -1,0 +1,73 @@
+# 后续实机 bringup 可复用的足球运行参数；launch 需先加载本文件，再按机器人和场地覆盖。
+football_goal_adapter:
+  ros__parameters:
+    target_frame: base_link  # 最终导航目标表达坐标系。
+    field_frame: tag_global  # 足球、全局里程计和射门目标所在全局坐标系。
+    base_frame: base_link  # 机器人机体坐标系名称。
+    ball_pose_topic: /football/ball_pose  # 已校验的全局足球位姿话题。
+    approach_pose_topic: football/approach_pose  # 输出给轨迹适配器的接近目标话题。
+    speed_limit_topic: speed_limit  # 输出 Nav2 绝对速度上限的话题。
+    require_striker_role: true  # 仅当前 striker 允许控制机器人。
+    use_team_kick_target: true  # 使用团队发布的球目的地作为射门目标。
+    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10  # 十台机器人的命名空间。
+    robot_odom_topic_template: /global_vio/{namespace}/odom  # 其他机器人全局里程计话题模板。
+    require_other_robot_poses: true  # 缺少其他机器人位姿时安全停止。
+    minimum_other_robot_count: 9  # striker 以外必须收到的最少机器人数量。
+    update_rate_hz: 15.0  # 足球状态机更新频率。
+    ball_timeout_sec: 0.45  # 足球消息超时阈值。
+    max_ball_age_sec: 0.35  # 接受足球消息的最大时间年龄。
+    future_tolerance_sec: 0.08  # 允许的未来时间戳容差。
+    odom_timeout_sec: 0.45  # 本机全局里程计超时阈值。
+    other_robot_timeout_sec: 0.70  # 其他机器人全局里程计超时阈值。
+    role_timeout_sec: 0.80  # striker 或角色消息超时阈值。
+    kick_target_timeout_sec: 0.80  # 团队射门目标超时阈值。
+    max_ball_odom_skew_sec: 0.12  # 足球与本机里程计最大时间差。
+    approach_distance_m: 0.60  # 标准球后接近点距足球的距离。
+    approach_reached_m: 0.10  # 判定到达接近点的距离阈值。
+    approach_reached_exit_m: 0.18  # 离开接近点的迟滞距离阈值。
+    align_yaw_tolerance: 0.10  # 推球前允许的航向误差。
+    push_target_lead_m: 0.32  # 触球阶段机器人中心在球前的目标引导距离。
+    push_enter_lateral_error_m: 0.08  # 进入推球的最大横向误差。
+    push_exit_lateral_error_m: 0.14  # 退出推球的横向误差迟滞阈值。
+    push_enter_yaw_error_rad: 0.10  # 进入推球的最大航向误差。
+    push_exit_yaw_error_rad: 0.18  # 退出推球的航向误差迟滞阈值。
+    robot_collision_length_m: 0.562  # 机器人碰撞矩形长度。
+    robot_collision_width_m: 0.339  # 机器人碰撞矩形宽度。
+    collision_ellipse_expansion_m: 0.05  # 外接碰撞椭圆的额外安全扩张量。
+    obstacle_slowdown_clearance_m: 0.45  # 障碍物净空低于该值开始降速。
+    obstacle_slowdown_exit_clearance_m: 0.60  # 障碍物远离后解除降速的迟滞阈值。
+    obstacle_stop_clearance_m: 0.03  # 障碍物净空低于该值进入安全停止。
+    field_min_x: -2.0  # 场地安全边界最小 X 坐标。
+    field_max_x: 8.0  # 场地安全边界最大 X 坐标。
+    field_min_y: -3.0  # 场地安全边界最小 Y 坐标。
+    field_max_y: 3.0  # 场地安全边界最大 Y 坐标。
+
+football_trajectory_adapter:
+  ros__parameters:
+    target_frame: base_link  # 接收和输出跟踪目标的坐标系。
+    input_approach_pose_topic: football/approach_pose  # GoalAdapter 输出的接近目标话题。
+    output_tracking_pose_topic: tracking_pose  # 单次跟踪目标输出话题。
+    output_tracking_heartbeat_topic: tracking_pose_heartbeat  # 周期性刷新跟踪目标的话题。
+    publish_tracking_pose: true  # 是否发布跟踪目标。
+    publish_goal_pose: false  # 是否额外发布传统 goal_pose。
+    max_input_age_sec: 0.50  # 输入目标最大允许年龄。
+    future_tolerance_sec: 0.08  # 输入目标未来时间戳容差。
+    tracking_pose_heartbeat_hz: 10.0  # 跟踪目标心跳发布频率。
+    planner_update_rate_hz: 2.0  # 下游规划器最小刷新频率。
+
+football_tracking_action_client:
+  ros__parameters:
+    enabled: true  # 是否向 NavigateToPose Action 发送目标。
+    tracking_pose_topic: tracking_pose_heartbeat  # 接收轨迹适配器心跳目标的话题。
+    action_name: navigate_to_pose  # Nav2 NavigateToPose Action 名称。
+    tick_rate_hz: 10.0  # Action 客户端检查频率。
+    send_period_sec: 0.20  # 连续目标的最小发送间隔。
+    tracking_pose_timeout_sec: 0.60  # 跟踪目标超时阈值。
+    future_tolerance_sec: 0.08  # 跟踪目标未来时间戳容差。
+    completed_pose_xy_tolerance: 0.05  # 认为已到达的平面距离容差。
+    completed_pose_yaw_tolerance: 0.08  # 认为已到达的航向容差。
+    require_striker_role: true  # 仅 striker 可以保持导航 Action。
+    role_timeout_sec: 0.80  # striker 身份超时阈值。
+    control_valid_topic: football/control_valid  # GoalAdapter 控制许可话题。
+    action_retry_initial_sec: 0.50  # Action 不可用时的初始重试间隔。
+    action_retry_max_sec: 3.0  # Action 不可用时的最大重试间隔。

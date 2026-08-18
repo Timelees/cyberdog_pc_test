@@ -418,7 +418,7 @@ set(football_identity_sources
   src/plugins/multi_robot_obstacle_layer.cpp
   launch/football_single_robot_simulation.launch.py
   params/football_single_robot_simulation.yaml
-  params/football_robot_runtime.yaml
+  params/football_runtime_common.yaml
   football_navigation_plugins.xml
   football_navigation_dwb_plugins.xml
 )

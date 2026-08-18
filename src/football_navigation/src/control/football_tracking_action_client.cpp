@@ -626,6 +626,8 @@ void FootballTrackingActionClient::resultCallback(
   const uint64_t generation,
   const GoalHandle::WrappedResult & result)
 {
+  geometry_msgs::msg::PoseStamped completed_goal;
+  bool have_completed_goal = false;
   {
     std::lock_guard<std::mutex> lock(mutex_);
     if (generation != active_generation_) {
@@ -636,6 +638,10 @@ void FootballTrackingActionClient::resultCallback(
     goal_active_ = false;
     active_goal_handle_.reset();
     cancel_pending_ = false;
+    if (generation == sent_goal_generation_) {
+      completed_goal = sent_goal_pose_;
+      have_completed_goal = true;
+    }
 
     if (result.code == rclcpp_action::ResultCode::SUCCEEDED) {
       // The tracking target may change while an action is executing (for
@@ -653,9 +659,27 @@ void FootballTrackingActionClient::resultCallback(
     scheduleRetry("action aborted");
   }
 
+  const char * result_name = "UNKNOWN";
+  switch (result.code) {
+    case rclcpp_action::ResultCode::SUCCEEDED:
+      result_name = "SUCCEEDED";
+      break;
+    case rclcpp_action::ResultCode::CANCELED:
+      result_name = "CANCELED";
+      break;
+    case rclcpp_action::ResultCode::ABORTED:
+      result_name = "ABORTED";
+      break;
+    default:
+      break;
+  }
   RCLCPP_INFO(
     get_logger(),
-    "football_tracking_action_client: NavigateToPose goal finished");
+    "football_tracking_action_client: NavigateToPose result=%s generation=%lu goal=(%.2f, %.2f)%s",
+    result_name, static_cast<unsigned long>(generation),
+    have_completed_goal ? completed_goal.pose.position.x : 0.0,
+    have_completed_goal ? completed_goal.pose.position.y : 0.0,
+    have_completed_goal ? "" : " (superseded generation)");
 }
 
 }  // namespace football_navigation

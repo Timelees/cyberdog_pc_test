@@ -142,7 +142,6 @@ private:
   int minimum_other_robot_count_{9};
   double approach_reached_m_;
   double approach_reached_exit_m_;
-  double approach_heading_blend_distance_m_;
   double align_yaw_tolerance_;
   double alignment_reset_grace_sec_;
   double alignment_max_duration_sec_;

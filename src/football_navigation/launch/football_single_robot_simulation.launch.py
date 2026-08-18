@@ -16,10 +16,20 @@ def node_params(data, node_name):
     return dict(data.get(node_name, {}).get('ros__parameters', {}))
 
 
+def merged_node_params(runtime, simulation, node_name):
+    """Use reusable runtime defaults, then apply simulation-only overrides."""
+    output = node_params(runtime, node_name)
+    output.update(node_params(simulation, node_name))
+    return output
+
+
 def launch_nodes(context):
     params_file = LaunchConfiguration('params_file').perform(context)
+    runtime_params_file = LaunchConfiguration('runtime_params_file').perform(context)
     with open(params_file, 'r', encoding='utf-8') as stream:
         params = yaml.safe_load(stream) or {}
+    with open(runtime_params_file, 'r', encoding='utf-8') as stream:
+        runtime_params = yaml.safe_load(stream) or {}
 
     simulation = node_params(params, 'football_simulation_input_publisher')
     robot_namespace = str(simulation.get(
@@ -48,9 +58,10 @@ def launch_nodes(context):
         'striker_topic': '/football/team_{}/striker'.format(team_id),
         'kick_target_topic': '/football/team_{}/kick_target'.format(team_id),
         'cmd_vel_topic': cmd_vel_topic,
+        'control_state_topic': '/{}/football/state'.format(robot_namespace),
     })
 
-    goal = node_params(params, 'football_goal_adapter')
+    goal = merged_node_params(runtime_params, params, 'football_goal_adapter')
     goal.update({
         'self_namespace': robot_namespace,
         'team_id': team_id,
@@ -76,10 +87,11 @@ def launch_nodes(context):
         'robot_odom_topic_template': odom_template,
     })
 
-    trajectory = node_params(params, 'football_trajectory_adapter')
+    trajectory = merged_node_params(runtime_params, params, 'football_trajectory_adapter')
     trajectory.update({'target_frame': field_frame})
 
-    tracking = node_params(params, 'football_tracking_action_client')
+    tracking = merged_node_params(
+        runtime_params, params, 'football_tracking_action_client')
     tracking.update({
         'self_namespace': robot_namespace,
         'team_id': team_id,
@@ -185,6 +197,11 @@ def generate_launch_description():
             'params_file',
             default_value=os.path.join(
                 share, 'params', 'football_single_robot_simulation.yaml'),
+        ),
+        DeclareLaunchArgument(
+            'runtime_params_file',
+            default_value=os.path.join(
+                share, 'params', 'football_runtime_common.yaml'),
         ),
         DeclareLaunchArgument('use_rviz', default_value='true'),
         OpaqueFunction(function=launch_nodes),

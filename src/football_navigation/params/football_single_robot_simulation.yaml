@@ -1,243 +1,223 @@
 football_simulation_input_publisher:
   ros__parameters:
     # 第一版固定场景。机器人命名空间和所有全局坐标都由本文件提供。
-    robot_namespace: cyberdog_1
-    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
-    field_frame: tag_global
-    odom_topic_template: /global_vio/{namespace}/odom
-    cmd_vel_topic: /cyberdog_1/cmd_vel
-    publish_rate_hz: 20.0
-    cmd_vel_timeout_sec: 0.5
-    robot_x: 0.0
-    robot_y: 0.0
-    robot_yaw: 0.0
-    ball_x: 3.0
-    ball_y: 2.0
-    kick_target_x: 8.0
-    kick_target_y: 0.0
-    stop_at_ball: true
-    ball_contact_distance_m: 0.42
-    simulate_ball_push: true
-    ball_push_transfer_gain: 1.0
-    ball_push_lateral_gain: 0.05
+    robot_namespace: cyberdog_1  # 单机仿真 striker 的命名空间。
+    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10  # 仿真中的十台机器人。
+    field_frame: tag_global  # 仿真全局坐标系。
+    odom_topic_template: /global_vio/{namespace}/odom  # 各机器人仿真全局里程计话题模板。
+    cmd_vel_topic: /cyberdog_1/cmd_vel  # striker 接收导航命令的话题。
+    control_state_topic: /cyberdog_1/football/state  # 仅在接触或推球状态允许仿真足球被 striker 推动。
+    publish_rate_hz: 20.0  # 仿真输入发布频率。
+    cmd_vel_timeout_sec: 0.5  # striker 命令超时后停止的等待时间。
+    robot_x: 0.0  # striker 初始 X 坐标。
+    robot_y: 0.0  # striker 初始 Y 坐标。
+    robot_yaw: 0.0  # striker 初始航向。
+    ball_x: 3.0  # 足球初始 X 坐标。
+    ball_y: 2.0  # 足球初始 Y 坐标。
+    kick_target_x: 8.0  # 足球期望射门目标 X 坐标。
+    kick_target_y: 0.0  # 足球期望射门目标 Y 坐标。
+    stop_at_ball: true  # 到达球附近后由足球状态机接管而非直接穿过球。
+    ball_contact_distance_m: 0.42  # 认为 striker 已接触足球的距离。
+    simulate_ball_push: true  # 是否启用简化推球模型。
+    ball_push_transfer_gain: 1.0  # striker 前向速度传递给足球的比例。
+    ball_push_lateral_gain: 0.05  # striker 横向误差传递给足球的比例。
 
 football_fake_other_robot_publisher:
   ros__parameters:
-    frame_id: tag_global
-    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
-    selected_namespace: cyberdog_1
+    frame_id: tag_global  # 假世界发布的全局坐标系。
+    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10  # 假世界管理的十台机器人。
+    selected_namespace: cyberdog_1  # 由独立 striker 仿真节点驱动的机器人。
     # 此 peer 只接受键盘节点发布的 cmd_vel，不受随机、scripted 或 demo 运动驱动。
     # 初始位置由同名 initial_pose_cyberdog_2 的 [x, y, yaw] 配置。
-    keyboard_controlled_namespace: cyberdog_2
-    simulate_selected_robot: false
-    publish_acceptance_global_odom: true
-    acceptance_global_odom_topic_template: /global_vio/{namespace}/odom
+    keyboard_controlled_namespace: cyberdog_2  # 接收键盘 cmd_vel 的红色干扰机器人。
+    simulate_selected_robot: false  # 不在本节点积分 striker，由输入仿真节点积分。
+    publish_acceptance_global_odom: true  # 发布供足球节点使用的全局里程计。
+    acceptance_global_odom_topic_template: /global_vio/{namespace}/odom  # 对外发布的全局里程计话题模板。
     # 每台机器人的 [x, y, yaw] 都可直接修改；删除某一项或设为 [] 时，
     # randomize_initial_poses=true 会仅为该机器人生成随机位置。
-    randomize_initial_poses: false
-    random_seed: 2026
-    minimum_initial_separation_m: 0.90
-    initial_pose_cyberdog_2: [1.25, 1.08, 0.0]
-    initial_pose_cyberdog_3: [-4.0, -2.5, 0.0]
-    initial_pose_cyberdog_4: [0.4, 1.52, 0.0]
-    initial_pose_cyberdog_5: [-4.0, 2.5, 0.0]
-    initial_pose_cyberdog_6: [0.0, -3.0, 3.14159]
-    initial_pose_cyberdog_7: [3.5, -3.0, 3.14159]
-    initial_pose_cyberdog_8: [6.5, -3.0, 3.14159]
-    initial_pose_cyberdog_9: [6.5, 3.0, 3.14159]
-    initial_pose_cyberdog_10: [1.4, 0.3, 3.14159]
-    selected_initial_global_x: 0.0
-    selected_initial_global_y: 0.0
+    randomize_initial_poses: false  # 是否为缺失初始位姿的 peer 随机布置位置。
+    random_seed: 2026  # 随机初始位姿与航点的固定种子。
+    minimum_initial_separation_m: 0.90  # 初始布置时机器人中心的最小间隔。
+    initial_pose_cyberdog_2: [1.25, 1.08, 0.0]  # 键盘干扰机器人初始 [x, y, yaw]。
+    initial_pose_cyberdog_3: [-4.0, -2.5, 0.0]  # cyberdog_3 初始 [x, y, yaw]。
+    initial_pose_cyberdog_4: [0.4, 1.52, 0.0]  # cyberdog_4 初始 [x, y, yaw]。
+    initial_pose_cyberdog_5: [-4.0, 2.5, 0.0]  # cyberdog_5 初始 [x, y, yaw]。
+    initial_pose_cyberdog_6: [0.0, -3.0, 3.14159]  # cyberdog_6 初始 [x, y, yaw]。
+    initial_pose_cyberdog_7: [3.5, -3.0, 3.14159]  # cyberdog_7 初始 [x, y, yaw]。
+    initial_pose_cyberdog_8: [6.5, -3.0, 3.14159]  # cyberdog_8 初始 [x, y, yaw]。
+    initial_pose_cyberdog_9: [6.5, 3.0, 3.14159]  # cyberdog_9 初始 [x, y, yaw]。
+    initial_pose_cyberdog_10: [1.4, 0.3, 3.14159]  # cyberdog_10 初始 [x, y, yaw]。
+    selected_initial_global_x: 0.0  # striker 初始 X 坐标的碰撞约束参考值。
+    selected_initial_global_y: 0.0  # striker 初始 Y 坐标的碰撞约束参考值。
     # cyberdog_1 由 striker cmd_vel 驱动；其余 peer 默认静止，便于动态避障测试。
     # 设为 true 时，除 keyboard_controlled_namespace 外的 peer 使用可复现随机航点。
-    random_peer_motion_enabled: false
-    random_peer_motion_start_delay_sec: 0.5
-    random_peer_min_speed_mps: 0.08
-    random_peer_max_speed_mps: 0.18
-    random_peer_min_target_duration_sec: 4.0
-    random_peer_max_target_duration_sec: 9.0
-    random_peer_goal_tolerance_m: 0.25
-    random_peer_min_travel_distance_m: 1.0
-    random_peer_turn_gain: 1.8
+    random_peer_motion_enabled: false  # 是否让非键盘 peer 按随机航点运动。
+    random_peer_motion_start_delay_sec: 0.5  # 启动后开始随机运动前的等待时间。
+    random_peer_min_speed_mps: 0.08  # 随机航点运动的最小巡航速度。
+    random_peer_max_speed_mps: 0.18  # 随机航点运动的最大巡航速度。
+    random_peer_min_target_duration_sec: 4.0  # 随机航点的最短保持时间。
+    random_peer_max_target_duration_sec: 9.0  # 随机航点的最长保持时间。
+    random_peer_goal_tolerance_m: 0.25  # 到达随机航点的距离容差。
+    random_peer_min_travel_distance_m: 1.0  # 新随机航点与当前位置的最小距离。
+    random_peer_turn_gain: 1.8  # 随机航点航向误差的角速度比例增益。
     # 外接椭圆之间额外保留的动态净空，吸收一个发布周期内的运动误差。
-    random_peer_min_clearance_m: 0.03
-    scripted_peer_motion_enabled: false
-    continuous_demo_enabled: false
-    publish_odom_slam: false
-    publish_rate_hz: 20.0
-    field_min_x: -8.0
-    field_max_x: 8.0
-    field_min_y: -4.0
-    field_max_y: 4.0
-    robot_collision_length_m: 0.562
-    robot_collision_width_m: 0.339
-    collision_ellipse_expansion_m: 0.05
-    boundary_margin_m: 0.20
+    random_peer_min_clearance_m: 0.03  # peer 间外接椭圆的附加最小净空。
+    scripted_peer_motion_enabled: false  # 是否启用旧版脚本式 peer 运动。
+    continuous_demo_enabled: false  # 是否启用连续演示 peer 运动。
+    publish_odom_slam: false  # 是否额外发布模拟 SLAM 里程计。
+    publish_rate_hz: 20.0  # 假世界积分与里程计发布频率。
+    field_min_x: -8.0  # 假世界场地最小 X 坐标。
+    field_max_x: 8.0  # 假世界场地最大 X 坐标。
+    field_min_y: -4.0  # 假世界场地最小 Y 坐标。
+    field_max_y: 4.0  # 假世界场地最大 Y 坐标。
+    robot_collision_length_m: 0.562  # 假世界碰撞矩形长度。
+    robot_collision_width_m: 0.339  # 假世界碰撞矩形宽度。
+    collision_ellipse_expansion_m: 0.05  # 假世界碰撞椭圆扩张量。
+    boundary_margin_m: 0.20  # 假世界机器人距场地边界的最小余量。
 
 football_goal_adapter:
   ros__parameters:
-    field_frame: tag_global
-    target_frame: tag_global
-    base_frame: base_link
-    ball_pose_topic: /football/ball_pose
-    approach_pose_topic: football/approach_pose
-    speed_limit_topic: speed_limit
-    require_striker_role: true
-    use_team_kick_target: true
-    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
-    robot_odom_topic_template: /global_vio/{namespace}/odom
-    require_other_robot_poses: true
-    minimum_other_robot_count: 9
-    update_rate_hz: 15.0
-    approach_distance_m: 0.5
-    default_kick_yaw: 0.0
-    # 仿真 striker 速度分级：正常行走最快，接近足球和建立接触时逐级减速。
-    approach_speed_limit_mps: 0.85
-    obstacle_speed_limit_mps: 0.42
-    ball_approach_speed_limit_mps: 0.38
-    contact_acquire_speed_limit_mps: 0.13
-    push_speed_limit_mps: 0.24
-    robot_collision_length_m: 0.562
-    robot_collision_width_m: 0.339
-    collision_ellipse_expansion_m: 0.05
-    obstacle_slowdown_clearance_m: 0.45
-    obstacle_slowdown_exit_clearance_m: 0.60
-    obstacle_stop_clearance_m: 0.03
-    field_min_x: -2.0
-    field_max_x: 8.0
-    field_min_y: -4.0
-    field_max_y: 4.0
-
-football_trajectory_adapter:
-  ros__parameters:
-    target_frame: tag_global
-    input_approach_pose_topic: football/approach_pose
-    output_tracking_pose_topic: tracking_pose
-    output_tracking_heartbeat_topic: tracking_pose_heartbeat
-    publish_tracking_pose: true
-    publish_goal_pose: false
-    tracking_pose_heartbeat_hz: 10.0
-
-football_tracking_action_client:
-  ros__parameters:
-    enabled: true
-    tracking_pose_topic: tracking_pose_heartbeat
-    action_name: navigate_to_pose
-    expected_tracking_frame: tag_global
-    require_striker_role: true
-    require_costmap_ready: false
-    tick_rate_hz: 10.0
-    send_period_sec: 0.2
-    tracking_pose_timeout_sec: 0.6
-    role_timeout_sec: 0.8
-    control_valid_topic: football/control_valid
+    approach_distance_m: 0.55  # 仿真中标准球后接近点距足球的距离；为原地转向保留机身外接圆安全余量。
+    approach_reached_m: 0.03  # 球后接近点到位阈值；避免通用导航容差导致过早进入原地对准。
+    approach_reached_exit_m: 0.10  # 已进入对准后离开球后点的迟滞阈值，抑制接近与对准状态抖动。
+    approach_speed_limit_mps: 0.85  # 仿真正常接近阶段的最高线速度。
+    obstacle_speed_limit_mps: 0.42  # 仿真障碍附近的最高线速度。
+    ball_approach_speed_limit_mps: 0.38  # 仿真接近足球阶段的最高线速度。
+    contact_acquire_speed_limit_mps: 0.13  # 仿真建立触球阶段的最高线速度。
+    push_speed_limit_mps: 0.24  # 仿真推球阶段的最高线速度。
+    field_min_x: -2.0  # 仿真 GoalAdapter 安全边界最小 X 坐标。
+    field_max_x: 8.0  # 仿真 GoalAdapter 安全边界最大 X 坐标。
+    field_min_y: -4.0  # 仿真 GoalAdapter 安全边界最小 Y 坐标。
+    field_max_y: 4.0  # 仿真 GoalAdapter 安全边界最大 Y 坐标。
 
 football_simulation_navigator:
   ros__parameters:
-    field_frame: tag_global
-    action_name: navigate_to_pose
-    odom_topic: /global_vio/cyberdog_1/odom
-    cmd_vel_topic: cmd_vel
-    push_cmd_vel_topic: football/push_cmd_vel
-    speed_limit_topic: speed_limit
-    control_state_topic: football/state
-    control_rate_hz: 20.0
-    linear_gain: 1.7
-    angular_gain: 1.5
-    push_bearing_gain: 0.6
-    max_linear_speed_mps: 0.85
-    max_angular_speed_rps: 1.4
-    position_tolerance_m: 0.06
-    yaw_tolerance_rad: 0.08
-    odom_timeout_sec: 0.5
-    self_namespace: cyberdog_1
-    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
-    robot_odom_topic_template: /global_vio/{namespace}/odom
-    local_plan_topic: local_plan
-    other_robot_timeout_sec: 0.7
+    field_frame: tag_global  # 轻量规划器使用的全局坐标系。
+    action_name: navigate_to_pose  # 仿真的 NavigateToPose Action 名称。
+    odom_topic: /global_vio/cyberdog_1/odom  # striker 全局里程计话题。
+    cmd_vel_topic: cmd_vel  # 输出给 striker 的速度命令话题。
+    push_cmd_vel_topic: football/push_cmd_vel  # 推球阶段的诊断速度命令话题。
+    speed_limit_topic: speed_limit  # 接收 GoalAdapter 速度上限的话题。
+    control_state_topic: football/state  # 接收足球状态机状态的话题。
+    ball_pose_topic: /football/ball_pose  # 用于在到达球后接近点前生成绕球圆弧的足球位姿话题。
+    control_rate_hz: 20.0  # 轻量规划器控制循环频率。
+    linear_gain: 1.7  # 距离到线速度的比例增益。
+    angular_gain: 1.5  # 终点航向误差的角速度比例增益。
+    push_bearing_gain: 0.6  # 推球时路径方位误差的附加角速度增益。
+    max_linear_speed_mps: 0.85  # 轻量规划器最高线速度。
+    max_angular_speed_rps: 1.4  # 轻量规划器最高角速度。
+    position_tolerance_m: 0.06  # 导航目标位置到达容差。
+    ball_goal_position_tolerance_m: 0.02  # 球附近非触球目标的专用到位容差，防止提前完成后无法进入对准。
+    yaw_tolerance_rad: 0.08  # 导航目标航向到达容差。
+    odom_timeout_sec: 0.5  # striker 里程计超时阈值。
+    self_namespace: cyberdog_1  # 轻量规划器控制的机器人命名空间。
+    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10  # 用作动态障碍的全部机器人。
+    robot_odom_topic_template: /global_vio/{namespace}/odom  # 动态障碍全局里程计话题模板。
+    local_plan_topic: local_plan  # 发布 RViz 可视化的局部路径话题。
+    other_robot_timeout_sec: 0.7  # 动态障碍里程计超时阈值。
     # 矩形外接椭圆半轴为 length/sqrt(2)、width/sqrt(2)，再向外扩展 0.05 m。
-    robot_collision_length_m: 0.562
-    robot_collision_width_m: 0.339
-    collision_ellipse_expansion_m: 0.05
+    robot_collision_length_m: 0.562  # 规划器碰撞矩形长度。
+    robot_collision_width_m: 0.339  # 规划器碰撞矩形宽度。
+    collision_ellipse_expansion_m: 0.05  # 规划器碰撞椭圆扩张量。
     # 以下三个值均为两台有向椭圆边界之间的净空，而不是机器人中心距离。
-    collision_hard_stop_clearance_m: 0.02
-    # lattice 的首段要求 0.16 m 净空；低于该值时先搜索只会增大净空的短路径，
-    # 避免首段被拒绝后在原地停车。恢复到 0.24 m 后才交还普通绕行规划。
-    clearance_recovery_trigger_clearance_m: 0.16
-    clearance_recovery_exit_clearance_m: 0.24
-    clearance_recovery_distance_m: 1.0
-    clearance_recovery_speed_mps: 0.20
-    collision_path_clearance_m: 0.08
-    collision_slowdown_clearance_m: 0.35
-    detour_extra_clearance_m: 0.08
-    local_path_lookahead_m: 0.28
-    path_heading_gain: 2.4
-    turn_in_place_threshold_rad: 0.75
-    smooth_path_samples: 41
+    collision_hard_stop_clearance_m: 0.02  # 净空低于该值时禁止非恢复平移。
+    # 净空低于 0.16 m 时先搜索只会增大净空的短路径，避免普通规划首段被拒绝后停车；
+    # 实际恢复到约 0.21 m 后交还要求 0.18 m 净空的普通外绕规划。
+    clearance_recovery_trigger_clearance_m: 0.16  # 进入主动增距恢复的净空阈值。
+    clearance_recovery_exit_clearance_m: 0.24  # 退出主动增距恢复的净空阈值。
+    clearance_recovery_exit_tolerance_m: 0.03  # 恢复退出的数值容差；实际在 0.21 m 净空释放，为后续有向椭圆转姿留出余量。
+    clearance_recovery_distance_m: 1.0  # 主动增距短路径的搜索长度。
+    clearance_recovery_max_distance_m: 2.5  # 主动增距搜索允许扩展到的最大长度。
+    clearance_recovery_distance_step_m: 0.50  # 主动增距多半径搜索的长度增量。
+    clearance_recovery_speed_mps: 0.20  # 主动增距短路径的最高速度。
+    clearance_recovery_min_speed_mps: 0.08  # 已验证的脱困路径在近距离减速后仍保持的最小平移速度。
+    clearance_recovery_goal_progress_weight: 0.30  # 主动增距候选中“脱困后接近最终目标”的评分权重。
+    ball_pose_timeout_sec: 0.50  # 足球位姿超过该时间未更新时不参与局部路径规划。
+    ball_avoidance_radius_m: 0.46  # 非触球阶段 striker 中心不得进入的足球禁入圆半径。
+    ball_avoidance_max_radius_m: 1.20  # 绕球圆弧受其他机器人阻挡时允许扩展的最大半径。
+    ball_avoidance_radius_step_m: 0.12  # 绕球候选圆弧逐级扩展的半径步长。
+    ball_avoidance_sample_spacing_m: 0.06  # 绕球路径碰撞校验点的近似间距。
+    ball_avoidance_lookahead_m: 0.10  # 跟踪绕球圆弧时的短前视距离，避免直线切过圆弧内侧碰球。
+    collision_path_clearance_m: 0.08  # 正常局部路径要求的最小椭圆净空。
+    narrow_passage_bypass_clearance_m: 0.18  # 预测净空低于该值时不再尝试窄缝，改由曲线、lattice 或二维 A* 从障碍群外侧绕行。
+    collision_slowdown_clearance_m: 0.35  # 净空低于该值按比例降低速度。
+    detour_extra_clearance_m: 0.08  # 生成绕行曲线和 lattice 时的额外净空。
+    local_path_lookahead_m: 0.28  # 跟踪局部路径时的前视距离。
+    path_heading_gain: 2.4  # 局部路径航向误差的角速度比例增益。
+    enable_holonomic_avoidance: true  # 非推球避障时允许按局部路径倒退和横移，避免近距离原地转向卡死。
+    diagnostic_log_enabled: true  # 是否将动态避障诊断数据写入 JSONL 文件。
+    diagnostic_log_path: /tmp/football_navigation_dynamic_avoidance.jsonl  # Docker 内诊断日志路径；每次仿真启动会覆盖旧文件。
+    diagnostic_robot_namespaces_csv: cyberdog_2,cyberdog_4,cyberdog_10  # 诊断中持续记录的键盘机器人及狭窄通道机器人。
+    diagnostic_state_period_sec: 0.50  # 无路径更新时诊断状态的最大发布周期。
+    turn_in_place_threshold_rad: 0.75  # 超过该航向误差时先原地转向。
+    smooth_path_samples: 41  # 单峰平滑绕行曲线的采样点数。
     # 单峰曲线无法绕开多台障碍时，沿行进方向搜索可切换左右侧的横向走廊。
-    multi_obstacle_lattice_stations: 17
-    multi_obstacle_lateral_step_m: 0.18
-    multi_obstacle_max_lateral_m: 3.0
-    multi_obstacle_max_lane_change_m: 0.54
-    multi_obstacle_turn_penalty: 0.25
+    multi_obstacle_lattice_stations: 17  # 多障碍 lattice 的纵向站点数量。
+    multi_obstacle_lateral_step_m: 0.18  # lattice 相邻横向车道间距。
+    multi_obstacle_max_lateral_m: 3.0  # lattice 允许的最大横向偏移。
+    multi_obstacle_max_lane_change_m: 0.54  # 相邻站点允许的最大横向变道量。
+    multi_obstacle_turn_penalty: 0.25  # lattice 路径转向变化的代价权重。
     # 障碍移动或转向后使缓存轨迹失效，避免继续跟踪静态快照。
-    dynamic_replan_min_period_sec: 0.30
-    dynamic_replan_translation_m: 0.08
-    dynamic_replan_yaw_rad: 0.18
-    field_min_x: -8.0
-    field_max_x: 8.0
-    field_min_y: -4.0
-    field_max_y: 4.0
+    dynamic_replan_min_period_sec: 0.30  # 动态障碍重规划的最小时间间隔。
+    dynamic_replan_translation_m: 0.08  # 障碍平移超过该值时触发重规划。
+    dynamic_replan_yaw_rad: 0.18  # 障碍转向超过该值时触发重规划。
+    field_min_x: -8.0  # 轻量规划器场地最小 X 坐标。
+    field_max_x: 8.0  # 轻量规划器场地最大 X 坐标。
+    field_min_y: -4.0  # 轻量规划器场地最小 Y 坐标。
+    field_max_y: 4.0  # 轻量规划器场地最大 Y 坐标。
 
 football_visualization_node:
   ros__parameters:
-    field_frame: tag_global
-    target_frame: tag_global
-    base_frame: base_link
-    ball_topic: /football/ball_pose
-    approach_pose_topic: football/approach_pose
-    path_topic: plan
-    odom_topic: /global_vio/cyberdog_1/odom
-    field_marker_topic: /football/markers/field
-    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
-    robot_odom_topic_template: /global_vio/{namespace}/odom
-    robot_marker_topic_template: /football/markers/robots/{namespace}
-    ball_marker_topic: /football/markers/ball
-    approach_marker_topic: /football/markers/approach_pose
-    tracking_marker_topic: /football/markers/tracking_pose
-    path_marker_topic: /football/markers/paths
-    goal_marker_topic: /football/markers/goals
-    costmap_marker_topic: /football/markers/costmap
-    command_marker_topic: /football/markers/commands
-    status_marker_topic: /football/markers/status
-    self_namespace: cyberdog_1
+    field_frame: tag_global  # 可视化全局坐标系。
+    target_frame: tag_global  # Marker 输出坐标系。
+    base_frame: base_link  # striker 机体坐标系。
+    ball_topic: /football/ball_pose  # 足球位姿输入话题。
+    approach_pose_topic: football/approach_pose  # 接近目标输入话题。
+    path_topic: plan  # 全局路径输入话题。
+    odom_topic: /global_vio/cyberdog_1/odom  # striker 里程计输入话题。
+    field_marker_topic: /football/markers/field  # 场地 Marker 输出话题。
+    robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10  # 需要显示的十台机器人。
+    robot_odom_topic_template: /global_vio/{namespace}/odom  # 机器人里程计话题模板。
+    robot_marker_topic_template: /football/markers/robots/{namespace}  # 各机器人 Marker 输出话题模板。
+    ball_marker_topic: /football/markers/ball  # 足球 Marker 输出话题。
+    approach_marker_topic: /football/markers/approach_pose  # 接近目标 Marker 输出话题。
+    tracking_marker_topic: /football/markers/tracking_pose  # 跟踪目标 Marker 输出话题。
+    path_marker_topic: /football/markers/paths  # 全局和局部路径 Marker 输出话题。
+    goal_marker_topic: /football/markers/goals  # 射门目标 Marker 输出话题。
+    costmap_marker_topic: /football/markers/costmap  # costmap Marker 输出话题。
+    command_marker_topic: /football/markers/commands  # 速度命令 Marker 输出话题。
+    status_marker_topic: /football/markers/status  # 状态文本 Marker 输出话题。
+    self_namespace: cyberdog_1  # 以 striker 样式显示的机器人。
     # 该机器人显示为红色，便于在 RViz 中识别人工干扰源。
-    keyboard_robot_namespace: cyberdog_2
-    team_id: a
-    show_field_boundary: true
-    show_ball_marker: true
-    show_goal_markers: true
-    show_ego_robot_marker: true
-    show_other_robot_markers: true
-    show_robot_collision_ellipses: true
-    other_robot_length_m: 0.562
-    other_robot_width_m: 0.339
-    collision_ellipse_expansion_m: 0.05
-    enable_costmap_markers: false
-    expect_motion_cmds: false
-    use_delete_all_before_publish: true
+    keyboard_robot_namespace: cyberdog_2  # 以红色显示的键盘干扰机器人。
+    team_id: a  # striker 所属队伍。
+    show_field_boundary: true  # 是否显示场地边界。
+    show_ball_marker: true  # 是否显示足球 Marker。
+    show_ball_avoidance_zone: true  # 是否显示到达 approach pose 前不得进入的足球禁入圆。
+    ball_avoidance_radius_m: 0.46  # 可视化足球禁入圆半径，需与仿真局部规划器保持一致。
+    control_state_topic: football/state  # 用于显示绕球、接触和推球阶段的足球控制状态话题。
+    show_goal_markers: true  # 是否显示两队球门和射门目标。
+    show_ego_robot_marker: true  # 是否显示 striker Marker。
+    show_other_robot_markers: true  # 是否显示其他机器人 Marker。
+    show_robot_collision_ellipses: true  # 是否显示机器人外接碰撞椭圆。
+    other_robot_length_m: 0.562  # 可视化机器人矩形长度。
+    other_robot_width_m: 0.339  # 可视化机器人矩形宽度。
+    collision_ellipse_expansion_m: 0.05  # 可视化碰撞椭圆扩张量。
+    enable_costmap_markers: false  # 是否显示 costmap 栅格。
+    expect_motion_cmds: false  # 是否在状态面板中要求运动命令。
+    use_delete_all_before_publish: true  # 每次发布前是否清除旧 Marker。
     # 可视化场地以全局原点为中心，不复用仅覆盖当前仿真工作区的导航边界。
-    field_center_x: 0.0
-    field_center_y: 0.0
-    field_length_m: 16.0
-    field_width_m: 8.0
-    center_circle_radius_m: 0.75
-    team_a_attack_goal_x: 8.0
-    team_a_attack_goal_y: 0.0
-    team_b_attack_goal_x: -8.0
-    team_b_attack_goal_y: 0.0
+    field_center_x: 0.0  # 可视化场地中心 X 坐标。
+    field_center_y: 0.0  # 可视化场地中心 Y 坐标。
+    field_length_m: 16.0  # 可视化场地长度。
+    field_width_m: 8.0  # 可视化场地宽度。
+    center_circle_radius_m: 0.75  # 可视化中圈半径。
+    team_a_attack_goal_x: 8.0  # A 队进攻球门 X 坐标。
+    team_a_attack_goal_y: 0.0  # A 队进攻球门 Y 坐标。
+    team_b_attack_goal_x: -8.0  # B 队进攻球门 X 坐标。
+    team_b_attack_goal_y: 0.0  # B 队进攻球门 Y 坐标。
     # 命令与状态面板固定放在边线外，不随机器人运动。
-    command_panel_x: -3.0
-    command_panel_y: -5.0
-    status_panel_x: 1.0
-    status_panel_y: -5.0
+    command_panel_x: -3.0  # 命令面板 X 坐标。
+    command_panel_y: -5.0  # 命令面板 Y 坐标。
+    status_panel_x: 1.0  # 状态面板 X 坐标。
+    status_panel_y: -5.0  # 状态面板 Y 坐标。

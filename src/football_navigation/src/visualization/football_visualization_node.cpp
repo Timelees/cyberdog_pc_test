@@ -163,8 +163,13 @@ FootballVisualizationNode::FootballVisualizationNode()
       "command_marker_topic", "/football/markers/commands");
     status_marker_topic_ = declare_parameter<std::string>(
       "status_marker_topic", "/football/markers/status");
+    control_state_topic_ = declare_parameter<std::string>(
+      "control_state_topic", "football/state");
     show_field_boundary_ = declare_parameter<bool>("show_field_boundary", true);
     show_ball_marker_ = declare_parameter<bool>("show_ball_marker", true);
+    show_ball_avoidance_zone_ = declare_parameter<bool>(
+      "show_ball_avoidance_zone", true);
+    ball_avoidance_radius_m_ = declare_parameter<double>("ball_avoidance_radius_m", 0.46);
     show_goal_markers_ = declare_parameter<bool>("show_goal_markers", true);
     team_a_kick_topic_ = declare_parameter<std::string>(
       "team_a_kick_target_topic", "/football/team_a/kick_target");
@@ -400,6 +405,16 @@ FootballVisualizationNode::FootballVisualizationNode()
         std::lock_guard<std::mutex> lock(mutex_);
         striker_b_ = msg->data;
         have_striker_b_ = true;
+      });
+    control_state_sub_ = create_subscription<std_msgs::msg::String>(
+      control_state_topic_, rclcpp::QoS(1).reliable().transient_local(),
+      [this](const std_msgs::msg::String::SharedPtr msg) {
+        if (!msg) {
+          return;
+        }
+        std::lock_guard<std::mutex> lock(mutex_);
+        control_state_ = msg->data;
+        have_control_state_ = true;
       });
 
     if (show_goal_markers_) {
@@ -680,6 +695,68 @@ void FootballVisualizationNode::appendLine(
     array.markers.push_back(line);
   }
 
+void FootballVisualizationNode::appendBallAvoidanceZone(
+  visualization_msgs::msg::MarkerArray & array,
+  const geometry_msgs::msg::PoseStamped & ball_in,
+  const rclcpp::Time & stamp)
+{
+  geometry_msgs::msg::PoseStamped ball;
+  if (!transformPoseToTarget(ball_in, ball)) {
+    return;
+  }
+  const bool contact_phase = control_state_ == "CONTACT_ACQUIRE" ||
+    control_state_ == "PUSH_BALL";
+
+  auto fill = makeBaseMarker(
+    target_frame_, "ball_approach_exclusion", 60,
+    visualization_msgs::msg::Marker::CYLINDER, stamp);
+  fill.pose = ball.pose;
+  fill.pose.position.z = 0.012;
+  fill.scale.x = 2.0 * ball_avoidance_radius_m_;
+  fill.scale.y = 2.0 * ball_avoidance_radius_m_;
+  fill.scale.z = 0.018;
+  if (contact_phase) {
+    setColor(fill, 0.1f, 0.9f, 0.25f, 0.10f);
+  } else {
+    setColor(fill, 1.0f, 0.35f, 0.05f, 0.16f);
+  }
+  array.markers.push_back(fill);
+
+  auto outline = makeBaseMarker(
+    target_frame_, "ball_approach_exclusion", 61,
+    visualization_msgs::msg::Marker::LINE_STRIP, stamp);
+  outline.scale.x = 0.035;
+  setColor(
+    outline,
+    contact_phase ? 0.1f : 1.0f,
+    contact_phase ? 0.9f : 0.25f,
+    contact_phase ? 0.25f : 0.05f,
+    0.95f);
+  constexpr int kSegments = 64;
+  for (int index = 0; index <= kSegments; ++index) {
+    const double angle = 2.0 * M_PI * static_cast<double>(index) /
+      static_cast<double>(kSegments);
+    geometry_msgs::msg::Point point;
+    point.x = ball.pose.position.x + ball_avoidance_radius_m_ * std::cos(angle);
+    point.y = ball.pose.position.y + ball_avoidance_radius_m_ * std::sin(angle);
+    point.z = 0.025;
+    outline.points.push_back(point);
+  }
+  array.markers.push_back(outline);
+
+  auto label = makeBaseMarker(
+    target_frame_, "ball_approach_exclusion", 62,
+    visualization_msgs::msg::Marker::TEXT_VIEW_FACING, stamp);
+  label.pose.position.x = ball.pose.position.x;
+  label.pose.position.y = ball.pose.position.y - ball_avoidance_radius_m_ - 0.12;
+  label.pose.position.z = 0.12;
+  label.scale.z = 0.13;
+  label.text = contact_phase ? "contact/push zone" : "approach exclusion r=" +
+    std::to_string(ball_avoidance_radius_m_).substr(0, 4) + "m";
+  setColor(label, 1.0f, 0.8f, 0.2f, 1.0f);
+  array.markers.push_back(label);
+}
+
 void FootballVisualizationNode::appendFieldBoundary(
   visualization_msgs::msg::MarkerArray & array,
   const rclcpp::Time & stamp) const
@@ -871,6 +948,39 @@ void FootballVisualizationNode::appendRobot(
       }
       array.markers.push_back(box);
 
+      // A short arrow at the front face makes yaw immediately visible even
+      // when the rectangular body is partially covered by its safety ellipse.
+      const double yaw = tf2::getYaw(pose.orientation);
+      const double cosine = std::cos(yaw);
+      const double sine = std::sin(yaw);
+      auto head = makeBaseMarker(
+        target_frame_, robot_namespace, 5,
+        visualization_msgs::msg::Marker::ARROW, stamp);
+      geometry_msgs::msg::Point head_base;
+      geometry_msgs::msg::Point head_tip;
+      const double front_offset = 0.18 * other_robot_length_m_;
+      head_base.x = pose.position.x + cosine * front_offset;
+      head_base.y = pose.position.y + sine * front_offset;
+      head_base.z = other_robot_height_m_ + 0.03;
+      head_tip.x = pose.position.x + cosine * (0.62 * other_robot_length_m_);
+      head_tip.y = pose.position.y + sine * (0.62 * other_robot_length_m_);
+      head_tip.z = head_base.z;
+      head.points.push_back(head_base);
+      head.points.push_back(head_tip);
+      head.scale.x = 0.035;
+      head.scale.y = 0.075;
+      head.scale.z = 0.10;
+      if (robot_namespace == self_namespace_) {
+        setColor(head, 0.0, 0.95, 1.0, 0.95);
+      } else if (keyboard_robot) {
+        setColor(head, 1.0, 0.05, 0.05, 0.95);
+      } else if (team_a) {
+        setColor(head, 0.15, 0.95, 0.25, 0.90);
+      } else {
+        setColor(head, 0.25, 0.45, 1.0, 0.90);
+      }
+      array.markers.push_back(head);
+
       auto text = makeBaseMarker(
         target_frame_, robot_namespace, 2,
         visualization_msgs::msg::Marker::TEXT_VIEW_FACING, stamp);
@@ -878,8 +988,8 @@ void FootballVisualizationNode::appendRobot(
       text.pose.position.z += other_robot_height_m_ + 0.05;
       text.scale.z = 0.14;
       std::ostringstream ss;
-      ss << robot_namespace << (robot_namespace == self_namespace_ ? " [STRIKER]" : "")
-         << " (" << std::fixed << std::setprecision(2)
+      ss << robot_namespace << (robot_namespace == self_namespace_ ? " [S]" : "")
+         << "\n(" << std::fixed << std::setprecision(2)
          << pose.position.x << "," << pose.position.y << ")";
       text.text = ss.str();
       setColor(text, keyboard_robot ? 1.0f : (team_a ? 0.3f : 0.45f),
@@ -910,9 +1020,6 @@ void FootballVisualizationNode::appendRobot(
         setColor(ellipse_outline, keyboard_robot ? 1.0f : (team_a ? 0.1f : 0.25f),
           keyboard_robot ? 0.05f : (team_a ? 1.0f : 0.55f),
           keyboard_robot ? 0.05f : 1.0f, 0.95f);
-        const double yaw = tf2::getYaw(pose.orientation);
-        const double cosine = std::cos(yaw);
-        const double sine = std::sin(yaw);
         constexpr int ellipse_segments = 48;
         for (int index = 0; index <= ellipse_segments; ++index) {
           const double angle = 2.0 * M_PI * static_cast<double>(index) / ellipse_segments;
@@ -1264,31 +1371,31 @@ void FootballVisualizationNode::appendStatusText(
     text.scale.z = 0.14;
 
     const auto motion_hint = expect_motion_cmds_ ?
-      "" :
-      "  [motion off / non-striker: approach/tracking/cmd_vel NO is normal]";
+      "" : "\n非 striker 未运动是正常状态";
     const bool costmap_data_ok =
       have_costmap_ &&
       fresh(costmap_time_, stamp) &&
       costmap_obstacle_cell_count_ > 0;
 
     std::ostringstream ss;
-    ss << "football no-map @ " << target_frame_ << "  (stable view)\n"
+    ss << "frame=" << target_frame_ << "\n"
        << "ball=" << (have_ball_ ? "OK" : "NO")
-       << "  other_robots="
+       << " robots="
        << (robot_odoms_.empty() ? "NO" : std::to_string(robot_odoms_.size() -
       (robot_odoms_.count(self_namespace_) > 0 ? 1 : 0)))
-       << "  costmap="
+       << " costmap="
        << (costmap_data_ok ?
       "OK(" + std::to_string(costmap_obstacle_cell_count_) + " cells)" :
       "NO")
-       << "  robot_match=" << costmap_dynamic_robot_count
+       << " match=" << costmap_dynamic_robot_count
        << "\n"
-       << "striker_a=" << (have_striker_a_ ? striker_a_ : "NO")
-       << "  striker_b=" << (have_striker_b_ ? striker_b_ : "NO")
+       << "A=" << (have_striker_a_ ? striker_a_ : "NO")
+       << " B=" << (have_striker_b_ ? striker_b_ : "NO")
        << "\n"
        << "approach=" << (have_approach_ ? "OK" : "NO")
-       << "  tracking=" << (have_tracking_ ? "OK" : "NO")
-       << "  cmd_vel=" << (have_cmd_vel_ ? "OK" : "NO")
+       << " track=" << (have_tracking_ ? "OK" : "NO")
+       << " cmd=" << (have_cmd_vel_ ? "OK" : "NO")
+       << " state=" << (have_control_state_ ? control_state_ : "NO")
        << motion_hint;
     text.text = ss.str();
     setColor(text, 1.0, 1.0, 1.0, 1.0);
@@ -1355,6 +1462,9 @@ void FootballVisualizationNode::publishMarkers()
         0.18,
         false,
         stamp);
+      if (show_ball_avoidance_zone_) {
+        appendBallAvoidanceZone(ball_markers, ball_pose_, stamp);
+      }
     }
     if (have_approach_ && fresh(approach_time_, stamp)) {
       appendPoseMarker(

@@ -2,6 +2,8 @@
 
 后续开发 Agent 请先阅读 [AGENT_HANDOFF.md](AGENT_HANDOFF.md)，其中集中记录当前节点拓扑、已验证能力、功能边界、未完成事项和修改守则。
 
+参数分为 [football_runtime_common.yaml](params/football_runtime_common.yaml)（可复用运行参数）和 [football_single_robot_simulation.yaml](params/football_single_robot_simulation.yaml)（单机仿真覆盖项）。单机 launch 会按此顺序合并，后者优先；实机 bringup 应复用前者并提供自己的机器人、传感器和 Nav2 参数文件。
+
 ## 功能边界
 
 本包提供足球接近/推球状态机、球目标适配、多机器人代价地图障碍层、动态障碍预测、球融合和角色分配。`football_single_robot_simulation.launch.py` 使用轻量级动作服务器验证单台 striker 的闭环接口，并包含基于 10 路全局 odom 的局部绕障航点、减速和硬停车逻辑。该轻量规划器用于仿真功能验证；实机仍由加载 `football_multi_robot_obstacle_layer` 的 Nav2 局部规划器负责。
@@ -11,7 +13,6 @@
 每次场景测试前均应确认：
 
 - 所有机器人在同一 `tag_global` 坐标系，且 `/global_vio/<namespace>/odom` 时间戳新鲜。
-- 代价地图同时加载 `obstacle_layer`、`football_multi_robot_obstacle_layer` 和 `inflation_layer`，参考 [football_costmap_reference.yaml](params/football_costmap_reference.yaml)。
 - `football_goal_adapter` 已收到 9 台其他机器人的里程计；默认 `minimum_other_robot_count: 9`，缺失数据时应 fail-closed。
 - 记录 `/football/ball_pose`、`/<robot>/football/state`、`/<robot>/football/approach_pose`、`/<robot>/speed_limit`、`/<robot>/cmd_vel`、局部/全局 costmap 及 RViz 视频。
 

@@ -143,8 +143,6 @@ FootballGoalAdapter::FootballGoalAdapter()
   approach_reached_m_ = declare_parameter<double>("approach_reached_m", 0.16);
   approach_reached_exit_m_ = declare_parameter<double>(
     "approach_reached_exit_m", 0.22);
-  approach_heading_blend_distance_m_ = declare_parameter<double>(
-    "approach_heading_blend_distance_m", 0.45);
   align_yaw_tolerance_ = declare_parameter<double>("align_yaw_tolerance", 0.22);
   alignment_reset_grace_sec_ = declare_parameter<double>(
     "alignment_reset_grace_sec", 0.25);
@@ -258,7 +256,6 @@ FootballGoalAdapter::FootballGoalAdapter()
 
   if (approach_reached_m_ <= 0.0 ||
     approach_reached_exit_m_ < approach_reached_m_ ||
-    approach_heading_blend_distance_m_ <= approach_reached_exit_m_ ||
     align_yaw_tolerance_ <= 0.0 ||
     maximum_kick_lateral_error_m_ <= 0.0 ||
     alignment_reset_grace_sec_ <= 0.0 ||
@@ -1315,30 +1312,15 @@ void FootballGoalAdapter::ballPoseCallback(
   auto assignApproachTravelOrientation =
     [&](geometry_msgs::msg::PoseStamped & target)
     {
-      const double travel_dx =
-        target.pose.position.x - robot.pose.position.x;
-      const double travel_dy =
-        target.pose.position.y - robot.pose.position.y;
-      const double travel_distance = std::hypot(travel_dx, travel_dy);
-      if (travel_distance <= 1e-6) {
-        target.pose.orientation = quaternionFromYaw(desired_yaw);
-        return;
-      }
-
-      const double travel_yaw = std::atan2(travel_dy, travel_dx);
-      const double denominator = std::max(
-        1e-6,
-        approach_heading_blend_distance_m_ - approach_reached_m_);
-      const double blend = std::clamp(
-        (approach_heading_blend_distance_m_ - travel_distance) /
-        denominator,
-        0.0,
-        1.0);
-      const double yaw_delta = std::atan2(
-        std::sin(desired_yaw - travel_yaw),
-        std::cos(desired_yaw - travel_yaw));
-      target.pose.orientation = quaternionFromYaw(
-        travel_yaw + blend * yaw_delta);
+      // PoseStamped.orientation is the terminal heading, not the instantaneous
+      // path bearing.  Encoding the current travel bearing here leaves an
+      // already-active NavigateToPose action with a stale final yaw: after the
+      // robot reaches the behind-ball point it first turns toward that old
+      // bearing, reports success, and only then receives the kick heading.
+      // The local/Nav2 controller already derives its travel heading from the
+      // path, so every staging/approach goal must carry the kick direction as
+      // its terminal orientation from the moment it is published.
+      target.pose.orientation = quaternionFromYaw(desired_yaw);
     };
 
   std::string next_state = "NAV_TRANSIT";
