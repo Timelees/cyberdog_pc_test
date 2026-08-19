@@ -7,7 +7,7 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 import yaml
 
-from launch.actions import DeclareLaunchArgument, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, OpaqueFunction, UnsetEnvironmentVariable
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -79,6 +79,8 @@ def launch_nodes(context):
         trajectory.update({'target_frame': field_frame})
         tracking = merged_node_params(runtime, params, 'football_tracking_action_client')
         tracking.update({
+            'enabled': True,
+            'require_slow_walk': False,
             'self_namespace': robot,
             'team_id': 'a',
             'expected_tracking_frame': field_frame,
@@ -139,6 +141,12 @@ def generate_launch_description():
         share, 'rviz', 'football_single_robot_simulation.rviz')
 
     return LaunchDescription([
+        DeclareLaunchArgument(
+            'isolate_dds', default_value='true',
+            description='Ignore robot-only CYCLONEDDS_URI for simulation.'),
+        UnsetEnvironmentVariable(
+            name='CYCLONEDDS_URI',
+            condition=IfCondition(LaunchConfiguration('isolate_dds'))),
         DeclareLaunchArgument(
             'params_file',
             default_value=os.path.join(

@@ -1,6 +1,16 @@
 # Per-robot production overrides. Identity, frames and odom topics are injected by launch.
 football_goal_adapter:
   ros__parameters:
+    # tag_global covers the complete test field.  The reusable common file has
+    # a smaller conservative boundary that rejects measured positions such as
+    # the real-test default ball_x=-2.22.
+    field_min_x: -8.0
+    field_max_x: 8.0
+    field_min_y: -4.0
+    field_max_y: 4.0
+    boundary_margin_m: 0.25
+    ball_boundary_margin_m: 0.12
+    approach_boundary_margin_m: 0.25
     approach_speed_limit_mps: 0.25
     obstacle_speed_limit_mps: 0.15
     ball_approach_speed_limit_mps: 0.12
@@ -19,7 +29,9 @@ football_trajectory_adapter:
 
 football_tracking_action_client:
   ros__parameters:
-    action_name: navigate_to_pose
+    # Keep the PC football navigator separate from the robot's onboard NavAB
+    # client, which also uses /cyberdog_<n>/navigate_to_pose.
+    action_name: football/navigate_to_pose
     tracking_pose_topic: tracking_pose_heartbeat
     require_costmap_ready: true
     local_costmap_topic: local_costmap/costmap
@@ -28,9 +40,19 @@ football_tracking_action_client:
     minimum_costmap_marked_cells: 1
     tick_rate_hz: 10.0
     send_period_sec: 0.20
+    require_slow_walk: true
+    motion_status_topic: motion_status
 
 football_visualization_node:
   ros__parameters:
+    field_frame: tag_global
+    target_frame: tag_global
+    keyboard_robot_namespace: cyberdog_3
+    show_ball_marker: true
+    show_ball_avoidance_zone: true
+    show_goal_markers: true
+    show_ego_robot_marker: true
+    show_other_robot_markers: true
     enable_costmap_markers: true
     costmap_topic: local_costmap/costmap
     path_topic: plan

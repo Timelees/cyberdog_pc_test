@@ -1,0 +1,15 @@
+# Deterministic input fixture for real Nav2/path tests.
+# Keep fake odom/path disabled: live VIO and Nav2 own those real-test topics.
+football_simulation_input_publisher:
+  ros__parameters:
+    field_frame: tag_global
+    ball_x: -2.22
+    ball_y: -1.24
+    kick_target_x: -3.65
+    kick_target_y: -0.74
+    publish_rate_hz: 10.0
+    publish_odom: false
+    publish_path: false
+    simulate_ball_push: false
+    stop_at_ball: false
+

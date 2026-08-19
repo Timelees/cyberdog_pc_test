@@ -12,7 +12,7 @@ Panels:
         - /Cyberdog2Odom1/Shape1
         - /TagGlobalAxes1
       Splitter Ratio: 0.5
-    Tree Height: 450
+    Tree Height: 286
   - Class: rviz_common/Views
     Expanded:
       - /Current View1
@@ -72,8 +72,6 @@ Visualization Manager:
           Value: true
         cyberdog_1_base_link:
           Value: true
-        cyberdog_2_base_link:
-          Value: true
         head_tof:
           Value: true
         head_uwb:
@@ -110,8 +108,6 @@ Visualization Manager:
       Tree:
         tag_global:
           cyberdog_1_base_link:
-            {}
-          cyberdog_2_base_link:
             {}
       Update Interval: 0
       Value: true
@@ -351,12 +347,12 @@ Visualization Manager:
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 1043
+  Height: 773
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd00000001000000000000019d000003bdfc0200000002fb000000100044006900730070006c006100790073010000003b00000243000000c700fffffffb0000000a00560069006500770073010000028400000174000000a000ffffff00000595000003bd00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000001000000000000019d000002affc0200000002fb000000100044006900730070006c006100790073010000003b0000019f000000c700fffffffb0000000a0056006900650077007301000001e00000010a000000a000ffffff000003c7000002af00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Views:
     collapsed: false
-  Width: 1848
-  X: 2632
-  Y: 0
+  Width: 1386
+  X: 562
+  Y: 506

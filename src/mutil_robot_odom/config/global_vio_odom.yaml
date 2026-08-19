@@ -3,7 +3,7 @@
     status_period_sec: 5.0
 
     # 添加机器人时只需要追加命名空间，节点会订阅 /<namespace>/odom_global。
-    robot_namespaces: ["cyberdog_1", "cyberdog_2"]
+    robot_namespaces: ["cyberdog_1", "cyberdog_3"]
     input_odom_topic: /odom_global
 
     # 统一转发后的全局 VIO 输出：

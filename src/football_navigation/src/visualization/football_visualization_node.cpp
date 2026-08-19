@@ -275,7 +275,14 @@ FootballVisualizationNode::FootballVisualizationNode()
       robot_odom_subs_.push_back(create_subscription<nav_msgs::msg::Odometry>(
         expandNamespace(robot_odom_topic_template_, robot_namespace), qos_profile_sensor_data,
         [this, robot_namespace](const nav_msgs::msg::Odometry::SharedPtr msg) {
-          if (!msg || msg->header.frame_id != field_frame_) {
+          if (!msg) {
+            return;
+          }
+          if (msg->header.frame_id != field_frame_) {
+            RCLCPP_WARN_THROTTLE(
+              get_logger(), *get_clock(), 3000,
+              "ignoring %s odom marker with frame_id='%s'; expected '%s'",
+              robot_namespace.c_str(), msg->header.frame_id.c_str(), field_frame_.c_str());
             return;
           }
           std::lock_guard<std::mutex> lock(mutex_);

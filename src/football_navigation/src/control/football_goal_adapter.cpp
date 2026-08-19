@@ -468,7 +468,19 @@ void FootballGoalAdapter::odomGlobalCallback(const nav_msgs::msg::Odometry::Shar
 {
   // 保存 field_frame 下的短时位姿历史，使每一帧球数据能匹配时间上最近的
   // 机器人位姿，避免混用旧球位置和最新里程计造成几何计算误差。
-  if (!msg || msg->header.frame_id != field_frame_ || !validFinitePose(msg->pose.pose)) {
+  if (!msg) {
+    return;
+  }
+  if (msg->header.frame_id != field_frame_) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 3000,
+      "ignoring global odom with frame_id='%s'; expected '%s'",
+      msg->header.frame_id.c_str(), field_frame_.c_str());
+    return;
+  }
+  if (!validFinitePose(msg->pose.pose)) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 3000, "ignoring non-finite global odom pose");
     return;
   }
   const rclcpp::Time stamp(msg->header.stamp, get_clock()->get_clock_type());

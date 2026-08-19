@@ -26,6 +26,13 @@ source install/setup.bash
 ros2 launch football_navigation football_single_robot_simulation.launch.py use_rviz:=true
 ```
 
+单机和团队仿真的 Action Client 会固定使用 `require_slow_walk=false`；仿真不订阅
+实机 `motion_status`，规划算法验证不会等待 303 状态。
+
+仿真入口默认使用 `isolate_dds:=true`，不会继承实机脚本设置的
+`CYCLONEDDS_URI`。只有确实需要让仿真加入指定 DDS 网络时，才传入
+`isolate_dds:=false`，并确保环境中的 XML 路径有效。实机入口不清理该变量。
+
 实机安全启动与正式启动：
 
 ```bash
@@ -126,6 +133,30 @@ ros2 run football_navigation football_keyboard_robot_controller
   - 障碍物与球重叠：在球周围、机器人与球之间、以及球前推进走廊分别放置静态/动态机器人。验收：不将机器人障碍物误识别为球；障碍阻塞时按动态安全距离减速或停止，障碍离开后重新评估球后方接近位，而非沿旧目标盲推。
   - 关联参数：`push_enter_lateral_error_m`、`push_exit_lateral_error_m`、`push_enter_yaw_error_rad`、`push_exit_yaw_error_rad`、`push_contact_*`、`max_ball_jump_m`、`max_ball_speed_mps`、`ball_protection_radius_m`、`ball_boundary_margin_m`。
 
+
+## 实机路径规划测试入口
+
+在暂时没有足球感知时，使用单机测试入口。它只发布静态球、射门目标、`cyberdog_1` striker 和 `PLAY` 状态，不发布或覆盖实时 `/global_vio/cyberdog_1/odom`：
+
+```bash
+ros2 launch football_navigation football_real_robot_test.launch.py \
+  ball_x:=2.0 ball_y:=0.0 kick_target_x:=6.0 kick_target_y:=0.0
+```
+
+该入口消费实时全局 VIO（激光默认关闭），启动 Nav2、路径规划和 `cmd_vel`
+看门狗适配器。`ball_x/ball_y` 是足球坐标，`kick_target_x/kick_target_y`
+定义踢球方向；机器人首先导航到足球反方向、距球约 `approach_distance_m`
+的接近点，并不是直接导航到 `kick_target`。适配器将 Nav2 的 `cmd_vel`
+限幅后转换为慢走 `MotionServoCmd`，命令超过 0.25 秒未更新会发送一次零速
+结束帧。测试前必须确认机器人处于慢走 303，且键盘急停终端在线。该适配器
+默认关闭；确认 RViz 路径无误后显式传入 `use_cmd_vel_adapter:=true` 才会驱动
+实机。
+
+主要风险：静态球不是感知结果，机器人移动或足球被推动后目标不会自动更新；
+测试入口关闭了其他机器人位姿要求且默认不使用激光，单机模式不能证明静态
+障碍或多机避障有效；`football_cmd_vel_to_servo` 与键盘节点或机器人端其他
+速度适配器同时运行会形成多个 `MotionServoCmd` 发布源，测试时只能保留一个
+运动控制源。急停按键和实体急停必须保持可用。
 
 ## 结果记录模板
 

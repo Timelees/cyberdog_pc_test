@@ -37,6 +37,7 @@ private:
   std::string approach_topic_;
   std::string path_topic_;
   std::string striker_topic_;
+  std::string role_topic_;
   std::string kick_target_topic_;
   std::string match_state_topic_;
   std::string cmd_vel_topic_;
@@ -54,6 +55,8 @@ private:
   bool stop_at_ball_{true};
   double ball_contact_distance_m_{0.42};
   bool simulate_ball_push_{true};
+  bool publish_odom_{true};
+  bool publish_path_{true};
   double ball_push_transfer_gain_{1.0};
   double ball_push_lateral_gain_{0.05};
   bool have_cmd_vel_{false};
@@ -67,6 +70,7 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr ball_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr striker_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr role_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr kick_target_pub_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr match_state_pub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr approach_sub_;

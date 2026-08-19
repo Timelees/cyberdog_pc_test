@@ -17,7 +17,12 @@ namespace
 constexpr int32_t kMotionIdGetDown = 101;
 constexpr int32_t kMotionIdRecoveryStand = 111;
 constexpr int32_t kMotionIdSlowWalk = 303;
-constexpr int32_t kMotionIdFastWalk = 308;
+constexpr int32_t kMotionIdFastWalk = 305;
+
+constexpr int32_t kMotionCodeStateInvalid = 3003;
+constexpr int32_t kMotionCodeParametersInvalid = 3010;
+constexpr int32_t kMotionCodeTargetBusy = 3011;
+constexpr int32_t kMotionCodeProtected = 3013;
 
 constexpr double kLoopPeriodSec = 0.05;
 constexpr int64_t kDefaultStepDurationMs = 250;
@@ -286,19 +291,27 @@ void KeyboardInput::HandleKey(char key)
 			CallMotionResult(kMotionIdGetDown, "趴下");
 			break;
 
+		case 'e':
+		case 'E':
+			StopWalking();
+			CallMotionResult(kMotionIdRecoveryStand, "紧急停止并切换到站立");
+			break;
+
 		case '2':
 			StopWalking();
 			CallMotionResult(kMotionIdRecoveryStand, "站立");
 			break;
 
 		case '3':
+			StopWalking();
 			current_motion_id_ = kMotionIdSlowWalk;
-			RCLCPP_INFO(node_->get_logger(), "切换为慢走步态");
+			CallMotionResult(kMotionIdSlowWalk, "切换为慢走步态");
 			break;
 
 		case '4':
+			StopWalking();
 			current_motion_id_ = kMotionIdFastWalk;
-			RCLCPP_INFO(node_->get_logger(), "切换为快走步态");
+			CallMotionResult(kMotionIdFastWalk, "切换为快走步态");
 			break;
 
 		case 'w':
@@ -465,9 +478,35 @@ bool KeyboardInput::CallMotionResult(int32_t motion_id, const std::string & acti
 
 	const auto response = future.get();
 	if (!response->result) {
-		RCLCPP_ERROR(
-			node_->get_logger(), "%s执行失败，motion_id=%d, code=%d",
-			action_name.c_str(), motion_id, response->code);
+		switch (response->code) {
+			case kMotionCodeStateInvalid:
+				RCLCPP_ERROR(
+					node_->get_logger(),
+					"%s未执行：motion manager 尚未进入 Active 状态（code=3003）。"
+					"等待机器狗完成 Setup/SelfCheck 后重试",
+					action_name.c_str());
+				break;
+			case kMotionCodeParametersInvalid:
+				RCLCPP_ERROR(
+					node_->get_logger(), "%s参数无效，motion_id=%d, code=%d",
+					action_name.c_str(), motion_id, response->code);
+				break;
+			case kMotionCodeTargetBusy:
+				RCLCPP_ERROR(
+					node_->get_logger(), "%s未执行：motion manager 正在执行其他动作（code=3011）",
+					action_name.c_str());
+				break;
+			case kMotionCodeProtected:
+				RCLCPP_ERROR(
+					node_->get_logger(), "%s未执行：机器人处于低电量保护状态（code=3013）",
+					action_name.c_str());
+				break;
+			default:
+				RCLCPP_ERROR(
+					node_->get_logger(), "%s执行失败，motion_id=%d, code=%d",
+					action_name.c_str(), motion_id, response->code);
+				break;
+		}
 		return false;
 	}
 
@@ -522,6 +561,7 @@ void KeyboardInput::PrintHelp() const
 		"2 : 趴下切换到站立\n"
 		"3 : 慢走步态\n"
 		"4 : 快走步态\n"
+		"e : 紧急停止并切换到站立（motion_id=111）\n"
 		"w : 前进\n"
 		"s : 后退\n"
 		"a : 左移\n"

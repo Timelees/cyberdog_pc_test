@@ -1017,7 +1017,7 @@ namespace football_navigation
     sweep_linear_step_m_ = std::max(0.02, sweep_linear_step_m_);
     sweep_angular_step_rad_ = std::max(0.05, sweep_angular_step_rad_);
     max_sweep_samples_ = std::clamp(max_sweep_samples_, 1, 60);
-    minimum_obstacle_count_ = std::clamp(minimum_obstacle_count_, 1, 20);
+    minimum_obstacle_count_ = std::clamp(minimum_obstacle_count_, 0, 20);
 
     rolling_window_ = layered_costmap_->isRolling();
     global_frame_ = layered_costmap_->getGlobalFrameID();
@@ -1042,7 +1042,12 @@ namespace football_navigation
     }
 
     matchSize();
-    current_ = false;
+    have_received_data_ = minimum_obstacle_count_ == 0;
+    current_ = have_received_data_;
+    if (have_received_data_)
+    {
+      last_data_received_time_ = clock_->now();
+    }
     robot_namespaces_ = splitRobotCsv(robot_namespaces_csv_);
     for (std::size_t index = 0; index < robot_namespaces_.size(); ++index) {
       const auto & robot_namespace = robot_namespaces_[index];
@@ -1087,9 +1092,13 @@ namespace football_navigation
     previous_obstacles_.clear();
     last_pose_array_stamp_ = rclcpp::Time(0, 0, clock_->get_clock_type());
     last_data_received_time_ = last_pose_array_stamp_;
-    have_received_data_ = false;
+    have_received_data_ = minimum_obstacle_count_ == 0;
+    if (have_received_data_)
+    {
+      last_data_received_time_ = clock_->now();
+    }
     resetMap(0, 0, getSizeInCellsX(), getSizeInCellsY());
-    current_ = false;
+    current_ = have_received_data_;
   }
 
   bool MultiRobotObstacleLayer::validPose(
@@ -1392,9 +1401,10 @@ namespace football_navigation
     bool data_fresh = false;
     {
       std::lock_guard<std::mutex> lock(data_mutex_);
-      data_fresh = have_received_data_ &&
+      data_fresh = minimum_obstacle_count_ == 0 ||
+                   (have_received_data_ &&
                    last_data_received_time_.nanoseconds() > 0 &&
-                   (current_time - last_data_received_time_).seconds() <= data_timeout_;
+                   (current_time - last_data_received_time_).seconds() <= data_timeout_);
       if (!data_fresh)
       {
         for (auto &track : obstacle_tracks_)

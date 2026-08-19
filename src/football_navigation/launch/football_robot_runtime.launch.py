@@ -95,6 +95,7 @@ def launch_nodes(context):
         raise RuntimeError('minimum_other_robot_count must be between 0 and 9')
 
     goal = merged_node_params(common, robot, 'football_goal_adapter')
+    kick_target_topic = LaunchConfiguration('kick_target_topic').perform(context).strip()
     goal.update({
         'self_namespace': robot_namespace,
         'team_id': team_id,
@@ -104,11 +105,21 @@ def launch_nodes(context):
         'odom_global_topic': odom_topic,
         'robot_namespaces_csv': robot_namespaces_csv,
         'robot_odom_topic_template': odom_template,
+        'ball_pose_topic': LaunchConfiguration('ball_pose_topic').perform(context),
         'require_striker_role': require_striker,
         'require_other_robot_poses': require_other_robots,
         'minimum_other_robot_count': minimum_other_robots,
         'cmd_vel_topic': 'cmd_vel',
+        'odom_timeout_sec': float(
+            LaunchConfiguration('odom_timeout_sec').perform(context)),
+        'max_ball_odom_skew_sec': float(
+            LaunchConfiguration('max_ball_odom_skew_sec').perform(context)),
     })
+    if kick_target_topic:
+        goal.update({
+            'kick_target_topic': kick_target_topic,
+            'use_team_kick_target': False,
+        })
 
     trajectory = merged_node_params(common, robot, 'football_trajectory_adapter')
     trajectory.update({'target_frame': field_frame})
@@ -122,6 +133,9 @@ def launch_nodes(context):
         'require_striker_role': require_striker,
         'require_costmap_ready': require_costmaps,
         'expected_costmap_frame': field_frame,
+        'require_slow_walk': as_bool(
+            LaunchConfiguration('require_slow_walk').perform(context),
+            'require_slow_walk'),
     })
 
     actions = [
@@ -194,6 +208,8 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'odom_topic_template',
             default_value='/global_vio/{namespace}/odom'),
+        DeclareLaunchArgument('odom_timeout_sec', default_value='0.45'),
+        DeclareLaunchArgument('max_ball_odom_skew_sec', default_value='0.12'),
         DeclareLaunchArgument(
             'robot_namespaces_csv', default_value=DEFAULT_ROBOTS),
         DeclareLaunchArgument(
@@ -207,10 +223,15 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'enable_motion', default_value='false',
             description='Allow the football Action Client to send NavigateToPose goals.'),
+        DeclareLaunchArgument(
+            'require_slow_walk', default_value='true',
+            description='Only allow goals while motion_status reports slow walk (303).'),
         DeclareLaunchArgument('require_striker_role', default_value='true'),
         DeclareLaunchArgument('require_other_robot_poses', default_value='true'),
         DeclareLaunchArgument('minimum_other_robot_count', default_value='9'),
         DeclareLaunchArgument('require_costmap_ready', default_value='true'),
         DeclareLaunchArgument('use_visualization', default_value='true'),
+        DeclareLaunchArgument('ball_pose_topic', default_value='/football/ball_pose'),
+        DeclareLaunchArgument('kick_target_topic', default_value=''),
         OpaqueFunction(function=launch_nodes),
     ])

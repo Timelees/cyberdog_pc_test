@@ -3,7 +3,7 @@
     status_period_sec: 5.0
 
     # 当前在线机器人。添加机器人时只需要追加命名空间。
-    robot_namespaces: ["cyberdog_1", "cyberdog_2"]
+    robot_namespaces: ["cyberdog_1", "cyberdog_3"]
     input_topic_prefix: /global_vio
     input_odom_topic: odom
 

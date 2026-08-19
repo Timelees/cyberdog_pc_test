@@ -6,7 +6,7 @@ import os
 import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, OpaqueFunction, UnsetEnvironmentVariable
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -93,6 +93,11 @@ def launch_nodes(context):
     tracking = merged_node_params(
         runtime_params, params, 'football_tracking_action_client')
     tracking.update({
+        # Simulation has no hardware motion_status publisher.  Keep the
+        # planner/action chain active so this launch validates navigation and
+        # avoidance rather than the real-robot gait gate.
+        'enabled': True,
+        'require_slow_walk': False,
         'self_namespace': robot_namespace,
         'team_id': team_id,
         'expected_tracking_frame': field_frame,
@@ -193,6 +198,16 @@ def launch_nodes(context):
 def generate_launch_description():
     share = get_package_share_directory('football_navigation')
     return LaunchDescription([
+        DeclareLaunchArgument(
+            'isolate_dds', default_value='true',
+            description='Ignore robot-only CYCLONEDDS_URI for simulation.'),
+        # Simulation must not inherit a robot-only CycloneDDS XML path from
+        # start_vio.sh or a previously sourced hardware shell.  The default
+        # DDS implementation then uses its local defaults and stays isolated
+        # from the real-robot launch.
+        UnsetEnvironmentVariable(
+            name='CYCLONEDDS_URI',
+            condition=IfCondition(LaunchConfiguration('isolate_dds'))),
         DeclareLaunchArgument(
             'params_file',
             default_value=os.path.join(

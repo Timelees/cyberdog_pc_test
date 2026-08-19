@@ -12,6 +12,7 @@
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
+#include "protocol/msg/motion_status.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "std_msgs/msg/bool.hpp"
@@ -31,6 +32,7 @@ public:
 private:
   void strikerCallback(const std_msgs::msg::String::SharedPtr msg);
   void controlValidCallback(const std_msgs::msg::Bool::SharedPtr msg);
+  void motionStatusCallback(const protocol::msg::MotionStatus::SharedPtr msg);
   void resetCostmapReadinessLocked();
   void costmapCallback(
     const nav_msgs::msg::OccupancyGrid::SharedPtr msg,
@@ -82,6 +84,9 @@ private:
   bool is_striker_{true};
   bool have_striker_assignment_{false};
   bool control_valid_{false};
+  bool require_slow_walk_{true};
+  bool slow_walk_ready_{false};
+  std::string motion_status_topic_;
   std::string tactical_role_{"STOP"};
   double kickoff_hold_sec_{3.0};
 
@@ -118,6 +123,7 @@ private:
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr goal_event_sub_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr match_state_sub_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr control_valid_sub_;
+  rclcpp::Subscription<protocol::msg::MotionStatus>::SharedPtr motion_status_sub_;
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr local_costmap_sub_;
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr planner_costmap_sub_;
   rclcpp::TimerBase::SharedPtr timer_;

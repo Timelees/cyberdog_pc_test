@@ -18,6 +18,7 @@ find_package(nav2_msgs REQUIRED)
 find_package(nav2_smac_planner REQUIRED)
 find_package(nav2_util REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(protocol REQUIRED)
 find_package(rcl_interfaces REQUIRED)
@@ -86,6 +87,7 @@ set(tracking_action_dependencies
   geometry_msgs
   nav2_msgs
   nav_msgs
+  protocol
   std_msgs
 )
 
@@ -139,6 +141,11 @@ add_executable(football_goal_adapter
   src/control/football_goal_adapter_node.cpp
   src/control/football_goal_adapter.cpp
 )
+
+add_executable(football_cmd_vel_to_servo src/control/football_cmd_vel_to_servo.cpp)
+ament_target_dependencies(football_cmd_vel_to_servo rclcpp geometry_msgs protocol)
+add_executable(football_scan_frame_relay src/control/football_scan_frame_relay.cpp)
+ament_target_dependencies(football_scan_frame_relay rclcpp sensor_msgs tf2 tf2_ros)
 
 ament_target_dependencies(football_goal_adapter
   rclcpp
@@ -312,7 +319,6 @@ add_executable(football_tracking_action_client
   src/control/football_tracking_action_client.cpp
   src/control/football_tracking_action_client_node.cpp
 )
-
 ament_target_dependencies(football_tracking_action_client
   ${tracking_action_dependencies}
 )
@@ -460,6 +466,7 @@ set(football_identity_sources
   params/football_runtime_common.yaml
   params/football_real_robot.yaml
   params/football_nav2_real.yaml
+  params/football_real_robot_test.yaml
   football_navigation_plugins.xml
   football_navigation_dwb_plugins.xml
 )
@@ -534,6 +541,8 @@ install(TARGETS
   football_role_strategies
   football_multi_robot_obstacle_layer
   football_goal_adapter
+  football_cmd_vel_to_servo
+  football_scan_frame_relay
   football_fake_ball_publisher
   football_simulation_input_publisher
   football_simulation_navigator
@@ -571,6 +580,7 @@ install(FILES
   params/football_runtime_common.yaml
   params/football_real_robot.yaml
   params/football_nav2_real.yaml
+  params/football_real_robot_test.yaml
   DESTINATION share/${PROJECT_NAME}/params
 )
 

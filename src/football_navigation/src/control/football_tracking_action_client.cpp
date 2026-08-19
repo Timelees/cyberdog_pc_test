@@ -95,6 +95,8 @@ FootballTrackingActionClient::FootballTrackingActionClient()
   }
   control_valid_topic_ =
     declare_parameter<std::string>("control_valid_topic", "football/control_valid");
+  require_slow_walk_ = declare_parameter<bool>("require_slow_walk", true);
+  motion_status_topic_ = declare_parameter<std::string>("motion_status_topic", "motion_status");
   require_costmap_ready_ = declare_parameter<bool>(
     "require_costmap_ready", false);
   local_costmap_topic_ = declare_parameter<std::string>(
@@ -136,6 +138,9 @@ FootballTrackingActionClient::FootballTrackingActionClient()
   control_valid_sub_ = create_subscription<std_msgs::msg::Bool>(
     control_valid_topic_, rclcpp::QoS(1).reliable().transient_local(),
     std::bind(&FootballTrackingActionClient::controlValidCallback, this, std::placeholders::_1));
+  motion_status_sub_ = create_subscription<protocol::msg::MotionStatus>(
+    motion_status_topic_, rclcpp::SystemDefaultsQoS(),
+    std::bind(&FootballTrackingActionClient::motionStatusCallback, this, std::placeholders::_1));
   if (require_costmap_ready_) {
     const auto costmap_qos = rclcpp::QoS(1).reliable().transient_local();
     local_costmap_sub_ = create_subscription<nav_msgs::msg::OccupancyGrid>(
@@ -214,6 +219,28 @@ void FootballTrackingActionClient::controlValidCallback(
     planner_costmap_ready_ = false;
     local_costmap_ready_time_ = rclcpp::Time(0, 0, get_clock()->get_clock_type());
     planner_costmap_ready_time_ = rclcpp::Time(0, 0, get_clock()->get_clock_type());
+  }
+}
+
+void FootballTrackingActionClient::motionStatusCallback(
+  const protocol::msg::MotionStatus::SharedPtr msg)
+{
+  if (!msg) {
+    return;
+  }
+  const bool ready = !require_slow_walk_ ||
+    (msg->motion_id == 303 &&
+    (msg->switch_status == protocol::msg::MotionStatus::NORMAL ||
+    msg->switch_status == protocol::msg::MotionStatus::TRANSITIONING));
+  const bool was_ready = slow_walk_ready_;
+  slow_walk_ready_ = ready;
+  if (!was_ready && ready && require_slow_walk_) {
+    RCLCPP_INFO(
+      get_logger(), "robot slow-walk gate ready (motion_id=%d switch_status=%d)",
+      msg->motion_id, msg->switch_status);
+  }
+  if (was_ready && !ready) {
+    cancelActiveGoal("robot motion state is not slow walk");
   }
 }
 
@@ -449,7 +476,27 @@ void FootballTrackingActionClient::maybeSendGoal()
     return;
   }
 
-  if (!control_valid_ || !matchStateAllowsMovement()) {
+  if (!control_valid_) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 2000,
+      "movement blocked: football/control_valid=false; inspect football/state, "
+      "football/localization_valid, fresh tag_global odom, and ball pose");
+    cancelActiveGoal("football control invalid");
+    return;
+  }
+
+  if (!matchStateAllowsMovement()) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 2000,
+      "movement blocked by match state '%s'", match_state_.c_str());
+    cancelActiveGoal("match state does not allow movement");
+    return;
+  }
+
+  if (require_slow_walk_ && !slow_walk_ready_) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 2000,
+      "waiting for robot slow-walk state (motion_id=303)");
     cancelActiveGoal("football control invalid");
     return;
   }
@@ -460,6 +507,10 @@ void FootballTrackingActionClient::maybeSendGoal()
   }
 
   if (!isSelfStriker()) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 2000,
+      "movement blocked: robot is not the active striker (team=%s self=%s)",
+      team_id_.c_str(), self_namespace_.c_str());
     cancelActiveGoal("not striker");
     return;
   }
@@ -480,11 +531,12 @@ void FootballTrackingActionClient::maybeSendGoal()
     if (goal_pending_ && !pose_stale) {
       return;
     }
-    if (goal_active_ && !pose_stale &&
-      isPoseNear(
-        latest_tracking_pose_, sent_goal_pose_,
-        completed_pose_xy_tolerance_, completed_pose_yaw_tolerance_))
-    {
+    if (goal_active_ && !pose_stale) {
+      // Keep one NavigateToPose goal alive until Nav2 reports its result.
+      // The trajectory heartbeat is refreshed at 10 Hz and can move by a few
+      // centimeters because of delayed VIO. Replacing the active goal for
+      // every such update fills Nav2's pending slot and causes the controller
+      // to publish only zero velocities.
       return;
     }
     completed_pose_unchanged =
@@ -597,7 +649,8 @@ void FootballTrackingActionClient::goalResponseCallback(
         force_retry_ = false;
       }
       cancel = goal_handle &&
-        (!control_valid_ || !matchStateAllowsMovement() || !have_tracking_pose_ ||
+        (!control_valid_ || !matchStateAllowsMovement() ||
+        (require_slow_walk_ && !slow_walk_ready_) || !have_tracking_pose_ ||
         !isSelfStriker() || inKickoffHold(now()) || !costmapsReadyLocked(now()));
     }
   }

@@ -25,7 +25,7 @@ GlobalVioOdomNode::GlobalVioOdomNode()
 
   status_period_sec_ = declare_parameter<double>("status_period_sec", 5.0);
   robot_namespaces_ = declare_parameter<std::vector<std::string>>(
-    "robot_namespaces", std::vector<std::string>{"cyberdog_1", "cyberdog_2"});
+    "robot_namespaces", std::vector<std::string>{"cyberdog_1"});
   input_odom_topic_ = declare_parameter<std::string>("input_odom_topic", "/odom_global");
   output_topic_prefix_ = declare_parameter<std::string>("output_topic_prefix", "/global_vio");
   output_odom_topic_ = declare_parameter<std::string>("output_odom_topic", "odom");
