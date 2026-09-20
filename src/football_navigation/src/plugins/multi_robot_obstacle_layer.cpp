@@ -183,6 +183,9 @@ namespace football_navigation
       nav2_util::declare_parameter_if_not_declared(
           node, plugin_name_ + ".movement_time_allowance",
           rclcpp::ParameterValue(4.0));
+      nav2_util::declare_parameter_if_not_declared(
+          node, plugin_name_ + ".required_movement_angle",
+          rclcpp::ParameterValue(0.20));
 
       node->get_parameter_or(
           plugin_name_ + ".required_movement_radius",
@@ -191,8 +194,12 @@ namespace football_navigation
       node->get_parameter_or(
           plugin_name_ + ".movement_time_allowance",
           allowance_sec, 4.0);
+      node->get_parameter_or(
+          plugin_name_ + ".required_movement_angle",
+          movement_angle_rad_, 0.20);
 
       if (!std::isfinite(movement_radius_m_) || movement_radius_m_ <= 0.0 ||
+          !std::isfinite(movement_angle_rad_) || movement_angle_rad_ <= 0.0 ||
           !std::isfinite(allowance_sec) || allowance_sec <= 0.0)
       {
         throw std::invalid_argument(
@@ -223,6 +230,7 @@ namespace football_navigation
       {
         baseline_x_ = current_pose.pose.position.x;
         baseline_y_ = current_pose.pose.position.y;
+        baseline_yaw_ = current_yaw;
         baseline_time_ = clock_->now();
         baseline_set_ = true;
         return true;
@@ -242,7 +250,11 @@ namespace football_navigation
       const double translation = std::hypot(
           pose.pose.position.x - baseline_x_,
           pose.pose.position.y - baseline_y_);
-      return translation >= movement_radius_m_;
+      const double yaw = tf2::getYaw(pose.pose.orientation);
+      const double yaw_delta = std::fabs(std::atan2(
+          std::sin(yaw - baseline_yaw_), std::cos(yaw - baseline_yaw_)));
+      return translation >= movement_radius_m_ ||
+             yaw_delta >= movement_angle_rad_;
     }
 
     std::string plugin_name_;
@@ -250,8 +262,10 @@ namespace football_navigation
     rclcpp::Duration movement_time_allowance_{
         rclcpp::Duration::from_seconds(4.0)};
     double movement_radius_m_{0.08};
+    double movement_angle_rad_{0.20};
     double baseline_x_{0.0};
     double baseline_y_{0.0};
+    double baseline_yaw_{0.0};
     rclcpp::Time baseline_time_;
     bool baseline_set_{false};
   };

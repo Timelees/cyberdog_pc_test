@@ -51,6 +51,7 @@ FootballSimulationInputPublisher::FootballSimulationInputPublisher()
     odom_topic_template_ = declare_parameter<std::string>(
       "odom_topic_template", "/global_vio/{namespace}/odom");
     publish_odom_ = declare_parameter<bool>("publish_odom", true);
+    publish_ball_ = declare_parameter<bool>("publish_ball", true);
     publish_path_ = declare_parameter<bool>("publish_path", true);
     ball_topic_ = declare_parameter<std::string>("ball_topic", "/football/ball_pose");
     ball_override_topic_ = declare_parameter<std::string>(
@@ -100,8 +101,10 @@ FootballSimulationInputPublisher::FootballSimulationInputPublisher()
         expandNamespace(odom_topic_template_, robot_namespace_),
         rclcpp::SensorDataQoS().keep_last(10));
     }
-    ball_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(
-      ball_topic_, rclcpp::SensorDataQoS().keep_last(5));
+    if (publish_ball_) {
+      ball_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(
+        ball_topic_, rclcpp::SensorDataQoS().keep_last(5));
+    }
     ball_override_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
       ball_override_topic_, rclcpp::QoS(1).reliable(),
       [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
@@ -258,7 +261,9 @@ void FootballSimulationInputPublisher::publishScene()
       odom_pub_->publish(odom);
     }
 
-    ball_pub_->publish(makePose(stamp, ball_x_, ball_y_, 0.0));
+    if (ball_pub_) {
+      ball_pub_->publish(makePose(stamp, ball_x_, ball_y_, 0.0));
+    }
     kick_target_pub_->publish(makePose(stamp, kick_target_x_, kick_target_y_, 0.0));
 
     std_msgs::msg::String striker;

@@ -1,3 +1,4 @@
+# 单机仿真参数文件
 football_simulation_input_publisher:
   ros__parameters:
     ball_override_topic: /football/simulation/ball_override  # 测试时运行中注入偏球位置；无人发布时不影响仿真。
@@ -194,7 +195,7 @@ football_visualization_node:
     team_id: a  # striker 所属队伍。
     show_field_boundary: true  # 是否显示场地边界。
     show_ball_marker: true  # 是否显示足球 Marker。
-    show_ball_avoidance_zone: true  # 是否显示到达 approach pose 前不得进入的足球禁入圆。
+    show_ball_avoidance_zone: true  # 只显示地面禁入圆轮廓，不显示随球旋转的半透明填充层。
     ball_avoidance_radius_m: 0.46  # 可视化足球禁入圆半径，需与仿真局部规划器保持一致。
     control_state_topic: football/state  # 用于显示绕球、接触和推球阶段的足球控制状态话题。
     show_goal_markers: true  # 是否显示两队球门和射门目标。

@@ -217,6 +217,12 @@ FootballVisualizationNode::FootballVisualizationNode()
     publish_rate_hz_ = declare_parameter<double>("publish_rate_hz", 5.0);
     stale_timeout_sec_ = declare_parameter<double>("stale_timeout_sec", 1.5);
     marker_lifetime_sec_ = declare_parameter<double>("marker_lifetime_sec", 0.0);
+    global_path_width_m_ = declare_parameter<double>("global_path_width_m", 0.07);
+    local_trajectory_width_m_ = declare_parameter<double>(
+      "local_trajectory_width_m", 0.10);
+    if (global_path_width_m_ <= 0.0 || local_trajectory_width_m_ <= 0.0) {
+      throw std::invalid_argument("path marker widths must be positive");
+    }
     use_delete_all_before_publish_ = declare_parameter<bool>("use_delete_all_before_publish", false);
     velocity_arrow_scale_ = declare_parameter<double>("velocity_arrow_scale", 1.0);
     other_robot_length_m_ = declare_parameter<double>("other_robot_length_m", 0.562);
@@ -750,34 +756,16 @@ void FootballVisualizationNode::appendBallAvoidanceZone(
   if (!transformPoseToTarget(ball_in, ball)) {
     return;
   }
-  const bool contact_phase = control_state_ == "CONTACT_ACQUIRE" ||
-    control_state_ == "PUSH_BALL" || control_state_ == "PUSH_REALIGN";
-
-  auto fill = makeBaseMarker(
-    target_frame_, "ball_approach_exclusion", 60,
-    visualization_msgs::msg::Marker::CYLINDER, stamp);
-  fill.pose = ball.pose;
-  fill.pose.position.z = 0.012;
-  fill.scale.x = 2.0 * ball_avoidance_radius_m_;
-  fill.scale.y = 2.0 * ball_avoidance_radius_m_;
-  fill.scale.z = 0.018;
-  if (contact_phase) {
-    setColor(fill, 0.1f, 0.9f, 0.25f, 0.10f);
-  } else {
-    setColor(fill, 1.0f, 0.35f, 0.05f, 0.16f);
-  }
-  array.markers.push_back(fill);
-
+  // Keep the exclusion visualization attached to the ground, not to the
+  // ball pose.  A translucent CYLINDER inherited the rolling ball's
+  // orientation in Gazebo and looked like a rotating orange disc.  The
+  // planner only needs a planar radius, so a ground outline is both accurate
+  // and much less distracting.
   auto outline = makeBaseMarker(
     target_frame_, "ball_approach_exclusion", 61,
     visualization_msgs::msg::Marker::LINE_STRIP, stamp);
   outline.scale.x = 0.035;
-  setColor(
-    outline,
-    contact_phase ? 0.1f : 1.0f,
-    contact_phase ? 0.9f : 0.25f,
-    contact_phase ? 0.25f : 0.05f,
-    0.95f);
+  setColor(outline, 1.0f, 0.75f, 0.10f, 0.95f);
   constexpr int kSegments = 64;
   for (int index = 0; index <= kSegments; ++index) {
     const double angle = 2.0 * M_PI * static_cast<double>(index) /
@@ -785,22 +773,10 @@ void FootballVisualizationNode::appendBallAvoidanceZone(
     geometry_msgs::msg::Point point;
     point.x = ball.pose.position.x + ball_avoidance_radius_m_ * std::cos(angle);
     point.y = ball.pose.position.y + ball_avoidance_radius_m_ * std::sin(angle);
-    point.z = 0.025;
+    point.z = 0.015;
     outline.points.push_back(point);
   }
   array.markers.push_back(outline);
-
-  auto label = makeBaseMarker(
-    target_frame_, "ball_approach_exclusion", 62,
-    visualization_msgs::msg::Marker::TEXT_VIEW_FACING, stamp);
-  label.pose.position.x = ball.pose.position.x;
-  label.pose.position.y = ball.pose.position.y - ball_avoidance_radius_m_ - 0.12;
-  label.pose.position.z = 0.12;
-  label.scale.z = 0.13;
-  label.text = contact_phase ? "contact/push zone" : "approach exclusion r=" +
-    std::to_string(ball_avoidance_radius_m_).substr(0, 4) + "m";
-  setColor(label, 1.0f, 0.8f, 0.2f, 1.0f);
-  array.markers.push_back(label);
 }
 
 void FootballVisualizationNode::appendFieldBoundary(
@@ -886,7 +862,11 @@ void FootballVisualizationNode::appendPath(
     auto line = makeBaseMarker(
       target_frame_, marker_namespace, id,
       visualization_msgs::msg::Marker::LINE_STRIP, stamp);
-    line.scale.x = marker_namespace == "local_trajectory" ? 0.055 : 0.035;
+    const bool is_local_trajectory =
+      marker_namespace == "local_trajectory" ||
+      marker_namespace.rfind("trajectory_", 0) == 0;
+    line.scale.x = is_local_trajectory ?
+      local_trajectory_width_m_ : global_path_width_m_;
     setColor(line, r, g, b, 0.95f);
     for (auto pose : path.poses) {
       if (pose.header.frame_id.empty()) {
@@ -1520,7 +1500,12 @@ void FootballVisualizationNode::publishMarkers()
         appendBallAvoidanceZone(ball_markers, ball_pose_, stamp);
       }
     }
-    if (have_approach_ && fresh(approach_time_, stamp)) {
+    const bool approaching_ball = !have_control_state_ ||
+      control_state_ == "NAV_TRANSIT" ||
+      control_state_ == "OBSTACLE_APPROACH" ||
+      control_state_ == "BALL_APPROACH" ||
+      control_state_ == "APPROACH_BEHIND_BALL";
+    if (approaching_ball && have_approach_ && fresh(approach_time_, stamp)) {
       appendPoseMarker(
         approach_markers,
         approach_pose_,
@@ -1564,7 +1549,7 @@ void FootballVisualizationNode::publishMarkers()
     }
     if (show_ball_marker_ &&
       have_ball_ &&
-      have_approach_ &&
+      approaching_ball && have_approach_ &&
       fresh(ball_time_, stamp) &&
       fresh(approach_time_, stamp))
     {
@@ -1616,7 +1601,8 @@ void FootballVisualizationNode::publishMarkers()
       const auto role_it = robot_roles_.find(robot_namespace);
       if (pose_it == robot_approach_poses_.end() ||
         time_it == robot_approach_times_.end() || !fresh(time_it->second, stamp) ||
-        role_it == robot_roles_.end() || role_it->second != "STRIKER")
+        role_it == robot_roles_.end() || role_it->second != "STRIKER" ||
+        (robot_namespace == self_namespace_ && !approaching_ball))
       {
         continue;
       }

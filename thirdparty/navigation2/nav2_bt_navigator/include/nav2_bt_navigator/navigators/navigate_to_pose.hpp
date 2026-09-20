@@ -70,7 +70,7 @@ public:
    * @brief Get action name for this navigator
    * @return string Name of action server
    */
-  std::string getName() {return std::string("navigate_to_pose");}
+  std::string getName() {return action_name_;}
 
   /**
    * @brief Get navigator's default BT
@@ -78,6 +78,8 @@ public:
    * @return string Filepath to default XML
    */
   std::string getDefaultBTFilepath(rclcpp_lifecycle::LifecycleNode::WeakPtr node) override;
+
+  std::string action_name_{"navigate_to_pose"};
 
 protected:
   /**

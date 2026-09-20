@@ -141,11 +141,6 @@ PlannerServer::on_configure(const rclcpp_lifecycle::State & state)
     "compute_path_through_poses",
     std::bind(&PlannerServer::computePlanThroughPoses, this));
 
-  action_server_spline_poses_ = std::make_unique<ActionServerSplinePoses>(
-    rclcpp_node_,
-    "compute_path_spline_poses",
-    std::bind(&PlannerServer::computePlanSplinePoses, this));
-
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
@@ -157,7 +152,6 @@ PlannerServer::on_activate(const rclcpp_lifecycle::State & state)
   plan_publisher_->on_activate();
   action_server_pose_->activate();
   action_server_poses_->activate();
-  action_server_spline_poses_->activate();
   costmap_ros_->on_activate(state);
 
   PlannerMap::iterator it;
@@ -178,7 +172,6 @@ PlannerServer::on_deactivate(const rclcpp_lifecycle::State & state)
 
   action_server_pose_->deactivate();
   action_server_poses_->deactivate();
-  action_server_spline_poses_->deactivate();
   plan_publisher_->on_deactivate();
   costmap_ros_->on_deactivate(state);
 
@@ -200,7 +193,6 @@ PlannerServer::on_cleanup(const rclcpp_lifecycle::State & state)
 
   action_server_pose_.reset();
   action_server_poses_.reset();
-  action_server_spline_poses_.reset();
   plan_publisher_.reset();
   tf_.reset();
   costmap_ros_->on_cleanup(state);
@@ -413,67 +405,6 @@ PlannerServer::computePlanThroughPoses()
     action_server_poses_->terminate_current();
   }
 }
-void
-PlannerServer::computePlanSplinePoses()
-{
-  auto start_time = steady_clock_.now();
-
-  // Initialize the ComputePathToPose goal and result
-  auto goal = action_server_spline_poses_->get_current_goal();
-  auto result = std::make_shared<ActionSplinePoses::Result>();
-  nav_msgs::msg::Path concat_path;
-  try {
-    if (isServerInactive(action_server_spline_poses_) ||
-      isCancelRequested(action_server_spline_poses_))
-    {
-      return;
-    }
-
-    getPreemptedGoalIfRequested(action_server_spline_poses_, goal);
-
-    if (goal->poses.size() <= 1) {
-      RCLCPP_WARN(
-        get_logger(),
-        "Compute path through poses requested a plan with no viapoint poses, returning.");
-      action_server_spline_poses_->terminate_current();
-      return;
-    }
-
-    waitForCostmap();
-
-    result->path = getPlan(goal->poses, goal->planner_id);
-    // check path for validity
-    if (!validatePath(
-        action_server_spline_poses_, goal->poses.back(), result->path,
-        goal->planner_id))
-    {
-      RCLCPP_WARN(get_logger(), "Path is invalid for executing.");
-      action_server_spline_poses_->terminate_current();
-      return;
-    }
-    // Publish the plan for visualization purposes
-    publishPlan(result->path);
-
-    auto cycle_duration = steady_clock_.now() - start_time;
-    result->planning_time = cycle_duration;
-
-    if (max_planner_duration_ && cycle_duration.seconds() > max_planner_duration_) {
-      RCLCPP_WARN(
-        get_logger(),
-        "Planner loop missed its desired rate of %.4f Hz. Current loop rate is %.4f Hz",
-        1 / max_planner_duration_, 1 / cycle_duration.seconds());
-    }
-    action_server_spline_poses_->succeeded_current(result);
-  } catch (std::exception & ex) {
-    RCLCPP_WARN(
-      get_logger(),
-      "%s plugin failed to plan through %li points with final goal (%.2f, %.2f): \"%s\"",
-      goal->planner_id.c_str(), goal->poses.size(), goal->poses.back().pose.position.x,
-      goal->poses.back().pose.position.y, ex.what());
-    action_server_spline_poses_->terminate_current();
-  }
-}
-
 void
 PlannerServer::computePlan()
 {

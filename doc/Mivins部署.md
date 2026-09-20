@@ -66,12 +66,14 @@ colcon build --packages-up-to vins --merge-install
 ```bash
 # 在宿主机执行
 cd ~/code/cyberdog2_pc_ws/src/env
-bash deploy_apriltag.sh
+bash deploy_mivins.sh
 ```
 
 ## 使用
 
 ### 脚本启动方式
+
+进入本机的galactic docker中，更新dds环境变量后
 
 使用[start_vio.sh](../env/start_vio.sh)启动多台机器人的realsense相机驱动，以及激活VIO节点
 

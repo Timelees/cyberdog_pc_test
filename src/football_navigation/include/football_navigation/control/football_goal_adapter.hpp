@@ -149,6 +149,7 @@ private:
   double alignment_progress_window_sec_;
   double alignment_min_error_improvement_rad_;
   double alignment_reacquire_lateral_m_;
+  double alignment_position_loss_grace_sec_{0.35};
   double approach_speed_limit_mps_;
   double obstacle_speed_limit_mps_;
   double ball_approach_speed_limit_mps_;
@@ -173,6 +174,7 @@ private:
   double push_realign_lateral_error_m_;
   double push_enter_yaw_error_rad_;
   double push_exit_yaw_error_rad_;
+  double push_direction_tracking_gain_{0.25};
   double push_contact_acquire_timeout_sec_;
   double contact_acquire_min_hold_sec_;
   double push_contact_stable_hold_sec_;
@@ -225,6 +227,7 @@ private:
   rclcpp::Time recovery_hold_until_;
   rclcpp::Time kick_alignment_since_;
   rclcpp::Time alignment_bad_since_;
+  rclcpp::Time alignment_position_lost_since_;
   rclcpp::Time alignment_started_;
   rclcpp::Time alignment_progress_window_started_;
   rclcpp::Time drive_through_started_;

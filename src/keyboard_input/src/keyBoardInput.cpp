@@ -25,7 +25,12 @@ constexpr int32_t kMotionCodeTargetBusy = 3011;
 constexpr int32_t kMotionCodeProtected = 3013;
 
 constexpr double kLoopPeriodSec = 0.05;
-constexpr int64_t kDefaultStepDurationMs = 250;
+// A terminal only exposes key characters, not key-release events.  Holding a
+// key therefore relies on the desktop's auto-repeat.  The common first-repeat
+// delay is 500 ms, so a 250 ms watchdog sends SERVO_END before the first
+// repeated character arrives and immediately starts the gait again.  Keep a
+// margin over that delay to avoid a START -> END -> START cycle.
+constexpr int64_t kDefaultStepDurationMs = 800;
 constexpr float kForwardVelocity = 0.20F;
 constexpr float kLateralVelocity = 0.15F;
 constexpr float kTurnYawRate = 1.0F;
@@ -305,13 +310,19 @@ void KeyboardInput::HandleKey(char key)
 		case '3':
 			StopWalking();
 			current_motion_id_ = kMotionIdSlowWalk;
-			CallMotionResult(kMotionIdSlowWalk, "切换为慢走步态");
+			RCLCPP_INFO(
+				node_->get_logger(),
+				"已选择慢走步态 motion_id=%d，下一条移动指令将通过 ServoCmd 启动",
+				current_motion_id_);
 			break;
 
 		case '4':
 			StopWalking();
 			current_motion_id_ = kMotionIdFastWalk;
-			CallMotionResult(kMotionIdFastWalk, "切换为快走步态");
+			RCLCPP_INFO(
+				node_->get_logger(),
+				"已选择快走步态 motion_id=%d，下一条移动指令将通过 ServoCmd 启动",
+				current_motion_id_);
 			break;
 
 		case 'w':

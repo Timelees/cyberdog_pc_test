@@ -109,9 +109,10 @@ bool SimpleGoalChecker::isGoalReached(
     double dx = query_pose.position.x - goal_pose.position.x,
       dy = query_pose.position.y - goal_pose.position.y;
 
-    // ym test
-    RCLCPP_INFO(node->get_logger(), "[goal_delta_xy = %lf]",
-    dx * dx + dy * dy );
+    RCLCPP_DEBUG_THROTTLE(
+      node->get_logger(), *node->get_clock(), 1000,
+      "goal_distance_xy=%.3f tolerance=%.3f",
+      std::hypot(dx, dy), xy_goal_tolerance_);
 
     if (dx * dx + dy * dy > xy_goal_tolerance_sq_) {
       return false;
@@ -126,9 +127,9 @@ bool SimpleGoalChecker::isGoalReached(
     tf2::getYaw(query_pose.orientation),
     tf2::getYaw(goal_pose.orientation));
 
-    // ym test
-    RCLCPP_INFO(node->get_logger(), "[shortest_angular_distance = %lf]",
-    dyaw );
+  RCLCPP_DEBUG_THROTTLE(
+    node->get_logger(), *node->get_clock(), 1000,
+    "goal_yaw_error=%.3f tolerance=%.3f", dyaw, yaw_goal_tolerance_);
   return fabs(dyaw) < yaw_goal_tolerance_;
 }
 

@@ -1,60 +1,58 @@
-# Per-robot production overrides. Identity, frames and odom topics are injected by launch.
+# 真实机器人参数覆盖文件；机器人身份、坐标系和里程计话题由 launch 注入。
 football_goal_adapter:
   ros__parameters:
-    # tag_global covers the complete test field.  The reusable common file has
-    # a smaller conservative boundary that rejects measured positions such as
-    # the real-test default ball_x=-2.22.
-    field_min_x: -8.0
-    field_max_x: 8.0
-    field_min_y: -4.0
-    field_max_y: 4.0
-    boundary_margin_m: 0.25
-    ball_boundary_margin_m: 0.12
-    approach_boundary_margin_m: 0.25
-    approach_speed_limit_mps: 0.25
-    obstacle_speed_limit_mps: 0.15
-    ball_approach_speed_limit_mps: 0.12
-    contact_acquire_speed_limit_mps: 0.07
-    push_speed_limit_mps: 0.10
-    obstacle_reaction_time_sec: 0.35
-    obstacle_braking_deceleration_mps2: 0.60
-    obstacle_prediction_horizon_sec: 0.90
+    field_min_x: -8.0  # 实机场地安全边界最小 X 坐标。
+    field_max_x: 8.0  # 实机场地安全边界最大 X 坐标。
+    field_min_y: -4.0  # 实机场地安全边界最小 Y 坐标。
+    field_max_y: 4.0  # 实机场地安全边界最大 Y 坐标。
+    boundary_margin_m: 0.25  # 普通目标距实机场地边界的最小余量。
+    ball_boundary_margin_m: 0.12  # 足球观测距实机场地边界的最小余量。
+    approach_boundary_margin_m: 0.25  # 球后接近目标距边界的最小余量。
+    approach_speed_limit_mps: 0.25  # 远距离正常接近阶段最高线速度。
+    obstacle_speed_limit_mps: 0.15  # 障碍物附近最高线速度。
+    ball_approach_speed_limit_mps: 0.12  # 近球接近阶段最高线速度。
+    contact_acquire_speed_limit_mps: 0.07  # 建立触球阶段最高线速度。
+    push_speed_limit_mps: 0.10  # 稳定推球阶段最高线速度。
+    ball_approach_distance_m: 1.25  # 距球低于该距离时切换到近球限速。
+    ball_approach_exit_distance_m: 1.40  # 距球超过该距离时解除近球限速。
+    obstacle_reaction_time_sec: 0.35  # 实机动态障碍制动计算采用的反应时间。
+    obstacle_braking_deceleration_mps2: 0.60  # 实机障碍减速采用的制动减速度。
+    obstacle_prediction_horizon_sec: 0.90  # 实机动态障碍位置预测时间范围。
 
 football_trajectory_adapter:
   ros__parameters:
-    output_tracking_pose_topic: tracking_pose
-    output_tracking_heartbeat_topic: tracking_pose_heartbeat
-    tracking_pose_heartbeat_hz: 10.0
-    planner_update_rate_hz: 2.0
+    output_tracking_pose_topic: tracking_pose  # 几何跟踪目标输出话题。
+    output_tracking_heartbeat_topic: tracking_pose_heartbeat  # 跟踪目标新鲜度心跳话题。
+    tracking_pose_heartbeat_hz: 10.0  # 跟踪目标心跳发布频率。
+    planner_update_rate_hz: 2.0  # 几何目标允许更新给规划器的最高频率。
 
 football_tracking_action_client:
   ros__parameters:
-    # Keep the PC football navigator separate from the robot's onboard NavAB
-    # client, which also uses /cyberdog_<n>/navigate_to_pose.
-    action_name: football/navigate_to_pose
-    tracking_pose_topic: tracking_pose_heartbeat
-    require_costmap_ready: true
-    local_costmap_topic: local_costmap/costmap
-    planner_costmap_topic: global_costmap/costmap
-    costmap_timeout_sec: 1.50
-    minimum_costmap_marked_cells: 1
-    tick_rate_hz: 10.0
-    send_period_sec: 0.20
-    require_slow_walk: true
-    motion_status_topic: motion_status
+    action_name: football/navigate_to_pose  # 独立于机载 NavAB 的足球导航 Action 名称。
+    tracking_pose_topic: tracking_pose_heartbeat  # Action 客户端使用的目标心跳话题。
+    require_costmap_ready: true  # 发送导航目标前是否要求代价地图有效。
+    local_costmap_topic: local_costmap/costmap  # 局部代价地图输入话题。
+    planner_costmap_topic: global_costmap/costmap  # 全局规划代价地图输入话题。
+    costmap_timeout_sec: 1.50  # 代价地图消息新鲜度超时阈值。
+    minimum_costmap_marked_cells: 1  # 判定代价地图有效所需的最少标记栅格数。
+    tick_rate_hz: 10.0  # Action 客户端状态检查频率。
+    send_period_sec: 0.20  # 两次导航目标发送之间的最短间隔。
+    require_slow_walk: true  # 首次发送目标前是否要求导航步态就绪。
+    expected_motion_id: 309  # 路径跟随所需的机器人运动模式编号。
+    motion_status_topic: motion_status  # 机器人运动状态输入话题。
 
 football_visualization_node:
   ros__parameters:
-    field_frame: tag_global
-    target_frame: tag_global
-    keyboard_robot_namespace: cyberdog_3
-    show_ball_marker: true
-    show_ball_avoidance_zone: true
-    show_goal_markers: true
-    show_ego_robot_marker: true
-    show_other_robot_markers: true
-    enable_costmap_markers: true
-    costmap_topic: local_costmap/costmap
-    path_topic: plan
-    show_robot_collision_ellipses: true
-    expect_motion_cmds: false
+    field_frame: tag_global  # 可视化使用的全局场地坐标系。
+    target_frame: tag_global  # Marker 输出目标坐标系。
+    keyboard_robot_namespace: cyberdog_3  # 以特殊颜色显示的键盘控制机器人。
+    show_ball_marker: true  # 是否显示足球 Marker。
+    show_ball_avoidance_zone: true  # 是否显示足球保护区。
+    show_goal_markers: true  # 是否显示球门和射门目标。
+    show_ego_robot_marker: true  # 是否显示本机 Marker。
+    show_other_robot_markers: true  # 是否显示其他机器人 Marker。
+    enable_costmap_markers: true  # 是否显示代价地图栅格 Marker。
+    costmap_topic: local_costmap/costmap  # 可视化使用的代价地图话题。
+    path_topic: plan  # 可视化使用的全局规划路径话题。
+    show_robot_collision_ellipses: true  # 是否显示机器人外接碰撞椭圆。
+    expect_motion_cmds: false  # 状态面板是否要求必须收到实机运动命令。

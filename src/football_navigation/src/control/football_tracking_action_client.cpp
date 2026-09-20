@@ -96,6 +96,10 @@ FootballTrackingActionClient::FootballTrackingActionClient()
   control_valid_topic_ =
     declare_parameter<std::string>("control_valid_topic", "football/control_valid");
   require_slow_walk_ = declare_parameter<bool>("require_slow_walk", true);
+  expected_motion_id_ = declare_parameter<int>("expected_motion_id", 309);
+  if (expected_motion_id_ <= 0) {
+    throw std::invalid_argument("expected_motion_id must be positive");
+  }
   motion_status_topic_ = declare_parameter<std::string>("motion_status_topic", "motion_status");
   require_costmap_ready_ = declare_parameter<bool>(
     "require_costmap_ready", false);
@@ -229,18 +233,28 @@ void FootballTrackingActionClient::motionStatusCallback(
     return;
   }
   const bool ready = !require_slow_walk_ ||
-    (msg->motion_id == 303 &&
+    (msg->motion_id == expected_motion_id_ &&
     (msg->switch_status == protocol::msg::MotionStatus::NORMAL ||
     msg->switch_status == protocol::msg::MotionStatus::TRANSITIONING));
-  const bool was_ready = slow_walk_ready_;
-  slow_walk_ready_ = ready;
+  const bool was_ready = navigation_gait_ready_;
+  navigation_gait_ready_ = ready;
   if (!was_ready && ready && require_slow_walk_) {
     RCLCPP_INFO(
-      get_logger(), "robot slow-walk gate ready (motion_id=%d switch_status=%d)",
+      get_logger(), "robot navigation-gait gate ready (motion_id=%d switch_status=%d)",
       msg->motion_id, msg->switch_status);
   }
   if (was_ready && !ready) {
-    cancelActiveGoal("robot motion state is not slow walk");
+    // MotionManager may briefly report the 118 pre-motion or a transition
+    // state while establishing gait 309.  Cancelling NavigateToPose here
+    // resets DWB before the robot can accelerate and creates an endless
+    // cancel/restart loop.  The gate is still required before a new goal is
+    // sent; an already accepted goal is kept alive while the servo adaptor
+    // retries SERVO_START for gait 309.
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 2000,
+      "navigation gait temporarily unavailable: motion_id=%d switch_status=%d; "
+      "keeping active Nav2 goal",
+      msg->motion_id, msg->switch_status);
   }
 }
 
@@ -323,6 +337,18 @@ void FootballTrackingActionClient::cancelActiveGoal(const char * reason)
   bool state_changed = false;
   {
     std::lock_guard<std::mutex> lock(mutex_);
+    // A cancel request is a transaction, not a periodic command.  Several
+    // safety gates are checked by both subscriptions and the timer, so the
+    // same invalid condition can call this method repeatedly while Nav2 is
+    // still unwinding its behavior tree.  Do not advance the generation or
+    // issue another request until the first cancellation has completed.
+    if (cancel_pending_) {
+      have_tracking_pose_ = false;
+      goal_pending_ = false;
+      force_retry_ = true;
+      return;
+    }
+
     const bool had_goal = goal_active_ || goal_pending_ || cancel_pending_;
     const bool had_pose = have_tracking_pose_;
     if (!had_goal && !had_pose) {
@@ -348,8 +374,11 @@ void FootballTrackingActionClient::cancelActiveGoal(const char * reason)
   if (handle) {
     action_client_->async_cancel_goal(
       handle,
-      [this](auto) {
+      [this, handle](auto) {
         std::lock_guard<std::mutex> lock(mutex_);
+        if (active_goal_handle_ != handle) {
+          return;
+        }
         cancel_pending_ = false;
         goal_active_ = false;
         active_goal_handle_.reset();
@@ -493,14 +522,6 @@ void FootballTrackingActionClient::maybeSendGoal()
     return;
   }
 
-  if (require_slow_walk_ && !slow_walk_ready_) {
-    RCLCPP_WARN_THROTTLE(
-      get_logger(), *get_clock(), 2000,
-      "waiting for robot slow-walk state (motion_id=303)");
-    cancelActiveGoal("football control invalid");
-    return;
-  }
-
   if (inKickoffHold(now())) {
     cancelActiveGoal("kickoff hold");
     return;
@@ -515,29 +536,33 @@ void FootballTrackingActionClient::maybeSendGoal()
     return;
   }
 
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (cancel_pending_ || goal_pending_ || goal_active_) {
+      // Once Nav2 has accepted a geometrically valid goal, keep it alive
+      // until Nav2 returns a result or a hard safety callback invalidates
+      // control.  Gait-status transitions and heartbeat jitter must not reset
+      // FollowPath on a walking robot.
+      return;
+    }
+  }
+
+  if (require_slow_walk_ && !navigation_gait_ready_) {
+    RCLCPP_WARN_THROTTLE(
+      get_logger(), *get_clock(), 2000,
+      "waiting for robot navigation gait (motion_id=%d)", expected_motion_id_);
+    return;
+  }
+
   bool pose_stale = false;
   bool completed_pose_unchanged = false;
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (cancel_pending_) {
-      return;
-    }
     if (!have_tracking_pose_) {
       return;
     }
     if ((now() - latest_pose_time_).seconds() > pose_timeout_sec_) {
       pose_stale = true;
-    }
-    if (goal_pending_ && !pose_stale) {
-      return;
-    }
-    if (goal_active_ && !pose_stale) {
-      // Keep one NavigateToPose goal alive until Nav2 reports its result.
-      // The trajectory heartbeat is refreshed at 10 Hz and can move by a few
-      // centimeters because of delayed VIO. Replacing the active goal for
-      // every such update fills Nav2's pending slot and causes the controller
-      // to publish only zero velocities.
-      return;
     }
     completed_pose_unchanged =
       !force_retry_ &&
@@ -650,8 +675,7 @@ void FootballTrackingActionClient::goalResponseCallback(
       }
       cancel = goal_handle &&
         (!control_valid_ || !matchStateAllowsMovement() ||
-        (require_slow_walk_ && !slow_walk_ready_) || !have_tracking_pose_ ||
-        !isSelfStriker() || inKickoffHold(now()) || !costmapsReadyLocked(now()));
+        !isSelfStriker() || inKickoffHold(now()));
     }
   }
 

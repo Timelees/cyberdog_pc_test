@@ -11,6 +11,9 @@ find_package(builtin_interfaces REQUIRED)
 find_package(dwb_core REQUIRED)
 find_package(dwb_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(gazebo_msgs REQUIRED)
+find_package(ignition-msgs5 REQUIRED)
+find_package(ignition-transport8 REQUIRED)
 find_package(nav2_behavior_tree REQUIRED)
 find_package(nav2_costmap_2d REQUIRED)
 find_package(nav2_core REQUIRED)
@@ -21,6 +24,7 @@ find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(protocol REQUIRED)
+find_package(ros_bridge REQUIRED)
 find_package(rcl_interfaces REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -144,6 +148,10 @@ add_executable(football_goal_adapter
 
 add_executable(football_cmd_vel_to_servo src/control/football_cmd_vel_to_servo.cpp)
 ament_target_dependencies(football_cmd_vel_to_servo rclcpp geometry_msgs protocol)
+add_executable(football_servo_to_cyber_guide
+  src/control/football_servo_to_cyber_guide.cpp)
+ament_target_dependencies(football_servo_to_cyber_guide
+  rclcpp protocol ros_bridge std_msgs)
 add_executable(football_scan_frame_relay src/control/football_scan_frame_relay.cpp)
 ament_target_dependencies(football_scan_frame_relay rclcpp sensor_msgs tf2 tf2_ros)
 
@@ -202,6 +210,23 @@ add_executable(football_simulation_input_publisher
   src/simulation/football_simulation_input_publisher.cpp
   src/simulation/football_simulation_input_publisher_node.cpp
 )
+
+add_executable(football_gazebo_state_bridge
+  src/simulation/football_gazebo_state_bridge.cpp)
+ament_target_dependencies(football_gazebo_state_bridge
+  rclcpp gazebo_msgs geometry_msgs nav_msgs)
+
+add_executable(football_gazebo_leg_contact_simulator
+  src/simulation/football_gazebo_leg_contact_simulator.cpp)
+ament_target_dependencies(football_gazebo_leg_contact_simulator
+  rclcpp gazebo_msgs geometry_msgs nav_msgs std_msgs tf2)
+
+add_executable(football_gazebo_marker_bridge
+  src/simulation/football_gazebo_marker_bridge.cpp)
+ament_target_dependencies(football_gazebo_marker_bridge
+  rclcpp visualization_msgs)
+target_link_libraries(football_gazebo_marker_bridge
+  ignition-msgs5::core ignition-transport8::core)
 
 ament_target_dependencies(football_simulation_input_publisher
   rclcpp
@@ -432,6 +457,7 @@ set(football_identity_sources
   src/simulation/football_fake_ball_publisher_node.cpp
   src/simulation/football_simulation_input_publisher.cpp
   src/simulation/football_simulation_input_publisher_node.cpp
+  src/simulation/football_gazebo_leg_contact_simulator.cpp
   src/simulation/football_simulation_navigator.cpp
   src/simulation/football_simulation_navigator_node.cpp
   src/simulation/football_fake_other_robot_publisher.cpp
@@ -461,12 +487,14 @@ set(football_identity_sources
   launch/football_team_simulation.launch.py
   launch/football_robot_runtime.launch.py
   launch/football_real_robot.launch.py
+  launch/football_gazebo_simulation.launch.py
   params/football_single_robot_simulation.yaml
   params/football_team_simulation.yaml
   params/football_runtime_common.yaml
   params/football_real_robot.yaml
   params/football_nav2_real.yaml
   params/football_real_robot_test.yaml
+  params/football_gazebo_sim.yaml
   football_navigation_plugins.xml
   football_navigation_dwb_plugins.xml
 )
@@ -542,9 +570,13 @@ install(TARGETS
   football_multi_robot_obstacle_layer
   football_goal_adapter
   football_cmd_vel_to_servo
+  football_servo_to_cyber_guide
   football_scan_frame_relay
   football_fake_ball_publisher
   football_simulation_input_publisher
+  football_gazebo_state_bridge
+  football_gazebo_leg_contact_simulator
+  football_gazebo_marker_bridge
   football_simulation_navigator
   football_fake_other_robot_publisher
   football_keyboard_robot_controller
@@ -581,6 +613,7 @@ install(FILES
   params/football_real_robot.yaml
   params/football_nav2_real.yaml
   params/football_real_robot_test.yaml
+  params/football_gazebo_sim.yaml
   DESTINATION share/${PROJECT_NAME}/params
 )
 
@@ -640,6 +673,11 @@ if(BUILD_TESTING)
       test/test_football_all_fake_contract.py
     )
   endif()
+
+  ament_add_pytest_test(
+    test_launch_parameter_layering
+    test/test_launch_parameter_layering.py
+  )
 endif()
 
 ament_export_include_directories(include)

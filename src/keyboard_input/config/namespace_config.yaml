@@ -1,6 +1,7 @@
 keyboard_input:
   ros__parameters:
     namespace: cyberdog_1
-    step_duration_ms: 250
+    # Must exceed the desktop keyboard's initial auto-repeat delay (commonly 500 ms).
+    step_duration_ms: 800
     forward_velocity: 0.20
     lateral_velocity: 0.15

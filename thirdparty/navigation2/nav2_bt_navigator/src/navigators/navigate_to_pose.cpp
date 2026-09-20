@@ -53,6 +53,12 @@ NavigateToPoseNavigator::getDefaultBTFilepath(
 {
   std::string default_bt_xml_filename;
   auto node = parent_node.lock();
+  node->declare_parameter<std::string>(
+    "navigate_to_pose_action_name", "navigate_to_pose");
+  node->get_parameter("navigate_to_pose_action_name", action_name_);
+  if (action_name_.empty()) {
+    action_name_ = "navigate_to_pose";
+  }
   std::string pkg_share_dir =
     ament_index_cpp::get_package_share_directory("nav2_bt_navigator");
   node->declare_parameter<std::string>(

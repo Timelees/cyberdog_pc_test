@@ -26,9 +26,17 @@ def node_params(data, node_name):
     return dict(data.get(node_name, {}).get('ros__parameters', {}))
 
 
-def merged_node_params(common, robot, node_name):
+def layered_node_params(common, injected, robot, overrides, node_name):
+    """Merge YAML layers, then apply values owned by the launch interface."""
     output = node_params(common, node_name)
     output.update(node_params(robot, node_name))
+    output.update(node_params(overrides, node_name))
+    # These values come from declared launch arguments (identity, safety gates,
+    # topic/frame wiring, and motion enablement).  Applying them last preserves
+    # the caller's explicit launch configuration.  In particular, a test
+    # launch must be able to disable costmap readiness when it also disables
+    # every obstacle source.
+    output.update(injected)
     return output
 
 
@@ -58,6 +66,9 @@ def normalize_robot_namespace(value):
 def launch_nodes(context):
     common = load_yaml(LaunchConfiguration('runtime_params_file').perform(context))
     robot = load_yaml(LaunchConfiguration('robot_params_file').perform(context))
+    overrides_path = LaunchConfiguration(
+        'robot_overrides_file').perform(context).strip()
+    overrides = load_yaml(overrides_path) if overrides_path else {}
     robot_namespace, robot_index = normalize_robot_namespace(
         LaunchConfiguration('robot_namespace').perform(context))
 
@@ -80,6 +91,8 @@ def launch_nodes(context):
 
     enable_motion = as_bool(
         LaunchConfiguration('enable_motion').perform(context), 'enable_motion')
+    use_sim_time = as_bool(
+        LaunchConfiguration('use_sim_time').perform(context), 'use_sim_time')
     require_striker = as_bool(
         LaunchConfiguration('require_striker_role').perform(context),
         'require_striker_role')
@@ -94,9 +107,9 @@ def launch_nodes(context):
     if minimum_other_robots < 0 or minimum_other_robots > 9:
         raise RuntimeError('minimum_other_robot_count must be between 0 and 9')
 
-    goal = merged_node_params(common, robot, 'football_goal_adapter')
     kick_target_topic = LaunchConfiguration('kick_target_topic').perform(context).strip()
-    goal.update({
+    goal_injected = {
+        'use_sim_time': use_sim_time,
         'self_namespace': robot_namespace,
         'team_id': team_id,
         'field_frame': field_frame,
@@ -109,23 +122,32 @@ def launch_nodes(context):
         'require_striker_role': require_striker,
         'require_other_robot_poses': require_other_robots,
         'minimum_other_robot_count': minimum_other_robots,
-        'cmd_vel_topic': 'cmd_vel',
+        'cmd_vel_topic': 'football/cmd_vel',
         'odom_timeout_sec': float(
             LaunchConfiguration('odom_timeout_sec').perform(context)),
         'max_ball_odom_skew_sec': float(
             LaunchConfiguration('max_ball_odom_skew_sec').perform(context)),
-    })
+    }
     if kick_target_topic:
-        goal.update({
+        goal_injected.update({
             'kick_target_topic': kick_target_topic,
-            'use_team_kick_target': False,
+            # An explicit topic changes where the target comes from; it must
+            # not disable use of the target and silently fall back to the
+            # fixed default_kick_yaw.
+            'use_team_kick_target': True,
         })
+    goal = layered_node_params(
+        common, goal_injected, robot, overrides, 'football_goal_adapter')
 
-    trajectory = merged_node_params(common, robot, 'football_trajectory_adapter')
-    trajectory.update({'target_frame': field_frame})
+    trajectory = layered_node_params(
+        common,
+        {'target_frame': field_frame, 'use_sim_time': use_sim_time},
+        robot,
+        overrides,
+        'football_trajectory_adapter')
 
-    tracking = merged_node_params(common, robot, 'football_tracking_action_client')
-    tracking.update({
+    tracking = layered_node_params(common, {
+        'use_sim_time': use_sim_time,
         'enabled': enable_motion,
         'self_namespace': robot_namespace,
         'team_id': team_id,
@@ -136,7 +158,9 @@ def launch_nodes(context):
         'require_slow_walk': as_bool(
             LaunchConfiguration('require_slow_walk').perform(context),
             'require_slow_walk'),
-    })
+        'expected_motion_id': int(
+            LaunchConfiguration('navigation_motion_id').perform(context)),
+    }, robot, overrides, 'football_tracking_action_client')
 
     actions = [
         Node(
@@ -168,9 +192,8 @@ def launch_nodes(context):
     if as_bool(
             LaunchConfiguration('use_visualization').perform(context),
             'use_visualization'):
-        visualization = merged_node_params(
-            common, robot, 'football_visualization_node')
-        visualization.update({
+        visualization = layered_node_params(common, {
+            'use_sim_time': use_sim_time,
             'self_namespace': robot_namespace,
             'team_id': team_id,
             'field_frame': field_frame,
@@ -179,11 +202,11 @@ def launch_nodes(context):
             'odom_topic': odom_topic,
             'approach_pose_topic': 'football/approach_pose',
             'path_topic': 'plan',
-            'cmd_vel_topic': 'cmd_vel',
+            'cmd_vel_topic': 'football/cmd_vel',
             'expect_motion_cmds': enable_motion,
             'robot_namespaces_csv': robot_namespaces_csv,
             'robot_odom_topic_template': odom_template,
-        })
+        }, robot, overrides, 'football_visualization_node')
         actions.append(Node(
             package='football_navigation',
             executable='football_visualization_node',
@@ -202,6 +225,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'robot_namespace', default_value='cyberdog_1',
             description='Robot namespace matching cyberdog_<1..10>.'),
+        DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('team_id', default_value='auto'),
         DeclareLaunchArgument('field_frame', default_value='tag_global'),
         DeclareLaunchArgument('base_frame', default_value='base_link'),
@@ -220,12 +244,16 @@ def generate_launch_description():
             'robot_params_file',
             default_value=os.path.join(
                 share, 'params', 'football_real_robot.yaml')),
+        DeclareLaunchArgument('robot_overrides_file', default_value=''),
         DeclareLaunchArgument(
             'enable_motion', default_value='false',
             description='Allow the football Action Client to send NavigateToPose goals.'),
         DeclareLaunchArgument(
             'require_slow_walk', default_value='true',
-            description='Only allow goals while motion_status reports slow walk (303).'),
+            description='Only allow goals while motion_status reports the expected navigation gait.'),
+        DeclareLaunchArgument(
+            'navigation_motion_id', default_value='309',
+            description='CyberDog follow-gait motion ID used for path tracking.'),
         DeclareLaunchArgument('require_striker_role', default_value='true'),
         DeclareLaunchArgument('require_other_robot_poses', default_value='true'),
         DeclareLaunchArgument('minimum_other_robot_count', default_value='9'),

@@ -1,7 +1,8 @@
 """Single-robot real-hardware path test with static football inputs.
 
 This launch relays live per-robot odom_global into tag_global but never creates
-fake odometry. It publishes deterministic ball/team inputs for planning tests.
+fake odometry. It publishes deterministic team/target inputs and can either
+publish a fixed test ball or consume a live ball on the same configured topic.
 """
 
 import os
@@ -50,19 +51,35 @@ def launch_global_vio_relay(context):
 def generate_launch_description():
     share = get_package_share_directory('football_navigation')
     real_launch = os.path.join(share, 'launch', 'football_real_robot.launch.py')
+    real_test_params = os.path.join(
+        share, 'params', 'football_real_robot_test.yaml')
     default_rviz_config = os.path.join(
         share, 'rviz', 'football_single_robot_simulation.rviz')
     return LaunchDescription([
-        DeclareLaunchArgument('ball_x', default_value='-2.22'),
-        DeclareLaunchArgument('ball_y', default_value='-1.24'),
-        DeclareLaunchArgument('kick_target_x', default_value='-3.65'),
-        DeclareLaunchArgument('kick_target_y', default_value='-0.74'),
+        DeclareLaunchArgument(
+            'ball_x', default_value='-2.22',
+            description='Fallback only; football_real_robot_test.yaml wins.'),
+        DeclareLaunchArgument(
+            'ball_y', default_value='-1.24',
+            description='Fallback only; football_real_robot_test.yaml wins.'),
+        DeclareLaunchArgument(
+            'kick_target_x', default_value='-3.65',
+            description='Fallback only; football_real_robot_test.yaml wins.'),
+        DeclareLaunchArgument(
+            'kick_target_y', default_value='-0.74',
+            description='Fallback only; football_real_robot_test.yaml wins.'),
         DeclareLaunchArgument(
             'ball_pose_topic', default_value='/football/real_test/ball_pose',
             description='Isolated fixed ball input topic for the real test.'),
         DeclareLaunchArgument(
             'kick_target_topic', default_value='/football/real_test/kick_target',
             description='Isolated fixed kick target topic for the real test.'),
+        DeclareLaunchArgument(
+            'test_publish_ball', default_value='true',
+            description=(
+                'Publish the configured test ball. Set false when a real-ball '
+                'perception node publishes ball_pose_topic; the test input node '
+                'continues to provide the unchanged kick-target/role interfaces.')),
         DeclareLaunchArgument(
             'robot_namespaces_csv', default_value='cyberdog_1',
             description=(
@@ -109,7 +126,7 @@ def generate_launch_description():
             'use_cmd_vel_adapter', default_value='true',
             description=(
                 'Convert Nav2 cmd_vel to namespaced motion_servo_cmd. Motion '
-                'still requires a valid slow-walk (303) status. Set false for '
+                'still requires a valid follow-gait (309) status. Set false for '
                 'a visualization-only dry run.')),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(real_launch),
@@ -127,6 +144,7 @@ def generate_launch_description():
                     'max_ball_odom_skew_sec'),
                 'enable_motion': LaunchConfiguration('enable_motion'),
                 'require_slow_walk': 'true',
+                'navigation_motion_id': '309',
                 'require_striker_role': 'true',
                 'require_other_robot_poses': 'false',
                 'minimum_other_robot_count': '0',
@@ -134,6 +152,14 @@ def generate_launch_description():
                 # Without LaserScan there may be no marked cells to gate on.
                 'require_costmap_ready': 'false',
                 'use_test_inputs': 'true',
+                'test_publish_ball': LaunchConfiguration('test_publish_ball'),
+                # Apply the real-test profile after the shared real-robot
+                # profile. This keeps the tested strategy/Nav2 behavior pinned
+                # to the Gazebo-validated settings without changing any ROS
+                # topic, service or action names.
+                'test_input_params_file': real_test_params,
+                'robot_overrides_file': real_test_params,
+                'nav2_overrides_file': real_test_params,
                 'use_cmd_vel_adapter': LaunchConfiguration(
                     'use_cmd_vel_adapter'),
                 'use_visualization': 'true',

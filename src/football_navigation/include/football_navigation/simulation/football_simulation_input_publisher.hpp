@@ -56,6 +56,7 @@ private:
   double ball_contact_distance_m_{0.42};
   bool simulate_ball_push_{true};
   bool publish_odom_{true};
+  bool publish_ball_{true};
   bool publish_path_{true};
   double ball_push_transfer_gain_{1.0};
   double ball_push_lateral_gain_{0.05};

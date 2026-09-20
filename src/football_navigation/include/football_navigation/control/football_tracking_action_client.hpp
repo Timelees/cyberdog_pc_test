@@ -85,7 +85,8 @@ private:
   bool have_striker_assignment_{false};
   bool control_valid_{false};
   bool require_slow_walk_{true};
-  bool slow_walk_ready_{false};
+  int expected_motion_id_{309};
+  bool navigation_gait_ready_{false};
   std::string motion_status_topic_;
   std::string tactical_role_{"STOP"};
   double kickoff_hold_sec_{3.0};

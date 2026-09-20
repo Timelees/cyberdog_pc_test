@@ -407,7 +407,6 @@ public:
       return pending_handle_->is_canceling();
     }
 
-    info_msg("current_handle run canceling");
     return current_handle_->is_canceling();
   }
 

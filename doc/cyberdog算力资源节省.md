@@ -20,7 +20,7 @@ base:
 
 ## navigation
 
-修改 cyberdog_nav2/navigation_bringup/launch/navigation.launch.py的以下内容
+修改 /opt/ros2/cyberdog/share/navigation_bringup/launch/navigation.launch.py的以下内容
 
 ```yaml
 node_lists = [

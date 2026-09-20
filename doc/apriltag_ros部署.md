@@ -120,7 +120,7 @@ ros2 launch apriltag_ros odom_transform.launch.py
 
 ```bash
 # 命名空间自定
-ros2 topic echo /{namespace}}/apriltag/detections
+ros2 topic echo /detections
 
 ros2 topic echo /{namespace}}/odom_global
 ```

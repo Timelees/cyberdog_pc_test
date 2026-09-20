@@ -5,10 +5,23 @@ football_goal_adapter:
     field_frame: tag_global  # 足球、全局里程计和射门目标所在全局坐标系。
     base_frame: base_link  # 机器人机体坐标系名称。
     ball_pose_topic: /football/ball_pose  # 已校验的全局足球位姿话题。
+    kick_target_topic: ""  # 射门目标话题；空值时由队伍编号自动生成。
     approach_pose_topic: football/approach_pose  # 输出给轨迹适配器的接近目标话题。
+    state_topic: football/state  # 足球控制状态机输出话题。
+    control_valid_topic: football/control_valid  # 是否允许下游执行运动的锁存话题。
+    localization_valid_topic: football/localization_valid  # 当前定位是否有效的锁存话题。
     speed_limit_topic: speed_limit  # 输出 Nav2 绝对速度上限的话题。
+    cmd_vel_topic: cmd_vel  # 用于无进展检测的速度命令输入话题。
+    self_namespace: ""  # 当前机器人命名空间；空值时读取节点命名空间。
+    team_id: ""  # 所属队伍 a 或 b；空值时由机器人编号推断。
     require_striker_role: true  # 仅当前 striker 允许控制机器人。
     use_team_kick_target: true  # 使用团队发布的球目的地作为射门目标。
+    striker_topic: ""  # striker 分配话题；空值时按 team_id 自动生成。
+    role_topic: football/role  # 当前机器人的战术角色话题。
+    tactical_target_topic: football/tactical_target  # 非 striker 战术目标话题。
+    goal_event_topic: /football/goal_scored  # 进球事件话题，触发短时运动保持。
+    match_state_topic: /football/match_state  # 比赛状态话题。
+    odom_global_topic: ""  # 本机全局里程计话题；空值时按命名空间自动生成。
     robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10  # 十台机器人的命名空间。
     robot_odom_topic_template: /global_vio/{namespace}/odom  # 其他机器人全局里程计话题模板。
     require_other_robot_poses: true  # 缺少其他机器人位姿时安全停止。
@@ -17,31 +30,97 @@ football_goal_adapter:
     ball_timeout_sec: 0.45  # 足球消息超时阈值。
     max_ball_age_sec: 0.35  # 接受足球消息的最大时间年龄。
     future_tolerance_sec: 0.08  # 允许的未来时间戳容差。
+    max_ball_speed_mps: 8.0  # 接受的足球最大估计速度，超过时视为异常观测。
+    max_ball_jump_m: 0.35  # 相邻足球观测允许的最大位置跳变量。
     odom_timeout_sec: 0.45  # 本机全局里程计超时阈值。
     other_robot_timeout_sec: 0.70  # 其他机器人全局里程计超时阈值。
     role_timeout_sec: 0.80  # striker 或角色消息超时阈值。
+    tactical_target_timeout_sec: 0.80  # 非 striker 战术目标超时阈值。
     kick_target_timeout_sec: 0.80  # 团队射门目标超时阈值。
+    kickoff_hold_sec: 3.0  # 进球或开球切换后暂停运动的时间。
     max_ball_odom_skew_sec: 0.12  # 足球与本机里程计最大时间差。
     approach_distance_m: 0.60  # 标准球后接近点距足球的距离。
     approach_reached_m: 0.10  # 判定到达接近点的距离阈值。
     approach_reached_exit_m: 0.18  # 离开接近点的迟滞距离阈值。
     align_yaw_tolerance: 0.10  # 推球前允许的航向误差。
+    alignment_reset_grace_sec: 0.25  # 对准短暂变差后重置计时器前的宽限时间。
+    alignment_max_duration_sec: 6.0  # 单次原地对准允许的最长持续时间。
+    alignment_max_rotation_rad: 3.50  # 单次对准允许累计旋转的最大角度。
+    alignment_progress_window_sec: 0.80  # 判断航向对准是否有进展的统计窗口。
+    alignment_min_error_improvement_rad: 0.025  # 每个统计窗口要求的最小航向误差改善量。
+    alignment_reacquire_lateral_m: 0.18  # 对准失败后重新获取位置时的侧向偏移量。
+    alignment_position_loss_grace_sec: 0.35  # 球后点对准期间容忍短时位姿/球位抖动，避免反复重规划徘徊。
+    approach_speed_limit_mps: 0.38  # 正常远距离接近阶段的最高线速度。
+    obstacle_speed_limit_mps: 0.22  # 障碍物附近接近阶段的最高线速度。
+    ball_approach_speed_limit_mps: 0.20  # 接近足球阶段的最高线速度。
+    contact_acquire_speed_limit_mps: 0.07  # 建立稳定触球阶段的最高线速度。
+    push_speed_limit_mps: 0.12  # 稳定推球阶段的最高线速度。
     push_target_lead_m: 0.32  # 触球阶段机器人中心在球前的目标引导距离。
     push_enter_lateral_error_m: 0.08  # 进入推球的最大横向误差。
     push_exit_lateral_error_m: 0.14  # 退出推球的横向误差迟滞阈值。
     push_realign_lateral_error_m: 0.09  # 推球中球发生轻微横向偏移时触发左右重新对齐。
     push_enter_yaw_error_rad: 0.10  # 进入推球的最大航向误差。
     push_exit_yaw_error_rad: 0.18  # 退出推球的航向误差迟滞阈值。
+    push_direction_tracking_gain: 0.25  # 推球中持续将推进方向平滑收敛到“当前球位->球门”方向。
+    push_contact_acquire_timeout_sec: 2.00  # 首次稳定接触足球的软超时时间。
+    contact_acquire_min_hold_sec: 0.30  # 触球状态至少保持的时间。
+    push_contact_stable_hold_sec: 0.20  # 判定接触稳定所需连续保持时间。
+    push_contact_progress_timeout_sec: 1.50  # 触球距离长期无改善时的超时时间。
+    push_contact_hard_timeout_sec: 6.00  # 建立触球的绝对最长时间。
+    push_contact_progress_epsilon_m: 0.01  # 判定触球距离有改善的最小变化量。
+    push_alignment_loss_sec: 0.35  # 推球对准持续丢失后退出推球的时间。
+    push_contact_loss_sec: 0.45  # 稳定触球持续丢失后重新获取的时间。
     robot_collision_length_m: 0.562  # 机器人碰撞矩形长度。
     robot_collision_width_m: 0.339  # 机器人碰撞矩形宽度。
     collision_ellipse_expansion_m: 0.05  # 外接碰撞椭圆的额外安全扩张量。
+    robot_front_extent_m: 0.302  # 机器人中心到机身前端的距离。
+    robot_rear_extent_m: 0.301  # 机器人中心到机身后端的距离。
+    robot_half_width_m: 0.170  # 机器人机身半宽。
+    ball_radius_m: 0.11  # 足球半径。
+    contact_tolerance_m: 0.035  # 球与机器人前端接触判定的附加容差。
+    push_goal_crossing_margin_m: 0.04  # 推球目标越线时保留的几何余量。
+    ball_protection_radius_m: 0.28  # 非触球阶段球周围的基础保护半径。
+    max_local_goal_distance_m: 4.00  # base_link 局部目标允许的最大距离。
+    path_block_radius_m: 0.50  # 判断其他机器人阻挡接近路径的走廊半径。
     obstacle_slowdown_clearance_m: 0.45  # 障碍物净空低于该值开始降速。
     obstacle_slowdown_exit_clearance_m: 0.60  # 障碍物远离后解除降速的迟滞阈值。
     obstacle_stop_clearance_m: 0.03  # 障碍物净空低于该值进入安全停止。
+    obstacle_reaction_time_sec: 0.35  # 动态障碍制动距离计算采用的反应时间。
+    obstacle_braking_deceleration_mps2: 0.65  # 障碍物附近速度限制采用的制动减速度。
+    obstacle_prediction_horizon_sec: 0.65  # 动态障碍位置预测的时间范围。
+    ball_approach_distance_m: 1.25  # 机器人距球低于该值时进入近球减速阶段。
+    ball_approach_exit_distance_m: 1.40  # 机器人距球超过该值时退出近球减速阶段。
+    speed_limit_update_threshold_mps: 0.015  # 速度上限变化达到该值才立即发布更新。
+    speed_limit_refresh_sec: 0.25  # 速度上限未变化时的周期刷新间隔。
     field_min_x: -2.0  # 场地安全边界最小 X 坐标。
     field_max_x: 8.0  # 场地安全边界最大 X 坐标。
     field_min_y: -3.0  # 场地安全边界最小 Y 坐标。
     field_max_y: 3.0  # 场地安全边界最大 Y 坐标。
+    boundary_margin_m: 0.25  # 普通目标与场地边界之间的最小余量。
+    ball_boundary_margin_m: 0.12  # 接受足球位置时要求的边界余量。
+    approach_boundary_margin_m: 0.25  # 生成接近目标时要求的边界余量。
+    maximum_ball_chase_distance_m: 8.0  # 允许机器人追逐足球的最大距离。
+    minimum_kick_target_distance_m: 0.30  # 足球到射门目标方向向量的最小有效长度。
+    minimum_behind_alignment_m: 0.18  # 判定机器人位于球后所需的最小纵向距离。
+    maximum_kick_lateral_error_m: 0.20  # 进入射门流程允许的最大横向偏差。
+    kick_alignment_hold_sec: 0.35  # 航向和位置同时满足条件后需保持的时间。
+    goal_update_min_hold_sec: 0.25  # 新导航目标发布前旧目标至少保持的时间。
+    goal_update_position_threshold_m: 0.08  # 目标位置变化超过该值才触发更新。
+    goal_update_yaw_threshold_rad: 0.10  # 目标航向变化超过该值才触发更新。
+    goal_update_max_refresh_sec: 1.0  # 即使目标变化很小也强制刷新的最长间隔。
+    default_kick_yaw: 0.0  # 未使用团队射门点时的默认射门方向。
+    min_direction_norm: 0.0001  # 射门方向向量有效性的最小模长。
+    entry_lateral_m: 0.70  # 接近路线被阻挡时生成侧向入口点的偏移量。
+    retreat_clearance_m: 0.35  # 生成绕行入口时允许向后退让的距离。
+    opponent_endpoint_clearance_m: 0.84  # 接近目标端点与对手机器人的最小距离。
+    no_progress_window_sec: 1.5  # 无进展判定的统计窗口长度。
+    no_progress_min_distance_improvement: 0.05  # 每个窗口要求的目标距离最小改善量。
+    no_progress_min_path_progress: 0.08  # 每个窗口要求的机器人最小实际位移。
+    no_progress_max_actual_speed: 0.03  # 低于该速度时才可能判定为无进展。
+    no_progress_obstacle_near_m: 0.75  # 无进展判定中认为障碍物接近的距离。
+    no_progress_max_ball_motion: 0.05  # 无进展窗口内允许的足球最大位移。
+    no_progress_ball_contact_m: 0.25  # 距球小于该值时不按普通无进展处理。
+    cmd_vel_timeout_sec: 0.35  # 速度命令超过该时间未更新时视为零速度。
 
 football_trajectory_adapter:
   ros__parameters:

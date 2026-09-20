@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<sdf version="1.7">
+  <model name="soccer_playground">
+    <static>true</static>
+    <link name="pitch">
+      <collision name="ground_collision">
+        <pose>0 0 -0.025 0 0 0</pose>
+        <geometry><box><size>17 9 0.05</size></box></geometry>
+        <surface>
+          <!-- Dry short artificial turf.  The ball-side coefficient limits
+               sliding while torsional friction controls rolling resistance. -->
+          <friction>
+            <ode><mu>0.80</mu><mu2>0.80</mu2><slip1>0.001</slip1><slip2>0.001</slip2></ode>
+          </friction>
+          <contact><ode><kp>10000000</kp><kd>100</kd><max_vel>0.5</max_vel><min_depth>0.0005</min_depth></ode></contact>
+        </surface>
+      </collision>
+      <visual name="grass">
+        <pose>0 0 -0.025 0 0 0</pose>
+        <geometry><box><size>17 9 0.05</size></box></geometry>
+        <material>
+          <ambient>0.05 0.35 0.07 1</ambient>
+          <diffuse>0.08 0.48 0.10 1</diffuse>
+          <specular>0.01 0.01 0.01 1</specular>
+        </material>
+      </visual>
+
+      <!-- Boundary and halfway lines match the 16 x 8 m RViz field. -->
+      <visual name="touchline_south"><pose>0 -4 0.006 0 0 0</pose><geometry><box><size>16.06 0.06 0.012</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="touchline_north"><pose>0 4 0.006 0 0 0</pose><geometry><box><size>16.06 0.06 0.012</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="goal_line_west"><pose>-8 0 0.006 0 0 0</pose><geometry><box><size>0.06 8.06 0.012</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="goal_line_east"><pose>8 0 0.006 0 0 0</pose><geometry><box><size>0.06 8.06 0.012</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="halfway_line"><pose>0 0 0.006 0 0 0</pose><geometry><box><size>0.04 8 0.012</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="center_mark"><pose>0 0 0.009 0 0 0</pose><geometry><cylinder><radius>0.06</radius><length>0.018</length></cylinder></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+
+      <!-- A 16-segment, 0.75 m radius centre circle. -->
+      <visual name="circle_00"><pose>0.736 0.146 0.007 0 0 1.767</pose><geometry><box><size>0.293 0.04 0.014</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="circle_01"><pose>0.624 0.417 0.007 0 0 2.160</pose><geometry><box><size>0.293 0.04 0.014</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="circle_02"><pose>0.417 0.624 0.007 0 0 2.553</pose><geometry><box><size>0.293 0.04 0.014</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="circle_03"><pose>0.146 0.736 0.007 0 0 2.945</pose><geometry><box><size>0.293 0.04 0.014</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="circle_04"><pose>-0.146 0.736 0.007 0 0 3.338</pose><geometry><box><size>0.293 0.04 0.014</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="circle_05"><pose>-0.417 0.624 0.007 0 0 3.731</pose><geometry><box><size>0.293 0.04 0.014</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="circle_06"><pose>-0.624 0.417 0.007 0 0 4.123</pose><geometry><box><size>0.293 0.04 0.014</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="circle_07"><pose>-0.736 0.146 0.007 0 0 4.516</pose><geometry><box><size>0.293 0.04 0.014</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="circle_08"><pose>-0.736 -0.146 0.007 0 0 4.909</pose><geometry><box><size>0.293 0.04 0.014</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="circle_09"><pose>-0.624 -0.417 0.007 0 0 5.301</pose><geometry><box><size>0.293 0.04 0.014</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="circle_10"><pose>-0.417 -0.624 0.007 0 0 5.694</pose><geometry><box><size>0.293 0.04 0.014</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="circle_11"><pose>-0.146 -0.736 0.007 0 0 6.087</pose><geometry><box><size>0.293 0.04 0.014</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="circle_12"><pose>0.146 -0.736 0.007 0 0 0.196</pose><geometry><box><size>0.293 0.04 0.014</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="circle_13"><pose>0.417 -0.624 0.007 0 0 0.589</pose><geometry><box><size>0.293 0.04 0.014</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="circle_14"><pose>0.624 -0.417 0.007 0 0 0.982</pose><geometry><box><size>0.293 0.04 0.014</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      <visual name="circle_15"><pose>0.736 -0.146 0.007 0 0 1.374</pose><geometry><box><size>0.293 0.04 0.014</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+    </link>
+  </model>
+</sdf>

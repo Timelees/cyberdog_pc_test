@@ -15,6 +15,9 @@
   <depend>dwb_core</depend>
   <depend>dwb_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>gazebo_msgs</depend>
+  <depend>ignition-msgs5</depend>
+  <depend>ignition-transport8</depend>
   <depend>nav2_behavior_tree</depend>
   <depend>nav2_costmap_2d</depend>
   <depend>nav2_core</depend>
@@ -34,6 +37,7 @@
   <depend>tf2_msgs</depend>
   <depend>tf2_ros</depend>
   <depend>protocol</depend>
+  <depend>ros_bridge</depend>
   <depend>visualization_msgs</depend>
 
   <exec_depend>nav2_common</exec_depend>
@@ -45,6 +49,9 @@
   <exec_depend>rclpy</exec_depend>
   <exec_depend>lifecycle_msgs</exec_depend>
   <exec_depend>rviz2</exec_depend>
+  <exec_depend>gazebo_ros</exec_depend>
+  <exec_depend>cyber_guide</exec_depend>
+  <exec_depend>sim_base</exec_depend>
   <exec_depend>std_srvs</exec_depend>
   <exec_depend>topic_visualization</exec_depend>
 

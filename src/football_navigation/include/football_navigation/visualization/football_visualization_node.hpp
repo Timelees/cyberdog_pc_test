@@ -224,6 +224,8 @@ private:
   double publish_rate_hz_;
   double stale_timeout_sec_;
   double marker_lifetime_sec_;
+  double global_path_width_m_{0.07};
+  double local_trajectory_width_m_{0.10};
   bool use_delete_all_before_publish_{false};
   double velocity_arrow_scale_;
   double other_robot_length_m_;

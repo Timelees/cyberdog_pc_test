@@ -253,8 +253,13 @@ void BtActionServer<ActionT>::executeCallback()
         return true;
       }
 
-      RCLCPP_INFO(logger_, "Function executeCallback() action server is cancel request");
-      return action_server_->is_cancel_requested();
+      const bool cancel_requested = action_server_->is_cancel_requested();
+      if (cancel_requested) {
+        RCLCPP_WARN_THROTTLE(
+          logger_, *clock_, 1000,
+          "NavigateToPose cancellation is in progress");
+      }
+      return cancel_requested;
     };
 
   auto on_loop = [&]() {

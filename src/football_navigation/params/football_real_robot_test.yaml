@@ -1,15 +1,75 @@
-# Deterministic input fixture for real Nav2/path tests.
-# Keep fake odom/path disabled: live VIO and Nav2 own those real-test topics.
+# 实机 Nav2/路径规划测试的确定性输入；不发布假里程计和假路径。
 football_simulation_input_publisher:
   ros__parameters:
-    field_frame: tag_global
-    ball_x: -2.22
-    ball_y: -1.24
-    kick_target_x: -3.65
-    kick_target_y: -0.74
-    publish_rate_hz: 10.0
-    publish_odom: false
-    publish_path: false
-    simulate_ball_push: false
-    stop_at_ball: false
+    field_frame: tag_global  # 测试足球和射门目标所在的全局坐标系。
+    ball_x: -1.68  # 固定测试足球的 X 坐标。
+    ball_y: -0.65  # 固定测试足球的 Y 坐标。
+    kick_target_x: -2.85  # 固定射门目标的 X 坐标。
+    kick_target_y: -0.40  # 固定射门目标的 Y 坐标。
+    ball_topic: /football/real_test/ball_pose
+    kick_target_topic: /football/real_test/kick_target
+    publish_rate_hz: 10.0  # 测试输入发布频率。
+    publish_ball: true  # 使用固定测试球；接入实球视觉时在此改为 false。
+    publish_odom: false  # 是否发布假里程计；实机测试必须为 false。
+    publish_path: false  # 是否发布假路径；路径必须由 Nav2 生成。
+    simulate_ball_push: false  # 是否启用仿真推球模型；实机测试关闭。
+    stop_at_ball: false  # 是否由输入节点在球前强制停车；实机测试关闭。
 
+# 将 Gazebo 已验证的球后点稳定、触球几何和动态射门方向策略固定到实机
+# 测试入口。话题、坐标系和机器人身份仍由 launch 注入，不在此处改名。
+football_goal_adapter:
+  ros__parameters:
+    use_team_kick_target: true
+    # 实机 VIO 在静止与转向时存在厘米级漂移。进入球后点后使用进入/退出
+    # 双阈值和更长的丢失宽限，避免在 BALL_APPROACH 与 ALIGN_TO_GOAL 间抖动。
+    approach_reached_m: 0.12
+    approach_reached_exit_m: 0.22
+    alignment_position_loss_grace_sec: 0.60
+    push_direction_tracking_gain: 0.25
+    robot_front_extent_m: 0.302
+    ball_radius_m: 0.11
+    contact_tolerance_m: 0.035
+
+football_tracking_action_client:
+  ros__parameters:
+    # 实机导航使用 gait 309；该值覆盖公共配置并由 YAML 保持最高优先级。
+    expected_motion_id: 309
+    completed_pose_xy_tolerance: 0.12
+    completed_pose_yaw_tolerance: 0.12
+
+football_visualization_node:
+  ros__parameters:
+    show_ball_avoidance_zone: true
+    # 状态从球后接近切换到对齐/触球时，立即删除球后点及其标签。
+    use_delete_all_before_publish: true
+
+football_cmd_vel_to_servo:
+  ros__parameters:
+    motion_id: 309
+    cmd_source: 4
+    gait_value: 2
+    cmd_vel_timeout_sec: 0.25
+    smoothing_window_sec: 0.25
+    max_linear_x: 0.26
+    max_linear_y: 0.20
+    max_angular_z: 1.0
+
+# 实机测试显式启用 CyberDog 全向步态采样。配置只改变允许的速度集合，
+# controller_server、FollowPath 以及 cmd_vel 接口名称保持不变。
+controller_server:
+  ros__parameters:
+    progress_checker:
+      required_movement_radius: 0.08
+      required_movement_angle: 0.20
+      movement_time_allowance: 6.0
+    FollowPath:
+      min_vel_x: -0.26
+      max_vel_x: 0.26
+      min_vel_y: -0.20
+      max_vel_y: 0.20
+      min_speed_xy: 0.05
+      max_speed_xy: 0.26
+      max_vel_theta: 1.0
+      acc_lim_y: 2.0
+      decel_lim_y: -2.0
+      vy_samples: 15

@@ -55,6 +55,31 @@ ros2 launch football_navigation football_robot_runtime.launch.py \
 ros2 launch football_navigation football_team_simulation.launch.py use_rviz:=true
 ```
 
+Gazebo 物理验证入口会生成一只标准 5 号球和十台 CyberDog，并将
+Gazebo 位姿映射为十路全局 odom，供 Nav2 多机器人障碍层和角色分配使用：
+
+```bash
+ros2 launch football_navigation football_gazebo_simulation.launch.py \
+  gazebo_gui:=true use_rviz:=false
+```
+
+十台机器人都使用带关节控制插件的动态 URDF，每台分别启动独立的
+`cyber_guide`、`cmd_vel` 转换器和足球控制链。协同程序可向
+`/cyberdog_N/cmd_vel` 发布 `geometry_msgs/Twist`。底层状态、关节命令和
+`usr_cmd` 服务全部位于各自
+`cyberdog_N` 命名空间，不会串控。默认不注入人工踢球力，
+球的运动由腿部—球—地面刚体接触决定；仅做随机接触压力测试时可设
+`enable_contact_wrench_fallback:=true`。另外九台机器人的初始位置复用
+`football_team_simulation.yaml` 中的 `initial_pose_cyberdog_2`～`initial_pose_cyberdog_10`。
+
+使用自己的协同程序时应关闭内置十机规划器，避免两个节点同时发布速度；
+底层十套 `cmd_vel -> MotionServoCmd -> cyber_guide -> Gazebo` 运控链仍会运行：
+
+```bash
+ros2 launch football_navigation football_gazebo_simulation.launch.py \
+  gazebo_gui:=true enable_builtin_team_control:=false
+```
+
 该 launch 启动十机假位姿、可配置移动球、唯一 `football_team_role_assigner` 和可视化。策略实现分别位于 `src/coordination/*_role_strategy.cpp`，角色权威只负责安全门控、前锋迟滞、身份绑定和消息发布。
 
 团队仿真默认将球固定在场地中心 `(3.0, 0.0)`，`cyberdog_1` 至 `cyberdog_5` 放在同一侧，`cyberdog_6` 至 `cyberdog_10` 沿远端边线布置。A 队五台机器人分别启动与单机仿真一致的 GoalAdapter、轨迹适配器、Action Client 和轻量导航器：距离球最近者成为 striker，先导航到球后方，再完成接触和推球；其他角色进入对应的 `TACTICAL_*` 状态并跟踪各自 tactical target。团队可视化不固定 ego/striker，机器人标签直接显示角色权威发布的职责和当前位置。假世界和导航器共同保持机器人椭圆碰撞净空，默认安全净空为 `0.12 m`。
@@ -146,9 +171,11 @@ ros2 launch football_navigation football_real_robot_test.launch.py \
 该入口消费实时全局 VIO（激光默认关闭），启动 Nav2、路径规划和 `cmd_vel`
 看门狗适配器。`ball_x/ball_y` 是足球坐标，`kick_target_x/kick_target_y`
 定义踢球方向；机器人首先导航到足球反方向、距球约 `approach_distance_m`
-的接近点，并不是直接导航到 `kick_target`。适配器将 Nav2 的 `cmd_vel`
-限幅后转换为慢走 `MotionServoCmd`，命令超过 0.25 秒未更新会发送一次零速
-结束帧。测试前必须确认机器人处于慢走 303，且键盘急停终端在线。该适配器
+的接近点，并不是直接导航到 `kick_target`。Nav2 速度使用私有话题
+`/<robot>/football/cmd_vel`，避免被机器人端默认 `velocity_adaptor` 同时转换。
+适配器参考 `cyberdog_nav2` 将速度做 0.25 秒滑动平均，再转换为
+跟随步态 309 的 `MotionServoCmd`；实机 DWB 默认只采样前进和转向。
+测试前必须确认键盘急停终端在线。该适配器
 默认关闭；确认 RViz 路径无误后显式传入 `use_cmd_vel_adapter:=true` 才会驱动
 实机。
 

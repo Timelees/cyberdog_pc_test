@@ -444,11 +444,16 @@ void ControllerServer::computeAndPublishVelocity()
     throw nav2_core::PlannerException("Failed to make progress");
   }
 
-  auto time = rclcpp::Clock().now();
-  RCLCPP_INFO(this->get_logger(), " now.sec timestamp: %lf", time.seconds());
-  RCLCPP_INFO(this->get_logger(), "pose.sec timestamp: %u", pose.header.stamp.sec);
-
-  if (time.seconds() - pose.header.stamp.sec > 3) {
+  // Use the node clock here. In Gazebo, pose stamps are in ROS simulation
+  // time; comparing them with a newly-created system clock makes every valid
+  // transform look years old and forces the behavior tree into spin/backup
+  // recovery instead of following the path.
+  const auto clock_type = get_clock()->get_clock_type();
+  const rclcpp::Time pose_stamp(pose.header.stamp, clock_type);
+  const double pose_age = (now() - pose_stamp).seconds();
+  if (pose_age > 3.0 || pose_age < -0.5) {
+    RCLCPP_ERROR(
+      get_logger(), "robot pose timestamp is invalid (age=%.3fs)", pose_age);
     throw nav2_core::PlannerException("TF not update error");
   }
 

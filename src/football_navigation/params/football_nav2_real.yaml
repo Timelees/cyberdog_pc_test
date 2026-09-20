@@ -1,274 +1,275 @@
-# Conservative, map-free Nav2 configuration for the real football test.
-# The launch file injects robot identity, odom topic and frame names.
+# 实机足球测试使用的保守无地图 Nav2 配置；launch 会覆盖机器人身份、话题和坐标系。
 bt_navigator:
   ros__parameters:
-    navigate_to_pose_action_name: football/navigate_to_pose
-    use_sim_time: false
-    global_frame: tag_global
-    robot_base_frame: base_link
-    odom_topic: /global_vio/cyberdog_1/odom
-    bt_loop_duration: 10
-    default_server_timeout: 20
-    enable_groot_monitoring: false
-    plugin_lib_names:
-      - nav2_compute_path_to_pose_action_bt_node
-      - nav2_compute_path_through_poses_action_bt_node
-      - nav2_follow_path_action_bt_node
-      - nav2_back_up_action_bt_node
-      - nav2_spin_action_bt_node
-      - nav2_wait_action_bt_node
-      - nav2_clear_costmap_service_bt_node
-      - nav2_is_stuck_condition_bt_node
-      - nav2_goal_reached_condition_bt_node
-      - nav2_goal_updated_condition_bt_node
-      - nav2_rate_controller_bt_node
-      - nav2_distance_controller_bt_node
-      - nav2_speed_controller_bt_node
-      - nav2_truncate_path_action_bt_node
-      - nav2_recovery_node_bt_node
-      - nav2_pipeline_sequence_bt_node
-      - nav2_round_robin_node_bt_node
-      - nav2_transform_available_condition_bt_node
-      - nav2_time_expired_condition_bt_node
-      - nav2_navigate_through_poses_action_bt_node
-      - nav2_navigate_to_pose_action_bt_node
-      - nav2_remove_passed_goals_action_bt_node
-      - nav2_planner_selector_bt_node
-      - nav2_controller_selector_bt_node
-      - nav2_goal_checker_selector_bt_node
+    navigate_to_pose_action_name: football/navigate_to_pose  # 足球导航专用 NavigateToPose Action 名称。
+    use_sim_time: false  # 实机使用系统时间而非仿真时钟。
+    global_frame: tag_global  # 行为树导航使用的全局坐标系。
+    robot_base_frame: base_link  # 机器人机体坐标系，由 launch 按实机覆盖。
+    odom_topic: /global_vio/cyberdog_1/odom  # 行为树导航使用的全局里程计话题。
+    bt_loop_duration: 10  # 行为树主循环周期，单位毫秒。
+    default_server_timeout: 20  # 行为树服务节点默认等待超时，单位毫秒。
+    enable_groot_monitoring: false  # 是否启用 Groot 行为树远程监控。
+    plugin_lib_names:  # 行为树运行时需要加载的插件库列表。
+      - nav2_compute_path_to_pose_action_bt_node  # 单目标路径规划动作节点。
+      - nav2_compute_path_through_poses_action_bt_node  # 多目标路径规划动作节点。
+      - nav2_follow_path_action_bt_node  # 路径跟随动作节点。
+      - nav2_back_up_action_bt_node  # 后退恢复动作节点。
+      - nav2_spin_action_bt_node  # 原地旋转恢复动作节点。
+      - nav2_wait_action_bt_node  # 等待恢复动作节点。
+      - nav2_clear_costmap_service_bt_node  # 清除代价地图服务节点。
+      - nav2_is_stuck_condition_bt_node  # 卡住状态检测节点。
+      - nav2_goal_reached_condition_bt_node  # 目标到达条件节点。
+      - nav2_goal_updated_condition_bt_node  # 目标更新条件节点。
+      - nav2_rate_controller_bt_node  # 执行频率控制节点。
+      - nav2_distance_controller_bt_node  # 执行距离控制节点。
+      - nav2_speed_controller_bt_node  # 执行速度控制节点。
+      - nav2_truncate_path_action_bt_node  # 路径截断动作节点。
+      - nav2_recovery_node_bt_node  # 恢复流程控制节点。
+      - nav2_pipeline_sequence_bt_node  # 流水线顺序控制节点。
+      - nav2_round_robin_node_bt_node  # 轮询控制节点。
+      - nav2_transform_available_condition_bt_node  # TF 可用性条件节点。
+      - nav2_time_expired_condition_bt_node  # 超时条件节点。
+      - nav2_navigate_through_poses_action_bt_node  # 多目标导航动作节点。
+      - nav2_navigate_to_pose_action_bt_node  # 单目标导航动作节点。
+      - nav2_remove_passed_goals_action_bt_node  # 删除已通过目标节点。
+      - nav2_planner_selector_bt_node  # 规划器选择节点。
+      - nav2_controller_selector_bt_node  # 控制器选择节点。
+      - nav2_goal_checker_selector_bt_node  # 到达检查器选择节点。
 
 bt_navigator_rclcpp_node:
   ros__parameters:
-    use_sim_time: false
+    use_sim_time: false  # BT Navigator 辅助节点使用系统时间。
 
 controller_server:
   ros__parameters:
-    use_sim_time: false
-    controller_frequency: 15.0
-    min_x_velocity_threshold: 0.001
-    min_y_velocity_threshold: 0.001
-    min_theta_velocity_threshold: 0.001
-    failure_tolerance: 0.20
-    progress_checker_plugin: progress_checker
-    goal_checker_plugins: [general_goal_checker]
-    controller_plugins: [FollowPath]
+    use_sim_time: false  # 控制器服务使用系统时间。
+    odom_topic: /global_vio/cyberdog_1/odom  # 局部控制器速度反馈；launch 会按机器人命名空间覆盖。
+    controller_frequency: 10.0  # 局部控制器计算和发布速度的频率。
+    min_x_velocity_threshold: 0.001  # 里程计 X 速度低于该值时按零处理。
+    min_y_velocity_threshold: 0.001  # 里程计 Y 速度低于该值时按零处理。
+    min_theta_velocity_threshold: 0.001  # 里程计角速度低于该值时按零处理。
+    failure_tolerance: 0.20  # 控制器短暂计算失败允许持续的时间。
+    progress_checker_plugin: progress_checker  # 使用的运动进展检查器名称。
+    goal_checker_plugins: [general_goal_checker]  # 启用的目标到达检查器列表。
+    controller_plugins: [FollowPath]  # 启用的局部路径控制器列表。
     progress_checker:
-      plugin: football_navigation::FootballProgressChecker
-      required_movement_radius: 0.08
-      movement_time_allowance: 4.0
+      plugin: football_navigation::FootballProgressChecker  # 足球专用运动进展检查器类型。
+      required_movement_radius: 0.08  # 时间窗口内要求的最小移动距离。
+      required_movement_angle: 0.20  # 原地路径对准时累计约 11.5 度转向也视为有效进展。
+      movement_time_allowance: 4.0  # 完成最小移动允许的最长时间。
     general_goal_checker:
-      plugin: nav2_controller::SimpleGoalChecker
-      stateful: true
-      xy_goal_tolerance: 0.08
-      yaw_goal_tolerance: 0.10
+      plugin: nav2_controller::SimpleGoalChecker  # 简单位置和航向目标检查器类型。
+      stateful: true  # 到达位置后保持位置阶段并继续检查航向。
+      xy_goal_tolerance: 0.08  # 目标平面位置容差。
+      yaw_goal_tolerance: 0.10  # 目标航向容差。
     FollowPath:
-      plugin: dwb_core::DWBLocalPlanner
-      debug_trajectory_details: false
-      trajectory_generator_name: dwb_plugins::LimitedAccelGenerator
-      min_vel_x: -0.20
-      max_vel_x: 0.30
-      min_vel_y: -0.20
-      max_vel_y: 0.20
-      max_vel_theta: 0.80
-      min_speed_xy: 0.0
-      max_speed_xy: 0.30
-      min_speed_theta: 0.0
-      acc_lim_x: 0.8
-      acc_lim_y: 0.8
-      acc_lim_theta: 1.5
-      decel_lim_x: -1.0
-      decel_lim_y: -1.0
-      decel_lim_theta: -2.0
-      vx_samples: 12
-      vy_samples: 9
-      vtheta_samples: 16
-      sim_time: 1.2
-      linear_granularity: 0.05
-      angular_granularity: 0.025
-      transform_tolerance: 0.30
-      xy_goal_tolerance: 0.08
-      trans_stopped_velocity: 0.05
-      short_circuit_trajectory_evaluation: true
-      stateful: true
-      critics: [RotateToGoal, ObstacleFootprint, BaseObstacle, GoalAlign, PathAlign, PathDist, GoalDist]
-      ObstacleFootprint.scale: 0.03
-      BaseObstacle.scale: 0.01
-      PathAlign.scale: 24.0
-      PathAlign.forward_point_distance: 0.15
-      GoalAlign.scale: 16.0
-      GoalAlign.forward_point_distance: 0.15
-      PathDist.scale: 24.0
-      GoalDist.scale: 20.0
-      RotateToGoal.scale: 16.0
-      RotateToGoal.slowing_factor: 5.0
-      RotateToGoal.lookahead_time: -1.0
+      plugin: dwb_core::DWBLocalPlanner  # DWB 动态窗口局部规划器类型。
+      debug_trajectory_details: false  # 是否输出每条候选轨迹的详细评分。
+      trajectory_generator_name: dwb_plugins::LimitedAccelGenerator  # 使用受加速度约束的轨迹采样器。
+      min_vel_x: -0.26  # 允许 DWB 直接选择后退轨迹，避免目标在身后时只能原地转向。
+      max_vel_x: 0.26  # X 方向最大前进速度。
+      min_vel_y: -0.20  # CyberDog 为全向平面步态，允许向右横移。
+      max_vel_y: 0.20  # 允许向左横移；合速度仍由 max_speed_xy 限制。
+      max_vel_theta: 1.0  # 最大角速度。
+      min_speed_xy: 0.05  # 避免 DWB 长时间选择无法驱动步态的极小平移速度。
+      max_speed_xy: 0.26  # 平面合速度上限。
+      min_speed_theta: 0.0  # 角速度下限。
+      acc_lim_x: 2.5  # X 方向加速度上限，与官方 NavAB 保持一致。
+      acc_lim_y: 2.0  # 横移加速度上限。
+      acc_lim_theta: 3.2  # 角加速度上限。
+      decel_lim_x: -2.5  # X 方向减速度下限。
+      decel_lim_y: -2.0  # 横移减速度下限。
+      decel_lim_theta: -3.2  # 角减速度下限。
+      vx_samples: 20  # 每周期 X 速度采样数量。
+      vy_samples: 15  # 每周期 Y 速度采样数量，含左/右横移。
+      vtheta_samples: 20  # 每周期角速度采样数量。
+      sim_time: 1.7  # 每条候选轨迹向前模拟的时间。
+      linear_granularity: 0.05  # 候选轨迹线性碰撞检查步长。
+      angular_granularity: 0.025  # 候选轨迹角度碰撞检查步长。
+      transform_tolerance: 0.30  # 控制器接受 TF 延迟的最大容差。
+      xy_goal_tolerance: 0.08  # DWB 内部使用的目标位置容差。
+      trans_stopped_velocity: 0.05  # 低于该平移速度时认为已停止。
+      short_circuit_trajectory_evaluation: true  # 候选轨迹出现致命评分时提前停止后续评分。
+      stateful: true  # 保持目标到达过程的内部状态。
+      critics: [RotateToGoal, Oscillation, ObstacleFootprint, BaseObstacle, GoalAlign, PathAlign, PathDist, GoalDist]  # 候选轨迹评分器及执行顺序。
+      ObstacleFootprint.scale: 0.03  # 完整机器人轮廓碰撞代价权重。
+      BaseObstacle.scale: 0.01  # 机器人中心障碍代价权重。
+      PathAlign.scale: 24.0  # 航向与全局路径对齐代价权重。
+      PathAlign.forward_point_distance: 0.15  # 路径对齐评分采用的前视距离。
+      GoalAlign.scale: 16.0  # 航向与目标方向对齐代价权重。
+      GoalAlign.forward_point_distance: 0.15  # 目标方向对齐评分采用的前视距离。
+      PathDist.scale: 24.0  # 偏离全局路径距离的代价权重。
+      GoalDist.scale: 20.0  # 距离最终目标的代价权重。
+      RotateToGoal.scale: 16.0  # 目标附近原地转向的代价权重。
+      RotateToGoal.slowing_factor: 5.0  # 目标附近转向时的平移减速系数。
+      RotateToGoal.lookahead_time: -1.0  # 转向评分前视时间；负值表示使用当前姿态。
 
 controller_server_rclcpp_node:
   ros__parameters:
-    use_sim_time: false
+    use_sim_time: false  # 控制器辅助节点使用系统时间。
 
 local_costmap:
   local_costmap:
     ros__parameters:
-      update_frequency: 10.0
-      publish_frequency: 5.0
-      global_frame: tag_global
-      robot_base_frame: base_link
-      transform_tolerance: 0.30
-      use_sim_time: false
-      rolling_window: true
-      width: 8
-      height: 8
-      resolution: 0.05
-      footprint: "[[0.281, 0.1695], [0.281, -0.1695], [-0.281, -0.1695], [-0.281, 0.1695]]"
-      plugins: [obstacle_layer, multi_robot_obstacle_layer, inflation_layer]
+      update_frequency: 10.0  # 局部代价地图内部更新频率。
+      publish_frequency: 5.0  # 局部代价地图对外发布频率。
+      global_frame: tag_global  # 局部代价地图使用的固定坐标系。
+      robot_base_frame: base_link  # 机器人机体坐标系，由 launch 覆盖。
+      transform_tolerance: 0.30  # 代价地图接受 TF 延迟的最大容差。
+      use_sim_time: false  # 实机使用系统时间。
+      rolling_window: true  # 代价地图窗口是否随机器人滚动。
+      width: 8  # 局部代价地图宽度，单位米。
+      height: 8  # 局部代价地图高度，单位米。
+      resolution: 0.05  # 局部代价地图栅格分辨率。
+      footprint: "[[0.281, 0.1695], [0.281, -0.1695], [-0.281, -0.1695], [-0.281, 0.1695]]"  # 机器人矩形碰撞轮廓顶点。
+      plugins: [obstacle_layer, multi_robot_obstacle_layer, inflation_layer]  # 局部代价地图插件及执行顺序。
       obstacle_layer:
-        plugin: nav2_costmap_2d::ObstacleLayer
-        enabled: true
-        observation_sources: scan
+        plugin: nav2_costmap_2d::ObstacleLayer  # 激光雷达障碍层插件类型。
+        enabled: true  # 是否启用激光雷达障碍层。
+        observation_sources: scan  # 障碍层使用的传感器源名称列表。
         scan:
-          topic: scan
-          data_type: LaserScan
-          marking: true
-          clearing: true
-          obstacle_max_range: 6.0
-          raytrace_max_range: 8.0
-          max_obstacle_height: 2.0
+          topic: scan  # 激光扫描输入话题，由 launch 按实机覆盖。
+          data_type: LaserScan  # 传感器消息类型。
+          marking: true  # 是否用扫描命中点标记障碍。
+          clearing: true  # 是否用射线清除空闲区域。
+          obstacle_max_range: 6.0  # 标记障碍物的最大扫描距离。
+          raytrace_max_range: 8.0  # 清除射线的最大追踪距离。
+          max_obstacle_height: 2.0  # 接受障碍点的最大高度。
       multi_robot_obstacle_layer:
-        plugin: football_navigation/MultiRobotObstacleLayer
-        enabled: true
-        target_frame: tag_global
-        self_namespace: cyberdog_1
-        robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
-        robot_odom_topic_template: /global_vio/{namespace}/odom
-        use_oriented_footprint: true
-        other_robot_length_m: 0.562
-        other_robot_width_m: 0.339
-        footprint_padding: 0.05
-        obstacle_timeout_sec: 0.70
-        minimum_obstacle_count: 9
-        max_message_age: 0.50
-        future_tolerance: 0.08
-        enable_prediction: true
-        prediction_horizon_sec: 0.90
-        max_prediction_distance_m: 0.40
-        max_obstacle_speed_mps: 1.00
-        max_obstacle_yaw_rate_rps: 2.00
-        max_observation_jump_m: 0.80
-        sweep_linear_step_m: 0.08
-        sweep_angular_step_rad: 0.15
-        max_sweep_samples: 20
-        mark_cost: 254
-        use_maximum: true
+        plugin: football_navigation/MultiRobotObstacleLayer  # 多机器人动态障碍层插件类型。
+        enabled: true  # 是否启用多机器人动态障碍层。
+        target_frame: tag_global  # 其他机器人位姿统一转换到的坐标系。
+        self_namespace: cyberdog_1  # 当前机器人命名空间，由 launch 覆盖。
+        robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10  # 所有机器人命名空间列表。
+        robot_odom_topic_template: /global_vio/{namespace}/odom  # 各机器人里程计话题模板。
+        use_oriented_footprint: true  # 是否按机器人实际航向标记有向轮廓。
+        other_robot_length_m: 0.562  # 其他机器人碰撞矩形长度。
+        other_robot_width_m: 0.339  # 其他机器人碰撞矩形宽度。
+        footprint_padding: 0.05  # 其他机器人轮廓额外膨胀距离。
+        obstacle_timeout_sec: 0.70  # 其他机器人观测超时阈值。
+        minimum_obstacle_count: 9  # 代价地图就绪要求的最少其他机器人数量。
+        max_message_age: 0.50  # 接受其他机器人里程计的最大消息年龄。
+        future_tolerance: 0.08  # 允许其他机器人消息时间戳超前的最大值。
+        enable_prediction: true  # 是否根据速度预测动态机器人位置。
+        prediction_horizon_sec: 0.90  # 动态机器人轨迹预测时间范围。
+        max_prediction_distance_m: 0.40  # 单次预测允许的最大位移。
+        max_obstacle_speed_mps: 1.00  # 接受的其他机器人最大线速度。
+        max_obstacle_yaw_rate_rps: 2.00  # 接受的其他机器人最大角速度。
+        max_observation_jump_m: 0.80  # 相邻位姿观测允许的最大跳变量。
+        sweep_linear_step_m: 0.08  # 预测扫掠轮廓的线性采样步长。
+        sweep_angular_step_rad: 0.15  # 预测扫掠轮廓的角度采样步长。
+        max_sweep_samples: 20  # 单台机器人预测扫掠的最大样本数。
+        mark_cost: 254  # 机器人轮廓写入代价地图的栅格代价值。
+        use_maximum: true  # 与主代价地图合并时是否保留较大代价值。
       inflation_layer:
-        plugin: nav2_costmap_2d::InflationLayer
-        cost_scaling_factor: 4.0
-        inflation_radius: 0.55
-      always_send_full_costmap: true
+        plugin: nav2_costmap_2d::InflationLayer  # 障碍物膨胀层插件类型。
+        cost_scaling_factor: 4.0  # 局部膨胀代价随距离衰减的系数。
+        inflation_radius: 0.55  # 局部障碍物膨胀半径。
+      always_send_full_costmap: true  # 每次发布完整局部代价地图而非增量。
   local_costmap_client:
     ros__parameters:
-      use_sim_time: false
+      use_sim_time: false  # 局部代价地图客户端使用系统时间。
   local_costmap_rclcpp_node:
     ros__parameters:
-      use_sim_time: false
+      use_sim_time: false  # 局部代价地图辅助节点使用系统时间。
 
 global_costmap:
   global_costmap:
     ros__parameters:
-      update_frequency: 5.0
-      publish_frequency: 2.0
-      global_frame: tag_global
-      robot_base_frame: base_link
-      transform_tolerance: 0.30
-      use_sim_time: false
-      rolling_window: true
-      width: 16
-      height: 10
-      resolution: 0.10
-      footprint: "[[0.281, 0.1695], [0.281, -0.1695], [-0.281, -0.1695], [-0.281, 0.1695]]"
-      plugins: [obstacle_layer, multi_robot_obstacle_layer, inflation_layer]
+      update_frequency: 5.0  # 全局代价地图内部更新频率。
+      publish_frequency: 2.0  # 全局代价地图对外发布频率。
+      global_frame: tag_global  # 全局代价地图使用的固定坐标系。
+      robot_base_frame: base_link  # 机器人机体坐标系，由 launch 覆盖。
+      transform_tolerance: 0.30  # 全局代价地图接受 TF 延迟的最大容差。
+      use_sim_time: false  # 实机使用系统时间。
+      rolling_window: true  # 全局规划窗口是否随机器人滚动。
+      width: 16  # 全局规划窗口宽度，单位米。
+      height: 10  # 全局规划窗口高度，单位米。
+      resolution: 0.10  # 全局代价地图栅格分辨率。
+      footprint: "[[0.281, 0.1695], [0.281, -0.1695], [-0.281, -0.1695], [-0.281, 0.1695]]"  # 机器人矩形碰撞轮廓顶点。
+      plugins: [obstacle_layer, multi_robot_obstacle_layer, inflation_layer]  # 全局代价地图插件及执行顺序。
       obstacle_layer:
-        plugin: nav2_costmap_2d::ObstacleLayer
-        enabled: true
-        observation_sources: scan
+        plugin: nav2_costmap_2d::ObstacleLayer  # 全局激光雷达障碍层插件类型。
+        enabled: true  # 是否启用全局激光雷达障碍层。
+        observation_sources: scan  # 障碍层使用的传感器源名称列表。
         scan:
-          topic: scan
-          data_type: LaserScan
-          marking: true
-          clearing: true
-          obstacle_max_range: 8.0
-          raytrace_max_range: 10.0
-          max_obstacle_height: 2.0
+          topic: scan  # 激光扫描输入话题，由 launch 按实机覆盖。
+          data_type: LaserScan  # 传感器消息类型。
+          marking: true  # 是否用扫描命中点标记障碍。
+          clearing: true  # 是否用射线清除空闲区域。
+          obstacle_max_range: 8.0  # 全局地图标记障碍物的最大扫描距离。
+          raytrace_max_range: 10.0  # 全局地图清除射线的最大追踪距离。
+          max_obstacle_height: 2.0  # 接受障碍点的最大高度。
       multi_robot_obstacle_layer:
-        plugin: football_navigation/MultiRobotObstacleLayer
-        enabled: true
-        target_frame: tag_global
-        self_namespace: cyberdog_1
-        robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10
-        robot_odom_topic_template: /global_vio/{namespace}/odom
-        use_oriented_footprint: true
-        other_robot_length_m: 0.562
-        other_robot_width_m: 0.339
-        footprint_padding: 0.05
-        obstacle_timeout_sec: 0.70
-        minimum_obstacle_count: 9
-        max_message_age: 0.50
-        future_tolerance: 0.08
-        enable_prediction: true
-        prediction_horizon_sec: 0.90
-        max_prediction_distance_m: 0.40
-        max_obstacle_speed_mps: 1.00
-        max_obstacle_yaw_rate_rps: 2.00
-        max_observation_jump_m: 0.80
-        sweep_linear_step_m: 0.08
-        sweep_angular_step_rad: 0.15
-        max_sweep_samples: 20
-        mark_cost: 254
-        use_maximum: true
+        plugin: football_navigation/MultiRobotObstacleLayer  # 全局多机器人动态障碍层插件类型。
+        enabled: true  # 是否启用全局多机器人障碍层。
+        target_frame: tag_global  # 其他机器人位姿统一转换到的坐标系。
+        self_namespace: cyberdog_1  # 当前机器人命名空间，由 launch 覆盖。
+        robot_namespaces_csv: cyberdog_1,cyberdog_2,cyberdog_3,cyberdog_4,cyberdog_5,cyberdog_6,cyberdog_7,cyberdog_8,cyberdog_9,cyberdog_10  # 所有机器人命名空间列表。
+        robot_odom_topic_template: /global_vio/{namespace}/odom  # 各机器人里程计话题模板。
+        use_oriented_footprint: true  # 是否按机器人实际航向标记有向轮廓。
+        other_robot_length_m: 0.562  # 其他机器人碰撞矩形长度。
+        other_robot_width_m: 0.339  # 其他机器人碰撞矩形宽度。
+        footprint_padding: 0.05  # 其他机器人轮廓额外膨胀距离。
+        obstacle_timeout_sec: 0.70  # 其他机器人观测超时阈值。
+        minimum_obstacle_count: 9  # 代价地图就绪要求的最少其他机器人数量。
+        max_message_age: 0.50  # 接受其他机器人里程计的最大消息年龄。
+        future_tolerance: 0.08  # 允许其他机器人消息时间戳超前的最大值。
+        enable_prediction: true  # 是否根据速度预测动态机器人位置。
+        prediction_horizon_sec: 0.90  # 动态机器人轨迹预测时间范围。
+        max_prediction_distance_m: 0.40  # 单次预测允许的最大位移。
+        max_obstacle_speed_mps: 1.00  # 接受的其他机器人最大线速度。
+        max_obstacle_yaw_rate_rps: 2.00  # 接受的其他机器人最大角速度。
+        max_observation_jump_m: 0.80  # 相邻位姿观测允许的最大跳变量。
+        sweep_linear_step_m: 0.08  # 预测扫掠轮廓的线性采样步长。
+        sweep_angular_step_rad: 0.15  # 预测扫掠轮廓的角度采样步长。
+        max_sweep_samples: 20  # 单台机器人预测扫掠的最大样本数。
+        mark_cost: 254  # 机器人轮廓写入代价地图的栅格代价值。
+        use_maximum: true  # 与主代价地图合并时是否保留较大代价值。
       inflation_layer:
-        plugin: nav2_costmap_2d::InflationLayer
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.60
-      always_send_full_costmap: true
+        plugin: nav2_costmap_2d::InflationLayer  # 全局障碍物膨胀层插件类型。
+        cost_scaling_factor: 3.0  # 全局膨胀代价随距离衰减的系数。
+        inflation_radius: 0.60  # 全局障碍物膨胀半径。
+      always_send_full_costmap: true  # 每次发布完整全局代价地图而非增量。
   global_costmap_client:
     ros__parameters:
-      use_sim_time: false
+      use_sim_time: false  # 全局代价地图客户端使用系统时间。
   global_costmap_rclcpp_node:
     ros__parameters:
-      use_sim_time: false
+      use_sim_time: false  # 全局代价地图辅助节点使用系统时间。
 
 planner_server:
   ros__parameters:
-    use_sim_time: false
-    expected_planner_frequency: 5.0
-    planner_plugins: [GridBased]
+    use_sim_time: false  # 全局规划器使用系统时间。
+    expected_planner_frequency: 5.0  # 期望全局规划器达到的计算频率。
+    planner_plugins: [GridBased]  # 启用的全局路径规划器列表。
     GridBased:
-      plugin: nav2_navfn_planner/NavfnPlanner
-      tolerance: 0.30
-      use_astar: true
-      allow_unknown: false
+      plugin: nav2_navfn_planner/NavfnPlanner  # NavFn 栅格全局规划器类型。
+      tolerance: 0.30  # 目标被占用时允许搜索替代终点的半径。
+      use_astar: true  # 是否使用 A*，false 时使用 Dijkstra。
+      allow_unknown: false  # 是否允许路径穿过未知栅格。
 
 planner_server_rclcpp_node:
   ros__parameters:
-    use_sim_time: false
+    use_sim_time: false  # 规划器辅助节点使用系统时间。
 
 recoveries_server:
   ros__parameters:
-    use_sim_time: false
-    costmap_topic: local_costmap/costmap_raw
-    footprint_topic: local_costmap/published_footprint
-    cycle_frequency: 10.0
-    recovery_plugins: [spin, backup, wait]
+    use_sim_time: false  # 恢复行为服务使用系统时间。
+    costmap_topic: local_costmap/costmap_raw  # 恢复行为使用的局部原始代价地图话题。
+    footprint_topic: local_costmap/published_footprint  # 恢复行为使用的机器人轮廓话题。
+    cycle_frequency: 10.0  # 恢复行为控制循环频率。
+    recovery_plugins: [spin, backup, wait]  # 启用的恢复行为及执行名称。
     spin:
-      plugin: nav2_recoveries/Spin
+      plugin: nav2_recoveries/Spin  # 原地旋转恢复插件类型。
     backup:
-      plugin: nav2_recoveries/BackUp
+      plugin: nav2_recoveries/BackUp  # 后退恢复插件类型。
     wait:
-      plugin: nav2_recoveries/Wait
-    global_frame: tag_global
-    robot_base_frame: base_link
-    transform_timeout: 0.30
-    simulate_ahead_time: 1.0
-    max_rotational_vel: 0.8
-    min_rotational_vel: 0.2
-    rotational_acc_lim: 1.5
+      plugin: nav2_recoveries/Wait  # 等待恢复插件类型。
+    global_frame: tag_global  # 恢复行为使用的全局坐标系。
+    robot_base_frame: base_link  # 恢复行为使用的机器人机体坐标系。
+    transform_timeout: 0.30  # 恢复行为等待 TF 的超时时间。
+    simulate_ahead_time: 1.0  # 恢复运动碰撞预测的前向模拟时间。
+    max_rotational_vel: 0.8  # 原地旋转恢复的最大角速度。
+    min_rotational_vel: 0.2  # 原地旋转恢复的最小角速度。
+    rotational_acc_lim: 1.5  # 原地旋转恢复的角加速度上限。

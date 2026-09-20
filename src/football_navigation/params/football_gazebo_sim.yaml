@@ -1,0 +1,147 @@
+# Gazebo-only overrides.  Keep simulator conventions here so that changing
+# these values cannot alter the real-robot deployment profile.
+football_gazebo_spawn:
+  ros__parameters:
+    # Spawn all entities, but start control/navigation only for these robots.
+    # [cyberdog_1, cyberdog_2, cyberdog_3, cyberdog_4, cyberdog_5, cyberdog_6, cyberdog_7, cyberdog_8, cyberdog_9, cyberdog_10]
+    active_robots: [cyberdog_1]
+    robot_x: 0.0
+    robot_y: 0.0
+    robot_z: 0.42
+    robot_yaw: 0.0
+    ball_z: 0.115
+
+football_simulation_input_publisher:
+  ros__parameters:
+    field_frame: world
+    ball_x: 6.0
+    ball_y: 2.5
+    kick_target_x: 8.0
+    kick_target_y: 0.0
+    publish_ball: false
+    publish_odom: false
+    publish_path: false
+    simulate_ball_push: false
+    stop_at_ball: false
+
+football_gazebo_state_bridge:
+  ros__parameters:
+    robot_model: actors
+    ball_model: football
+    field_frame: world
+    base_frame: base_link
+    ball_topic: /football/ball_pose
+
+football_gazebo_leg_contact_simulator:
+  ros__parameters:
+    ball_topic: /football/ball_pose
+    ball_link: football::ball
+    reference_frame: world
+    apply_wrench_service: /apply_link_wrench
+    trigger_probability: 1.0  # Deterministic forward assistance prevents the ball settling between the front legs.
+    cooldown_sec: 0.25  # Match the low-speed push cadence without applying a continuous wrench.
+    contact_min_x: -0.30  # Cover the full under-body region after the robot overruns the ball.
+    contact_max_x: 0.58
+    contact_half_width: 0.42
+    forward_force_n: 1.50
+    lateral_force_n: 0.0
+    force_duration_sec: 0.10
+    random_seed: 2026  # Reproducible sequence while still varying individual contacts.
+
+football_servo_to_cyber_guide:
+  ros__parameters:
+    input_motion_id: 309
+    gazebo_gait_type: 5
+    # Resolves to /cyberdog_N/usr_cmd inside each robot namespace.
+    usr_cmd_service: usr_cmd
+    recovery_duration_sec: 4.0
+    command_timeout_sec: 0.35
+    command_rate_hz: 20.0
+    max_linear_x: 0.26
+    max_linear_y: 0.20
+    max_angular_z: 1.0
+    # Nav2 uses positive angular.z for counter-clockwise rotation, whereas
+    # cyber_guide's ConvexMPCLocomotion applies -omega_des[2].
+    angular_z_scale: -1.0
+    step_height: 0.06
+
+football_gazebo_marker_bridge:
+  ros__parameters:
+    expected_frame: world
+    marker_service: /marker
+    suppress_physical_duplicates: true
+    marker_topics:
+      - /football/markers/ball
+      - /football/markers/approach_pose
+      - /football/markers/tracking_pose
+      - /football/markers/paths
+      - /football/markers/goals
+
+football_goal_adapter:
+  ros__parameters:
+    # Gazebo state bridge is the sole publisher of this topic.  The synthetic
+    # test publisher is started with publish_ball=false by the Gazebo launch.
+    ball_pose_topic: /football/ball_pose
+    kick_target_topic: /football/team_a/kick_target
+    # Use the simulated team kick target (8, 0).  Falling back to
+    # default_kick_yaw=0 would incorrectly push parallel to +X from an
+    # off-centre ball instead of steering toward the goal.
+    use_team_kick_target: true
+    approach_distance_m: 0.60
+    ball_timeout_sec: 0.60
+    max_ball_age_sec: 0.50
+    max_ball_jump_m: 1.00  # Gazebo 30 Hz model states can move the ball >0.35 m per sample.
+    max_ball_speed_mps: 15.0
+    odom_timeout_sec: 0.60
+    max_ball_odom_skew_sec: 0.20
+    push_contact_loss_sec: 1.00
+    push_speed_limit_mps: 0.18
+    contact_acquire_speed_limit_mps: 0.10
+    push_target_lead_m: 0.42
+    goal_update_position_threshold_m: 0.03
+    goal_update_max_refresh_sec: 0.35
+
+football_tracking_action_client:
+  ros__parameters:
+    require_costmap_ready: false
+    expected_costmap_frame: world
+
+football_visualization_node:
+  ros__parameters:
+    field_frame: world
+    target_frame: world
+    ball_topic: /football/ball_pose
+    show_ball_marker: true
+    show_ball_avoidance_zone: true  # Ground outline only; no rotating translucent fill.
+    show_goal_markers: true
+    show_ego_robot_marker: true
+    show_robot_collision_ellipses: true
+    show_other_robot_markers: true
+    publish_rate_hz: 2.0
+    marker_lifetime_sec: 0.75
+    expect_motion_cmds: true
+    global_path_width_m: 0.07
+    local_trajectory_width_m: 0.10
+    # Approach/behind-ball markers are state-dependent; clear the previous
+    # frame first so they disappear immediately once alignment starts.
+    use_delete_all_before_publish: false
+
+# This section is applied as a second Nav2 parameter file, after
+# football_nav2_real.yaml, and therefore affects Gazebo only.
+controller_server:
+  ros__parameters:
+    progress_checker:
+      required_movement_radius: 0.08
+      required_movement_angle: 0.20
+      movement_time_allowance: 6.0
+    FollowPath:
+      min_vel_x: -0.26
+      max_vel_x: 0.26
+      min_vel_y: -0.20
+      max_vel_y: 0.20
+      min_speed_xy: 0.05
+      max_speed_xy: 0.26
+      max_vel_theta: 1.0
+      acc_lim_y: 2.0
+      decel_lim_y: -2.0
+      vy_samples: 15
