@@ -4,12 +4,16 @@ football_gazebo_spawn:
   ros__parameters:
     # Spawn all entities, but start control/navigation only for these robots.
     # [cyberdog_1, cyberdog_2, cyberdog_3, cyberdog_4, cyberdog_5, cyberdog_6, cyberdog_7, cyberdog_8, cyberdog_9, cyberdog_10]
-    active_robots: [cyberdog_1]
+    active_robots: [cyberdog_1, cyberdog_2, cyberdog_3, cyberdog_4, cyberdog_5]
     robot_x: 0.0
     robot_y: 0.0
     robot_z: 0.42
     robot_yaw: 0.0
     ball_z: 0.115
+
+
+
+
 
 football_simulation_input_publisher:
   ros__parameters:
@@ -60,10 +64,20 @@ football_servo_to_cyber_guide:
     max_linear_x: 0.26
     max_linear_y: 0.20
     max_angular_z: 1.0
+    # Physical slew limits applied before usr_cmd; these preserve Nav2's acceleration envelope across the 500 Hz CyberGuide loop.
+    max_linear_accel_x: 2.5
+    max_linear_accel_y: 2.0
+    max_angular_accel: 3.2
     # Nav2 uses positive angular.z for counter-clockwise rotation, whereas
     # cyber_guide's ConvexMPCLocomotion applies -omega_des[2].
     angular_z_scale: -1.0
     step_height: 0.06
+
+football_cmd_vel_to_servo:
+  ros__parameters:
+    # Keep Gazebo MotionServoCmd traffic separate from the real-robot topic.
+    # The topic remains relative and is therefore namespaced per simulated robot.
+    motion_servo_cmd_topic: sim_motion_servo_cmd
 
 football_gazebo_marker_bridge:
   ros__parameters:
@@ -120,6 +134,7 @@ football_visualization_node:
     publish_rate_hz: 2.0
     marker_lifetime_sec: 0.75
     expect_motion_cmds: true
+    motion_servo_cmd_topic: sim_motion_servo_cmd
     global_path_width_m: 0.07
     local_trajectory_width_m: 0.10
     # Approach/behind-ball markers are state-dependent; clear the previous

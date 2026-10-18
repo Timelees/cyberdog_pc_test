@@ -478,7 +478,6 @@ set(football_identity_sources
   src/coordination/defender_left_role_strategy.cpp
   src/coordination/defender_right_role_strategy.cpp
   src/coordination/goalkeeper_role_strategy.cpp
-  test/test_role_strategies.cpp
   src/visualization/football_visualization_node.cpp
   src/visualization/football_visualization_main.cpp
   src/plugins/dynamic_obstacle_marker.cpp
@@ -653,12 +652,14 @@ if(BUILD_TESTING)
     )
   endif()
 
-  ament_add_gtest(test_role_strategies
-    test/test_role_strategies.cpp
-  )
-  target_link_libraries(test_role_strategies
-    football_role_strategies
-  )
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/test_role_strategies.cpp")
+    ament_add_gtest(test_role_strategies
+      test/test_role_strategies.cpp
+    )
+    target_link_libraries(test_role_strategies
+      football_role_strategies
+    )
+  endif()
 
   if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/test_football_contract.py")
     ament_add_pytest_test(

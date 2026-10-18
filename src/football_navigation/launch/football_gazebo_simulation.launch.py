@@ -224,10 +224,11 @@ def generate_launch_description():
     servo_params = load_node_params(
         gazebo_params, 'football_servo_to_cyber_guide')
     servo_params.update({'use_sim_time': True, 'usr_cmd_service': 'usr_cmd'})
-    cmd_adapter_params = {
+    cmd_adapter_params = load_node_params(
+        gazebo_params, 'football_cmd_vel_to_servo')
+    cmd_adapter_params.update({
         'use_sim_time': True,
         'cmd_vel_topic': 'cmd_vel',
-        'motion_servo_cmd_topic': 'motion_servo_cmd',
         'control_valid_topic': 'football/control_valid',
         'motion_status_topic': 'motion_status',
         'motion_id': 309,
@@ -238,7 +239,9 @@ def generate_launch_description():
         'max_linear_x': 0.26,
         'max_linear_y': 0.20,
         'max_angular_z': 1.0,
-    }
+    })
+    sim_motion_servo_cmd_topic = cmd_adapter_params[
+        'motion_servo_cmd_topic']
     for robot in active_robots:
         motion_nodes.extend([
             Node(
@@ -250,7 +253,11 @@ def generate_launch_description():
                 package='football_navigation',
                 executable='football_servo_to_cyber_guide',
                 namespace=robot, name='football_servo_to_cyber_guide',
-                output='screen', parameters=[dict(servo_params)],
+                output='screen',
+                parameters=[dict(servo_params)],
+                remappings=[
+                    ('motion_servo_cmd', sim_motion_servo_cmd_topic),
+                ],
             ),
             Node(
                 package='football_navigation',
