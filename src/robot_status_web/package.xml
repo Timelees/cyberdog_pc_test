@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>robot_status_web</name>
+  <version>0.1.0</version>
+  <description>ROS 2 multi-CyberDog health monitor with FastAPI dashboard.</description>
+  <maintainer email="lee@example.com">lee</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>ament_index_python</depend>
+  <depend>apriltag_msgs</depend>
+  <depend>lifecycle_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>protocol</depend>
+  <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_srvs</depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

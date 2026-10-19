@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CyberDog 机器人状态</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; background: #f4f6f8; color: #202a33; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; }
+    header { height: 62px; background: #fff; border-bottom: 1px solid #dce2e7; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; position: sticky; top: 0; z-index: 2; }
+    .brand { display: flex; align-items: center; gap: 12px; font-size: 17px; font-weight: 650; }
+    .brand-mark { width: 10px; height: 24px; background: #197a76; border-radius: 2px; }
+    .header-right { display: flex; align-items: center; gap: 16px; color: #697783; font-size: 13px; }
+    button { border: 1px solid #126b67; background: #147c76; color: white; padding: 8px 12px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    button:hover { background: #0d6864; }
+    button:disabled { opacity: .55; cursor: wait; }
+    main { padding: 20px 24px 28px; }
+    .summary { display: flex; align-items: center; gap: 22px; margin-bottom: 18px; min-height: 36px; }
+    h1 { font-size: 20px; margin: 0; font-weight: 650; }
+    .summary-item { color: #5d6b76; font-size: 13px; }
+    .summary-item strong { color: #26343e; font-size: 16px; margin-right: 4px; }
+    .table-wrap { overflow-x: auto; background: white; border: 1px solid #dce2e7; border-radius: 5px; }
+    table { width: 100%; border-collapse: collapse; min-width: 1120px; table-layout: fixed; }
+    th, td { padding: 10px 9px; border-bottom: 1px solid #e8ecef; text-align: center; }
+    th { background: #f8fafb; color: #62717b; font-size: 12px; font-weight: 650; white-space: nowrap; }
+    td { font-size: 13px; }
+    tr:last-child td { border-bottom: 0; }
+    th:first-child, td:first-child { text-align: left; padding-left: 16px; width: 132px; }
+    th:last-child, td:last-child { width: 105px; }
+    .robot-name { font-weight: 650; color: #24333c; }
+    .cell { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 30px; }
+    .dot { width: 9px; height: 9px; flex: 0 0 9px; border-radius: 50%; background: #a8b2b9; }
+    .dot.healthy, .dot.active { background: #198754; box-shadow: 0 0 0 3px #e5f4ec; }
+    .dot.stale, .dot.error, .dot.unavailable, .dot.finalized { background: #c63e45; box-shadow: 0 0 0 3px #fae9e9; }
+    .dot.unknown, .dot.waiting, .dot.unconfigured, .dot.inactive, .dot.activating, .dot.configuring { background: #c38b23; box-shadow: 0 0 0 3px #fbf2df; }
+    .state { color: #36444d; white-space: nowrap; }
+    .metric { color: #74828c; font-size: 11px; white-space: nowrap; }
+    .lifecycle { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding-left: 6px; }
+    .life-line { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #57656e; white-space: nowrap; }
+    .life-line .dot { width: 7px; height: 7px; flex-basis: 7px; }
+    .row-action { display: block; width: 94px; margin: 3px auto; padding: 6px 7px; font-size: 11px; }
+    .stop-action { border-color: #a7373e; background: #b8444a; }
+    .stop-action:hover { background: #96343a; }
+    .stand-action { border-color: #28745d; background: #2d896b; }
+    .stand-action:hover { background: #236e56; }
+    .down-action { border-color: #9b7130; background: #b88635; }
+    .down-action:hover { background: #956d2d; }
+    .action-status { min-height: 18px; color: #6a7780; font-size: 11px; text-align: center; }
+    .action-status.running { color: #a16b16; }
+    .action-status.success { color: #197a55; }
+    .action-status.failure { color: #b43b43; }
+    .operation-log { margin-top: 16px; background: #fff; border: 1px solid #dce2e7; border-radius: 5px; }
+    .operation-log h2 { margin: 0; padding: 11px 14px; border-bottom: 1px solid #e8ecef; font-size: 14px; font-weight: 650; }
+    .operation-entries { max-height: 220px; overflow: auto; padding: 8px 14px; }
+    .operation-entry { display: grid; grid-template-columns: 82px 150px 1fr; gap: 10px; padding: 6px 0; border-bottom: 1px solid #eef1f3; color: #52616b; font-size: 12px; }
+    .operation-entry:last-child { border-bottom: 0; }
+    .operation-entry time { color: #7a8790; }
+    .operation-entry.success { color: #197a55; }
+    .operation-entry.failure { color: #b43b43; }
+    .operation-entry.running { color: #a16b16; }
+    .empty-log { padding: 10px 0; color: #85919a; font-size: 12px; }
+    .foot { display: flex; justify-content: space-between; padding: 11px 2px; color: #74818a; font-size: 12px; }
+    .connection { display: inline-flex; align-items: center; gap: 6px; }
+    .connection .dot { width: 7px; height: 7px; flex-basis: 7px; }
+    @media (max-width: 700px) { header { padding: 0 14px; } main { padding: 16px 12px; } .summary { flex-wrap: wrap; gap: 10px 18px; } .summary h1 { width: 100%; } .header-right { gap: 8px; } .header-right span:last-of-type { display: none; } }
+  </style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="brand-mark"></span><span>CyberDog 状态监控</span></div>
+  <div class="header-right"><span class="connection"><i id="connectionDot" class="dot"></i><span id="connectionText">连接中</span></span><span id="updatedAt">等待状态数据</span><button id="activateAll">激活全部节点</button><button id="standAll" class="stand-action">全部机器人站立</button><button id="downAll" class="down-action">全部机器人趴下</button></div>
+</header>
+<main>
+  <section class="summary">
+    <h1>机器人在线状态</h1>
+    <span class="summary-item"><strong id="healthyCount">0</strong>正常机器人</span>
+    <span class="summary-item"><strong id="topicCount">0 / 40</strong>话题正常</span>
+    <span class="summary-item"><strong id="lifecycleCount">0 / 20</strong>生命周期节点 active</span>
+  </section>
+  <div class="table-wrap"><table>
+    <thead><tr>
+      <th>机器人</th><th>相机生命周期<br>camera/camera</th><th>VINS 生命周期<br>vinslocalization</th><th>视觉里程计<br>odom_slam</th><th>Tag 检测<br>apriltag/detections</th><th>全局里程计<br>odom_global</th><th>统一全局坐标<br>global_vio/odom</th><th>操作</th>
+    </tr></thead>
+    <tbody id="robotRows"></tbody>
+  </table></div>
+  <section class="operation-log"><h2>操作日志</h2><div id="operationEntries" class="operation-entries"><div class="empty-log">暂无操作记录</div></div></section>
+  <div class="foot"><span>话题状态依据发布者发现判定；频率按消息时间戳统计。</span><span>最后更新 <span id="footerUpdated">--</span></span></div>
+</main>
+<script>
+const topicNames = ['odom_slam', 'apriltag', 'odom_global', 'global_vio'];
+const topicLabels = {healthy:'正常', stale:'正常', waiting:'正常', unknown:'未发现'};
+const lifeLabels = {active:'ACTIVE', inactive:'INACTIVE', unconfigured:'UNCONFIGURED', unavailable:'服务不可用', error:'错误', finalized:'FINALIZED', activating:'ACTIVATING', configuring:'CONFIGURING'};
+const robotActions = new Map();
+const operationLogs = [];
+function escapeHtml(value) { return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function addOperationLog(robot, message, kind) {
+  operationLogs.unshift({time: new Date().toLocaleTimeString(), robot, message, kind});
+  operationLogs.splice(100);
+  const root = document.getElementById('operationEntries');
+  root.innerHTML = operationLogs.map(item => `<div class="operation-entry ${safeClass(item.kind)}"><time>${item.time}</time><strong>${escapeHtml(item.robot || '全部机器人')}</strong><span>${escapeHtml(item.message)}</span></div>`).join('');
+}
+function safeClass(s) { return /^[a-z_]+$/.test(s || '') ? s : 'unknown'; }
+function topicCell(entry, key) {
+  const state = entry?.state || 'unknown';
+  const label = topicLabels[state] || state;
+  const details = state === "unknown" ? "无发布者" : key === "apriltag" ? `${entry?.detection_count ?? 0} Tag · ${Number(entry?.hz || 0).toFixed(1)} Hz` : `${Number(entry?.hz || 0).toFixed(1)} Hz`;
+  return `<div class="cell"><i class="dot ${safeClass(state)}"></i><span class="state">${label}</span><span class="metric">${details}</span></div>`;
+}
+function lifeCell(entry, display) {
+  const state = entry?.state || 'unknown';
+  const label = lifeLabels[state] || state.toUpperCase();
+  return `<div class="lifecycle"><div class="life-line"><i class="dot ${safeClass(state)}"></i><span>${display}</span><span>${label}</span></div></div>`;
+}
+let latestData = {robots:{}};
+let latestRobots = {};
+function render(data) {
+  latestData = data;
+  const robots = data.robots || {};
+  latestRobots = robots;
+  let topicsOk = 0, lifecycleOk = 0, healthyRobots = 0;
+  const names = Object.keys(robots);
+  document.getElementById('robotRows').innerHTML = names.map(name => {
+    const robot = robots[name], topics = robot.topics || {}, lifecycle = robot.lifecycle || {};
+    const healthy = topicNames.filter(key => topics[key]?.state === 'healthy').length;
+    const active = ['camera','vinslocalization'].filter(key => lifecycle[key]?.state === 'active').length;
+    topicsOk += healthy; lifecycleOk += active;
+    if (healthy === topicNames.length && active === 2) healthyRobots++;
+    const bothActive = lifecycle.camera?.state === 'active' && lifecycle.vinslocalization?.state === 'active';
+    const action = robotActions.get(name) || {running: false, pending: false, closing: false, message: '', kind: ''};
+    if (bothActive && action.pending) {
+      action.pending = false; action.message = '相机与 VINS 节点均已 ACTIVE'; action.kind = 'success';
+    } else if (!bothActive && action.kind === 'success' && action.message === '相机与 VINS 节点均已 ACTIVE') {
+      action.message = ''; action.kind = '';
+    }
+    robotActions.set(name, action);
+    const activating = action.running && !action.closing || action.pending;
+    const activateLabel = action.running && !action.closing || action.pending ? '执行中...' : '配置并激活';
+    const activateDisabled = activating || action.closing;
+    const statusClass = action.kind ? `action-status ${action.kind}` : 'action-status';
+    const standDisabled = action.running || action.pending;
+    return `<tr><td><span class="robot-name">${name}</span></td><td>${lifeCell(lifecycle.camera, "camera/camera")}</td><td>${lifeCell(lifecycle.vinslocalization, "vinslocalization")}</td>${topicNames.map(key => `<td>${topicCell(topics[key], key)}</td>`).join("")}<td><button class="row-action" data-action="activate" data-robot="${name}" ${activateDisabled ? 'disabled' : ''}>${activateLabel}</button><button class="row-action stand-action" data-action="stand" data-robot="${name}" ${standDisabled ? 'disabled' : ''}>${action.motion === 'stand' ? '执行中...' : '站立'}</button><button class="row-action down-action" data-action="down" data-robot="${name}" ${standDisabled ? 'disabled' : ''}>${action.motion === 'down' ? '执行中...' : '趴下'}</button><button class="row-action stop-action" data-action="deactivate" data-robot="${name}" ${action.running ? 'disabled' : ''}>${action.closing ? '执行中...' : '关闭节点'}</button></td></tr>`;
+  }).join('');
+  document.getElementById('healthyCount').textContent = `${healthyRobots} / ${names.length}`;
+  document.getElementById('topicCount').textContent = `${topicsOk} / ${names.length * topicNames.length}`;
+  document.getElementById('lifecycleCount').textContent = `${lifecycleOk} / ${names.length * 2}`;
+  const stamp = data.updated_at ? new Date(data.updated_at).toLocaleTimeString() : '--';
+  document.getElementById('updatedAt').textContent = stamp;
+  document.getElementById('footerUpdated').textContent = stamp;
+  document.querySelectorAll('[data-action="activate"]').forEach(button => button.onclick = () => runAction(button, `/api/robots/${button.dataset.robot}/activate`, '启动流程完成'));
+  document.querySelectorAll('[data-action="deactivate"]').forEach(button => button.onclick = () => runAction(button, `/api/robots/${button.dataset.robot}/deactivate`, '关闭流程完成'));
+  document.querySelectorAll('[data-action="stand"]').forEach(button => button.onclick = () => runAction(button, `/api/robots/${button.dataset.robot}/stand`, '站立执行完成'));
+  document.querySelectorAll('[data-action="down"]').forEach(button => button.onclick = () => runAction(button, `/api/robots/${button.dataset.robot}/down`, '趴下执行完成'));
+}
+async function runAction(button, url, successTitle) {
+  const robot = button.dataset.robot;
+  const state = robot ? (robotActions.get(robot) || {running:false, pending:false, closing:false, message:'', kind:''}) : null;
+  if (state?.running || state?.pending || state?.closing || state?.motion) return;
+  const currentRobot = robot && latestRobots[robot];
+  const alreadyActive = currentRobot?.lifecycle?.camera?.state === 'active' && currentRobot?.lifecycle?.vinslocalization?.state === 'active';
+  if (url.endsWith('/activate') && alreadyActive) {
+    state.message = '相机与 VINS 节点均已处于 ACTIVE 状态'; state.kind = 'success'; robotActions.set(robot, state); addOperationLog(robot, state.message, 'success'); return;
+  }
+  if (state) {
+    state.running = true; state.motion = url.endsWith('/stand') ? 'stand' : url.endsWith('/down') ? 'down' : ''; state.closing = url.endsWith('/deactivate');
+    state.pending = url.endsWith('/activate'); state.message = url.endsWith('/stand') ? '正在发送站立指令' : url.endsWith('/down') ? '正在发送趴下指令' : '正在执行生命周期与相机服务操作'; state.kind = 'running';
+    robotActions.set(robot, state); render(latestData); addOperationLog(robot, state.message, 'running');
+  } else { button.disabled = true; button.textContent = '执行中...'; }
+  try {
+    const response = await fetch(url, {method:'POST'});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.detail || '请求失败');
+    const nodeResults = result.nodes ? [{robot: result.robot, nodes: result.nodes}] : (result.results || []);
+    const isMotion = url.endsWith('/stand') || url.endsWith('/stand-all') || url.endsWith('/down') || url.endsWith('/down-all');
+    const motionResults = isMotion ? (result.robot ? [result] : (result.results || [])) : [];
+    const motionFailed = motionResults.filter(item => !item.ok).map(item => `${item.robot}: ${item.detail}`);
+    const failed = nodeResults.flatMap(item => Object.entries(item.nodes || {}).filter(([,v]) => !v.ok).map(([k,v]) => `${item.robot} ${k}: ${v.detail}`));
+    const summary = nodeResults.flatMap(item => Object.entries(item.nodes || {}).map(([key, value]) => `${key}: ${value.detail}`));
+    if (state) {
+      state.running = false; state.motion = ''; state.closing = false;
+      const resultRobot = result.robot ? latestRobots[result.robot] : null;
+      const responseBothActive = resultRobot?.lifecycle?.camera?.state === 'active' && resultRobot?.lifecycle?.vinslocalization?.state === 'active';
+      state.pending = url.endsWith('/activate') && !failed.length && !responseBothActive;
+      state.message = (failed.length || motionFailed.length) ? [...failed, ...motionFailed].join('; ') : state.pending ? '操作已提交，等待相机与 VINS 均进入 ACTIVE' : `${successTitle}：${isMotion ? result.detail : summary.join('; ')}`;
+      state.kind = (failed.length || motionFailed.length) ? 'failure' : state.pending ? 'running' : 'success';
+      robotActions.set(robot, state); render(latestData); addOperationLog(robot, state.message, state.kind);
+      button.disabled = state.pending;
+    } else {
+      const allFailed = [...failed, ...motionFailed];
+      addOperationLog(null, allFailed.length ? allFailed.join('; ') : `${successTitle}：${isMotion ? '全部请求已返回成功' : summary.join('; ')}`, allFailed.length ? 'failure' : 'success');
+      button.disabled = false; button.textContent = button.id === 'standAll' ? '全部机器人站立' : button.id === 'downAll' ? '全部机器人趴下' : '激活全部节点';
+    }
+  } catch (error) {
+    if (state) {
+      state.running = false; state.pending = false; state.motion = ''; state.closing = false;
+      state.message = `操作失败：${error.message}`; state.kind = 'failure'; robotActions.set(robot, state); render(latestData); addOperationLog(robot, state.message, 'failure');
+    } else {
+      addOperationLog(null, `操作失败：${error.message}`, 'failure');
+      button.disabled = false; button.textContent = button.id === 'standAll' ? '全部机器人站立' : button.id === 'downAll' ? '全部机器人趴下' : '激活全部节点';
+    }
+  }
+}
+
+document.getElementById('activateAll').onclick = event => runAction(event.currentTarget, '/api/activate-all', '启动流程完成');
+document.getElementById('standAll').onclick = event => runAction(event.currentTarget, '/api/stand-all', '全部机器人站立完成');
+document.getElementById('downAll').onclick = event => runAction(event.currentTarget, '/api/down-all', '全部机器人趴下完成');
+function connected(yes) {
+  document.getElementById('connectionDot').className = `dot ${yes ? 'healthy' : 'stale'}`;
+  document.getElementById('connectionText').textContent = yes ? '服务已连接' : '连接断开';
+}
+function connect() {
+  const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${scheme}://${location.host}/ws`);
+  ws.onopen = () => connected(true);
+  ws.onmessage = event => { try { render(JSON.parse(event.data)); } catch (e) { console.error(e); } };
+  ws.onclose = () => { connected(false); setTimeout(connect, 1500); };
+  ws.onerror = () => ws.close();
+}
+connect();
+</script>
+</body>
+</html>

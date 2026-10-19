@@ -1,0 +1,27 @@
+[Unit]
+Description=Cyberdog AprilTag detection service
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=root
+Type=idle
+Environment="ROS_DOMAIN_ID=42"
+Environment="ROS_VERSION=2"
+Environment="ROS_PYTHON_VERSION=3"
+Environment="ROS_DISTRO=galactic"
+Environment="LD_LIBRARY_PATH=/opt/ros2/galactic/lib:/opt/ros2/cyberdog/lib"
+Environment="PYTHONPATH=/opt/ros2/galactic/lib/python3.6/site-packages:/opt/ros2/cyberdog/lib/python3.6/site-packages"
+Environment="AMENT_PREFIX_PATH=/opt/ros2/galactic:/opt/ros2/cyberdog"
+Environment="RMW_IMPLEMENTATION=rmw_cyclonedds_cpp"
+Environment="ROS_LOCALHOST_ONLY=0"
+# Match the DDS interface and peers used by the robot interactive ROS shell.
+Environment="CYCLONEDDS_URI=file:///etc/mi/cyclonedds.xml"
+
+# Run both launch files under one service; systemd restarts the service if the shell exits.
+ExecStart=/bin/bash -c '/opt/ros2/galactic/bin/ros2 launch apriltag_ros apriltag_36h11.launch.py & /opt/ros2/galactic/bin/ros2 launch apriltag_ros odom_transform.launch.py & wait'
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -60,6 +60,7 @@ def launch_setup(context, *args, **kwargs):
         ],
         remappings=[
             ("image_rect", image_topic),
+            ("detections", f"/{robot_namespace}/apriltag/detections" if robot_namespace else "/detections"),
         ],
         ),
     ]

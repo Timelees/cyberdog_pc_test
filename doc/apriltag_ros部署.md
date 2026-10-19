@@ -125,5 +125,18 @@ ros2 topic echo /detections
 ros2 topic echo /{namespace}}/odom_global
 ```
 
+### 实机开机自启动部署
 
+数据线连接机器人
+
+```bash
+# 将自启动文件夹下的service文件上传到机器人NX板上
+scp -r cyberdog_apriltag.service mi@192.168.44.1:/home/mi/
+
+# 以下ssh连进机器人系统上运行
+sudo cp cyberdog_apriltag.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now cyberdog_apriltag.service
+
+```
 

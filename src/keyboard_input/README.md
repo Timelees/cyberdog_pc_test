@@ -11,6 +11,15 @@
 
 数据依赖包protocol
 
+## 推荐启动方式
+
+不要直接在未配置 DDS 环境的终端执行 `ros2 run`。使用工作区启动脚本，它会统一设置 ROS Domain、CycloneDDS 配置和机器人命名空间：
+
+```bash
+bash src/env/start_keyboard_input.sh
+ROBOT_NAMESPACE=cyberdog_2 bash src/env/start_keyboard_input.sh
+```
+
 ## 运行前环境（必须）
 
 PC 端需配置 CycloneDDS 多机发现，详细见
@@ -40,7 +49,9 @@ colcon build --packages-up-to keyboard_input
 
 ```bash
 # 终端 1：控制 cyberdog_1
-ros2 run keyboard_input keyboard_input_node --ros-args -p namespace:=cyberdog_1
+bash src/env/start_keyboard_input.sh
+# 或指定其他机器人：
+ROBOT_NAMESPACE=cyberdog_2 bash src/env/start_keyboard_input.sh
 
 # 终端 2：控制 cyberdog_2
 ros2 run keyboard_input keyboard_input_node --ros-args -p namespace:=cyberdog_2
