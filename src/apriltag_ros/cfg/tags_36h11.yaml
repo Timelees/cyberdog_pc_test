@@ -2,7 +2,7 @@
     ros__parameters:
         image_transport: raw    # image format
         family: 36h11           # tag family name
-        size: 0.127             # tag edge size in meter
+        size: 0.159             # tag edge size in meter
         max_hamming: 0          # maximum allowed hamming distance (corrected bits)
         qos_profile: sensor_data    # optional qos_profile, "sensor_data", "default", or "system_default"
 
@@ -30,4 +30,4 @@
             # Must match global_alignment_node tag_observation_frame_id, e.g. cyberdog_1/tag_0_observation.
             # apriltag_36h11.launch.py overrides this at runtime.
             frames: [cyberdog_1/tag_0_observation]
-            sizes: [0.127]   # optional tag-specific edge size
+            sizes: [0.159]   # optional tag-specific edge size

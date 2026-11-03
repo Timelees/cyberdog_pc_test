@@ -2,14 +2,15 @@
 football_simulation_input_publisher:
   ros__parameters:
     field_frame: tag_global  # 测试足球和射门目标所在的全局坐标系。
-    ball_x: -1.68  # 固定测试足球的 X 坐标。
-    ball_y: -0.65  # 固定测试足球的 Y 坐标。
-    kick_target_x: -2.85  # 固定射门目标的 X 坐标。
-    kick_target_y: -0.40  # 固定射门目标的 Y 坐标。
+    ball_x: -1.68  # 尚未收到实时坐标前的回退值。
+    ball_y: -0.65  # 尚未收到实时坐标前的回退值。
+    kick_target_x: 0.994  # 固定射门目标的 X 坐标。
+    kick_target_y: 0.508  # 固定射门目标的 Y 坐标。
     ball_topic: /football/real_test/ball_pose
+    ball_input_topic: /field/soccer_global  # 转换后的足球全局坐标 (PointStamped)。
     kick_target_topic: /football/real_test/kick_target
     publish_rate_hz: 10.0  # 测试输入发布频率。
-    publish_ball: true  # 使用固定测试球；接入实球视觉时在此改为 false。
+    publish_ball: true  # 将实时 PointStamped 转为导航使用的 PoseStamped。
     publish_odom: false  # 是否发布假里程计；实机测试必须为 false。
     publish_path: false  # 是否发布假路径；路径必须由 Nav2 生成。
     simulate_ball_push: false  # 是否启用仿真推球模型；实机测试关闭。

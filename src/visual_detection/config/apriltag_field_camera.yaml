@@ -1,0 +1,15 @@
+/**:
+  ros__parameters:
+    image_transport: raw
+    family: "36h11"
+    size: 0.159
+    max_hamming: 0
+    qos_profile: sensor_data
+    pose_estimation_method: "pnp"
+    latch_first_tag_pose: false
+    publish_latched_when_lost: false
+    use_first_pose_as_global: false
+    tag:
+      ids: [1]
+      frames: [field_tag1]
+      sizes: [0.159]  # 根据实际的tag尺寸调整

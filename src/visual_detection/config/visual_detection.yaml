@@ -1,0 +1,30 @@
+visual_detection:
+  ros__parameters:
+    video_stream: "rtsp://192.168.31.105:554/Streaming/Channels/101"
+    username: "admin"
+    password: "DRGK_123456sxt"
+    # GUI rendering blocks the same callback that reads/detects frames; keep it
+    # false for real-time control and enable only when debugging.
+    preview: true
+    device: "cuda"
+    cuda_device_id: 0
+    confidence_threshold: 0.25
+    nms_threshold: 0.45
+    result_topic: "/visual_detection/result"
+    image_topic: "/image_raw"
+    # The same RTSP frame and calibration are exposed for apriltag_ros.
+    camera_image_topic: "/field_camera/image_rect"
+    camera_info_topic: "/field_camera/camera_info"
+    camera_frame_id: "field_camera_optical_frame"
+    # Replace these with the calibrated intrinsics for the exact RTSP resolution.
+    camera_fx: 1589.357910156
+    camera_fy: 1556.157783253
+    camera_cx: 957.232623280
+    camera_cy: 569.824625873
+    # OpenCV plumb_bob order: k1, k2, p1, p2, k3. Corrected frames
+    # are used by both YOLO and apriltag_ros, keeping pixel coordinates aligned.
+    camera_distortion: [0.08043318, 0.10357797, -0.03480341, -0.00510136, 0.05769659]
+    # Drop stale decoded frames when inference is slower than the camera.
+    max_grab_frames: 8
+    # Force RTSP over TCP to avoid UDP RTP packet reordering/loss seen in HEVC logs.
+    ffmpeg_capture_options: "rtsp_transport;tcp|fflags;nobuffer|flags;low_delay|max_delay;0"

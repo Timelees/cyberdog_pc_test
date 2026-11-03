@@ -287,10 +287,11 @@ void MutilRobotTagVisualNode::publish_pose_text(
 
   std::ostringstream text;
   text << std::fixed << std::setprecision(2)
-       << visual.namespace_name
-       << " x:" << odom.pose.pose.position.x
-       << " y:" << odom.pose.pose.position.y
-       << " yaw:" << yaw;
+       << target_frame_id_ << " / " << visual.namespace_name << "\n"
+       << "x: " << odom.pose.pose.position.x
+       << "  y: " << odom.pose.pose.position.y
+       << "  z: " << odom.pose.pose.position.z
+       << "  yaw: " << yaw;
 
   const auto color = robot_color(visual.color_index);
   visualization_msgs::msg::Marker marker;

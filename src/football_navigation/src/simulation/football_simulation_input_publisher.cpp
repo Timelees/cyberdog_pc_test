@@ -12,6 +12,7 @@
 
 #include "football_navigation/core/football_geometry.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/point_stamped.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "nav_msgs/msg/path.hpp"
@@ -54,6 +55,7 @@ FootballSimulationInputPublisher::FootballSimulationInputPublisher()
     publish_ball_ = declare_parameter<bool>("publish_ball", true);
     publish_path_ = declare_parameter<bool>("publish_path", true);
     ball_topic_ = declare_parameter<std::string>("ball_topic", "/football/ball_pose");
+    ball_input_topic_ = declare_parameter<std::string>("ball_input_topic", "");
     ball_override_topic_ = declare_parameter<std::string>(
       "ball_override_topic", "/football/simulation/ball_override");
     approach_topic_ = declare_parameter<std::string>(
@@ -120,6 +122,20 @@ FootballSimulationInputPublisher::FootballSimulationInputPublisher()
         RCLCPP_INFO(
           get_logger(), "simulation ball overridden to (%.2f, %.2f)", ball_x_, ball_y_);
       });
+    if (!ball_input_topic_.empty()) {
+      ball_input_sub_ = create_subscription<geometry_msgs::msg::PointStamped>(
+        ball_input_topic_, rclcpp::SensorDataQoS().keep_last(5),
+        [this](const geometry_msgs::msg::PointStamped::SharedPtr msg) {
+          if (!msg || (!msg->header.frame_id.empty() && msg->header.frame_id != field_frame_) ||
+            !std::isfinite(msg->point.x) || !std::isfinite(msg->point.y))
+          {
+            return;
+          }
+          ball_x_ = msg->point.x;
+          ball_y_ = msg->point.y;
+          ball_push_active_ = false;
+        });
+    }
     if (publish_path_) {
       path_pub_ = create_publisher<nav_msgs::msg::Path>(path_topic_, 10);
     }

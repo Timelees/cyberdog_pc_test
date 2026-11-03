@@ -23,6 +23,8 @@ export CYCLONEDDS_URI=file:///home/lee/code/cyberdog2_pc_ws/src/env/cyclonedds.x
 export ROS_DOMAIN_ID=42
 ```
 
+如果发现正常但话题数据只有零星到达，通常是 Wi-Fi AP 对 DDS 组播限速。容器使用本仓库的 [cyclonedds_pc_unicast.xml](../../env/cyclonedds_pc_unicast.xml)，并在机器人 `/etc/mi/cyclonedds.xml` 中将 `AllowMulticast` 设为 `false`、Peer 设为 PC Wi-Fi IP `192.168.31.68`。PC 配置已将机器人 Wi-Fi IP `192.168.31.91` 设为 Peer。两端修改后需重启相关 ROS 2 进程和 daemon，然后在容器中重新 source ROS 并运行 `ros2 topic hz /cyberdog_1/odom_global`。
+
 ## 编译
 
 ```bash

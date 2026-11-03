@@ -1,0 +1,43 @@
+soccer_global_converter:
+  ros__parameters:
+    # Keep false until the measured Tag1 pose and camera intrinsics are entered and checked.
+    calibration_valid: true
+    tag_family: "36h11"
+    tag_id: 1
+    tag_size_m: 0.159
+    global_frame: "tag_global"
+    # Express field-camera coordinates using the robot's observed axis order:
+    # robot_x = soccer_y, robot_y = soccer_x, robot_z = soccer_z.
+    # Row-major 3x3 component mapping; this is an axis remap, not a TF rotation.
+    output_axis_mapping: [0.0, 1.0, 0.0,
+                         1.0, 0.0, 0.0,
+                         0.0, 0.0, 1.0]
+    ground_z_m: 0.0
+    # Physical soccer diameter is 0.22 m; detector center is the ball center.
+    soccer_radius_m: 0.11
+    # Project the soccer detection-box bottom center through the ground-plane
+    # homography defined by Tag1 corners. This is less sensitive than deriving
+    # the whole ground plane from a distant single-tag PnP pitch estimate.
+    use_tag_plane_homography: true
+    # Average several fixed-camera detections before locking the mapping.
+    tag_calibration_samples: 30
+
+    # Pose of the physical Tag1 frame in Tag0's final tag_global frame.
+    # Physical Tag1 axes are +X along raw tag +X, +Y opposite raw tag +Y,
+    # and +Z out of the printed face (up for a horizontal floor tag).
+    # Fill x/y/z (meters) and quaternion (xyzw) from measurement.
+    tag1_in_tag_global:
+      x: 0.0
+      y: 0.522
+      z: 0.0
+      qx: 0.0
+      qy: 0.0
+      qz: 0.0
+      qw: 1.0
+
+    tag_detections_topic: "/field_camera/tag_detections"
+    soccer_pixel_topic: "/visual_detection/soccer_ground_contact"
+    camera_info_topic: "/field_camera/camera_info"
+    soccer_global_topic: "/field/soccer_global"
+    # Tag1 is used only for initial camera-pose estimation. The converter keeps
+    # that pose after initialization, so later Tag1 occlusion is allowed.

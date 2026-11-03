@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  PC-side CycloneDDS profile for the robot Wi-Fi network.
+  The AP is allowed to rate-limit multicast; disabling it for DDS data
+  forces discovery and user data onto the explicit unicast peer path.
+-->
+<CycloneDDS xmlns="https://cdds.io/config">
+  <Domain id="42">
+    <General>
+      <NetworkInterfaceAddress>wlp0s20f3</NetworkInterfaceAddress>
+      <AllowMulticast>false</AllowMulticast>
+    </General>
+    <Discovery>
+      <ParticipantIndex>auto</ParticipantIndex>
+      <MaxAutoParticipantIndex>256</MaxAutoParticipantIndex>
+      <Peers>
+        <Peer address="192.168.31.91"/>
+      </Peers>
+    </Discovery>
+  </Domain>
+</CycloneDDS>
