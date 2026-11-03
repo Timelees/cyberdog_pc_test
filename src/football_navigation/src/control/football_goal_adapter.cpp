@@ -198,6 +198,10 @@ FootballGoalAdapter::FootballGoalAdapter()
   speed_limit_refresh_sec_ = declare_parameter<double>(
     "speed_limit_refresh_sec", 0.25);
   push_target_lead_m_ = declare_parameter<double>("push_target_lead_m", 0.32);
+  push_ball_center_offset_m_ = declare_parameter<double>(
+    "push_ball_center_offset_m", 0.43);
+  kick_ball_lateral_offset_m_ = declare_parameter<double>(
+    "kick_ball_lateral_offset_m", -0.136);
   push_enter_lateral_error_m_ = declare_parameter<double>(
     "push_enter_lateral_error_m", 0.08);
   push_exit_lateral_error_m_ = declare_parameter<double>(
@@ -252,6 +256,8 @@ FootballGoalAdapter::FootballGoalAdapter()
     "maximum_kick_lateral_error_m", 0.20);
   kick_alignment_hold_sec_ = declare_parameter<double>(
     "kick_alignment_hold_sec", 0.35);
+  goal_width_m_ = declare_parameter<double>("goal_width_m", 1.2);
+  goal_depth_m_ = declare_parameter<double>("goal_depth_m", 0.5);
   cmd_vel_timeout_sec_ = declare_parameter<double>("cmd_vel_timeout_sec", 0.35);
   goal_update_min_hold_sec_ = declare_parameter<double>("goal_update_min_hold_sec", 0.25);
   goal_update_position_threshold_m_ = declare_parameter<double>(
@@ -272,6 +278,7 @@ FootballGoalAdapter::FootballGoalAdapter()
     alignment_min_error_improvement_rad_ <= 0.0 ||
     alignment_reacquire_lateral_m_ <= 0.0 ||
     alignment_position_loss_grace_sec_ < 0.0 ||
+    goal_width_m_ <= 0.0 || goal_depth_m_ <= 0.0 ||
     !std::isfinite(approach_speed_limit_mps_) ||
     approach_speed_limit_mps_ <= 0.0 ||
     !std::isfinite(obstacle_speed_limit_mps_) ||
@@ -299,6 +306,9 @@ FootballGoalAdapter::FootballGoalAdapter()
     speed_limit_update_threshold_mps_ <= 0.0 ||
     speed_limit_refresh_sec_ <= 0.0 ||
     push_target_lead_m_ <= 0.0 ||
+    push_ball_center_offset_m_ < robot_front_extent_m_ + ball_radius_m_ ||
+    !std::isfinite(kick_ball_lateral_offset_m_) ||
+    std::fabs(kick_ball_lateral_offset_m_) > robot_half_width_m_ + ball_radius_m_ ||
     push_enter_lateral_error_m_ <= 0.0 ||
     push_exit_lateral_error_m_ < push_enter_lateral_error_m_ ||
     push_realign_lateral_error_m_ < push_enter_lateral_error_m_ ||
@@ -336,6 +346,7 @@ FootballGoalAdapter::FootballGoalAdapter()
   }
 
   approach_config_.approach_distance = declare_parameter<double>("approach_distance_m", 0.60);
+  approach_config_.kick_ball_lateral_offset_m = kick_ball_lateral_offset_m_;
   approach_config_.default_kick_yaw = declare_parameter<double>("default_kick_yaw", 0.0);
   approach_config_.min_direction_norm = declare_parameter<double>("min_direction_norm", 1e-4);
   lateral_entry_config_.entry_lateral_m = declare_parameter<double>("entry_lateral_m", 0.70);
@@ -382,6 +393,8 @@ FootballGoalAdapter::FootballGoalAdapter()
     state_topic_, rclcpp::QoS(1).reliable().transient_local());
   speed_limit_pub_ = create_publisher<nav2_msgs::msg::SpeedLimit>(
     speed_limit_topic_, rclcpp::QoS(1).reliable().transient_local());
+  goal_event_pub_ = create_publisher<std_msgs::msg::String>(
+    goal_event_topic_, rclcpp::QoS(10).reliable());
   ball_pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
     ball_pose_topic_, rclcpp::SensorDataQoS().keep_last(5),
     std::bind(&FootballGoalAdapter::ballPoseCallback, this, std::placeholders::_1));
@@ -754,6 +767,15 @@ void FootballGoalAdapter::goalEventCallback(const std_msgs::msg::String::SharedP
   setControlState("SAFE_STOP", false);
 }
 
+bool FootballGoalAdapter::ballInsideGoal(
+  const geometry_msgs::msg::PoseStamped & ball) const
+{
+  return std::fabs(ball.pose.position.x - latest_kick_target_.pose.position.x) <=
+         goal_depth_m_ * 0.5 &&
+         std::fabs(ball.pose.position.y - latest_kick_target_.pose.position.y) <=
+         goal_width_m_ * 0.5;
+}
+
 void FootballGoalAdapter::matchStateCallback(const std_msgs::msg::String::SharedPtr msg)
 {
   if (!msg || (msg->data != "STOP" && msg->data != "READY" && msg->data != "PLAY" &&
@@ -979,6 +1001,21 @@ void FootballGoalAdapter::ballPoseCallback(
   last_valid_ball_time_ = now();
   have_last_ball_ = true;
 
+  if (!goal_scored_ && have_kick_target_ && ballInsideGoal(ball)) {
+    goal_scored_ = true;
+    std_msgs::msg::String event;
+    event.data = "GOAL";
+    goal_event_pub_->publish(event);
+    RCLCPP_INFO(
+      get_logger(), "goal scored: ball=(%.2f, %.2f) target=(%.2f, %.2f)",
+      ball.pose.position.x, ball.pose.position.y,
+      latest_kick_target_.pose.position.x, latest_kick_target_.pose.position.y);
+    resetGoalStability();
+    setControlState("GOAL_SCORED", false);
+    markProcessed();
+    return;
+  }
+
   if (!processingDue()) {
     return;
   }
@@ -1136,7 +1173,8 @@ void FootballGoalAdapter::ballPoseCallback(
     kick_target.pose.position.x,
     kick_target.pose.position.y,
     minimum_behind_alignment_m_,
-    strict_lateral_tolerance);
+    strict_lateral_tolerance,
+    kick_ball_lateral_offset_m_);
 
   if (!drive_through_committed_) {
     if (
@@ -1242,7 +1280,8 @@ void FootballGoalAdapter::ballPoseCallback(
     std::sin(robot_yaw) * robot_to_ball_y;
   const double kick_lateral_error = std::fabs(
     (robot.pose.position.x - ball.pose.position.x) * (-uy) +
-    (robot.pose.position.y - ball.pose.position.y) * ux);
+    (robot.pose.position.y - ball.pose.position.y) * ux +
+    kick_ball_lateral_offset_m_);
 
   const double strict_yaw_tolerance = std::min(
     align_yaw_tolerance_, push_enter_yaw_error_rad_);
@@ -1309,26 +1348,19 @@ void FootballGoalAdapter::ballPoseCallback(
   // physical ball underneath the body between the front legs.  Keep one ball
   // radius outside the front envelope, allowing only the configured contact
   // tolerance as compliant overlap.
-  const double push_contact_offset_m =
-    robot_front_extent_m_ + ball_radius_m_ - contact_tolerance_m_;
+  const double push_contact_offset_m = push_ball_center_offset_m_;
 
   auto assignPushTarget =
     [&](const double direction_x, const double direction_y)
     {
-      // Before contact, approach the rear of the ball. Once contact is stable,
-      // use a rolling horizon immediately in front of the current ball pose.
-      // A fixed goal-side target lets Nav2 report success while the ball is
-      // still short of the goal; the rolling target keeps the striker driving
-      // as the ball advances.
+      // Keep the robot centre behind the moving ball. A goal-side rolling
+      // target can carry the ball under the body; the front legs need clearance
+      // to swing into the ball.
       approach = ball;
-      const double target_x =
-        have_push_contact_ ?
-        ball.pose.position.x + direction_x * push_target_lead_m_ :
-        ball.pose.position.x - direction_x * push_contact_offset_m;
-      const double target_y =
-        have_push_contact_ ?
-        ball.pose.position.y + direction_y * push_target_lead_m_ :
-        ball.pose.position.y - direction_y * push_contact_offset_m;
+      const double target_x = ball.pose.position.x - direction_x * push_contact_offset_m +
+        direction_y * kick_ball_lateral_offset_m_;
+      const double target_y = ball.pose.position.y - direction_y * push_contact_offset_m -
+        direction_x * kick_ball_lateral_offset_m_;
       approach.pose.position.x = std::clamp(
         target_x,
         field_min_x_ + boundary_margin_m_,
@@ -1404,7 +1436,8 @@ void FootballGoalAdapter::ballPoseCallback(
     const double push_yaw_error = yawDistance(robot_yaw, push_yaw);
     const double push_lateral_error = std::fabs(
       (robot.pose.position.x - ball.pose.position.x) * (-drive_direction_y_) +
-      (robot.pose.position.y - ball.pose.position.y) * drive_direction_x_);
+      (robot.pose.position.y - ball.pose.position.y) * drive_direction_x_ +
+      kick_ball_lateral_offset_m_);
 
     const bool robot_still_behind = isRobotBehindAndAlignedForKick(
       robot.pose.position.x,
@@ -1414,7 +1447,8 @@ void FootballGoalAdapter::ballPoseCallback(
       ball.pose.position.x + drive_direction_x_,
       ball.pose.position.y + drive_direction_y_,
       0.02,
-      push_exit_lateral_error_m_);
+      push_exit_lateral_error_m_,
+      kick_ball_lateral_offset_m_);
 
     const auto contact = computeBallContactMetrics(
       robot.pose.position.x,
@@ -1442,7 +1476,7 @@ void FootballGoalAdapter::ballPoseCallback(
       have_push_contact_ &&
       ball_forward_projection > -ball_radius_m_ &&
       push_lateral_error <= push_exit_lateral_error_m_ &&
-      robot_ball_distance <= robot_front_extent_m_ + ball_radius_m_;
+      robot_ball_distance <= push_ball_center_offset_m_ + contact_tolerance_m_;
     if (contact.front_contact || retained_envelope_contact) {
       last_push_contact_time_ = push_now;
       if (front_contact_since_.nanoseconds() <= 0) {
@@ -1485,11 +1519,16 @@ void FootballGoalAdapter::ballPoseCallback(
       have_push_contact_ &&
       last_push_contact_time_.nanoseconds() > 0 &&
       (push_now - last_push_contact_time_).seconds() > push_contact_loss_sec_;
+    // Keep the committed push direction through normal contact geometry
+    // jitter.  A robot can briefly cease to satisfy the strict "behind"
+    // predicate while the ball rolls forward; immediately resetting the
+    // whole approach state causes the observed ALIGN/BALL_APPROACH loop.
+    // Only abandon the push after the ball has clearly passed the robot or
+    // the lateral/yaw error is far outside the reacquisition envelope.
     const bool alignment_lost_now =
-      !robot_still_behind ||
-      ball_forward_projection <= 0.0 ||
-      push_lateral_error > push_realign_lateral_error_m_ ||
-      push_yaw_error > push_exit_yaw_error_rad_;
+      ball_forward_projection < -ball_radius_m_ ||
+      push_lateral_error > push_exit_lateral_error_m_ * 1.5 ||
+      push_yaw_error > push_exit_yaw_error_rad_ * 1.8;
 
     if (alignment_lost_now) {
       if (push_alignment_lost_since_.nanoseconds() <= 0) {
@@ -1560,11 +1599,13 @@ void FootballGoalAdapter::ballPoseCallback(
           approach_config_.approach_distance);
         approach = ball;
         approach.pose.position.x = std::clamp(
-          ball.pose.position.x - drive_direction_x_ * behind_separation,
+          ball.pose.position.x - drive_direction_x_ * behind_separation +
+          drive_direction_y_ * kick_ball_lateral_offset_m_,
           field_min_x_ + boundary_margin_m_,
           field_max_x_ - boundary_margin_m_);
         approach.pose.position.y = std::clamp(
-          ball.pose.position.y - drive_direction_y_ * behind_separation,
+          ball.pose.position.y - drive_direction_y_ * behind_separation -
+          drive_direction_x_ * kick_ball_lateral_offset_m_,
           field_min_y_ + boundary_margin_m_,
           field_max_y_ - boundary_margin_m_);
         approach.pose.orientation = quaternionFromYaw(push_yaw);

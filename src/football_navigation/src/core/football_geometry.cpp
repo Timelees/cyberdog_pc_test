@@ -137,8 +137,8 @@ geometry_msgs::msg::PoseStamped computeApproachPose(
   const geometry_msgs::msg::PoseStamped & kick_target_pose,
   const ApproachConfig & config)
 {
-  // u 指向“球 -> 射门目标”。接近点位于球沿 -u 方向 approach_distance 处，
-  // 朝向沿 +u，从而形成“机器人 -> 球 -> 射门目标”的射门排列。
+  // u 指向“球 -> 射门目标”，v=(-uy, ux) 指向机器人左侧。
+  // 将球放在指定前腿的摆动平面上，而不是机身中线上。
   const double dx = kick_target_pose.pose.position.x - ball_pose.pose.position.x;
   const double dy = kick_target_pose.pose.position.y - ball_pose.pose.position.y;
   const double norm = std::hypot(dx, dy);
@@ -152,8 +152,10 @@ geometry_msgs::msg::PoseStamped computeApproachPose(
 
   geometry_msgs::msg::PoseStamped approach_pose;
   approach_pose.header = ball_pose.header;
-  approach_pose.pose.position.x = ball_pose.pose.position.x - ux * config.approach_distance;
-  approach_pose.pose.position.y = ball_pose.pose.position.y - uy * config.approach_distance;
+  approach_pose.pose.position.x = ball_pose.pose.position.x - ux * config.approach_distance +
+    uy * config.kick_ball_lateral_offset_m;
+  approach_pose.pose.position.y = ball_pose.pose.position.y - uy * config.approach_distance -
+    ux * config.kick_ball_lateral_offset_m;
   approach_pose.pose.position.z = ball_pose.pose.position.z;
   approach_pose.pose.orientation = quaternionFromYaw(std::atan2(uy, ux));
   return approach_pose;
@@ -299,7 +301,8 @@ bool isRobotBehindAndAlignedForKick(
   const double ball_x, const double ball_y,
   const double target_x, const double target_y,
   const double minimum_behind_m,
-  const double maximum_lateral_m)
+  const double maximum_lateral_m,
+  const double kick_ball_lateral_offset_m)
 {
   const double dx = target_x - ball_x;
   const double dy = target_y - ball_y;
@@ -312,7 +315,8 @@ bool isRobotBehindAndAlignedForKick(
   const double rx = robot_x - ball_x;
   const double ry = robot_y - ball_y;
   return rx * ux + ry * uy <= -minimum_behind_m &&
-         std::fabs(rx * (-uy) + ry * ux) <= maximum_lateral_m;
+         std::fabs(
+    rx * (-uy) + ry * ux + kick_ball_lateral_offset_m) <= maximum_lateral_m;
 }
 
 ApproachPlan computeApproachPoseAvoidingBlocker(
@@ -505,8 +509,10 @@ geometry_msgs::msg::PoseStamped computeApproachPoseFromRobot(
 
   geometry_msgs::msg::PoseStamped approach_pose;
   approach_pose.header = ball_pose.header;
-  approach_pose.pose.position.x = ball_pose.pose.position.x - ux * config.approach_distance;
-  approach_pose.pose.position.y = ball_pose.pose.position.y - uy * config.approach_distance;
+  approach_pose.pose.position.x = ball_pose.pose.position.x - ux * config.approach_distance +
+    uy * config.kick_ball_lateral_offset_m;
+  approach_pose.pose.position.y = ball_pose.pose.position.y - uy * config.approach_distance -
+    ux * config.kick_ball_lateral_offset_m;
   approach_pose.pose.position.z = ball_pose.pose.position.z;
   approach_pose.pose.orientation = quaternionFromYaw(std::atan2(uy, ux));
   return approach_pose;

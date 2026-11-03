@@ -56,6 +56,8 @@ football_goal_adapter:
     contact_acquire_speed_limit_mps: 0.07  # 建立稳定触球阶段的最高线速度。
     push_speed_limit_mps: 0.12  # 稳定推球阶段的最高线速度。
     push_target_lead_m: 0.32  # 触球阶段机器人中心在球前的目标引导距离。
+    push_ball_center_offset_m: 0.50  # 推球时球心与机器人中心的距离；留出前腿摆动踢球空间。
+    kick_ball_lateral_offset_m: +0.136  # 球在机器人坐标系中的横向位置；-0.136 对准右前腿，+0.136 对准左前腿。
     push_enter_lateral_error_m: 0.08  # 进入推球的最大横向误差。
     push_exit_lateral_error_m: 0.14  # 退出推球的横向误差迟滞阈值。
     push_realign_lateral_error_m: 0.09  # 推球中球发生轻微横向偏移时触发左右重新对齐。

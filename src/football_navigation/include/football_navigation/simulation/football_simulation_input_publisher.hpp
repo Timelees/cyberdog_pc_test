@@ -46,6 +46,7 @@ private:
   std::string control_state_topic_;
   std::string control_state_{"SEARCH_BALL"};
   double publish_rate_hz_{20.0};
+  double ball_input_timeout_sec_{0.5};
   double cmd_vel_timeout_sec_{0.5};
   double robot_x_{0.0};
   double robot_y_{0.0};
@@ -59,6 +60,8 @@ private:
   bool simulate_ball_push_{true};
   bool publish_odom_{true};
   bool publish_ball_{true};
+  bool have_live_ball_input_{false};
+  bool live_ball_input_stale_{true};
   bool publish_path_{true};
   double ball_push_transfer_gain_{1.0};
   double ball_push_lateral_gain_{0.05};
@@ -67,6 +70,7 @@ private:
   geometry_msgs::msg::Twist latest_cmd_vel_;
   rclcpp::Time latest_cmd_vel_time_;
   rclcpp::Time last_update_time_;
+  rclcpp::Time last_ball_input_time_;
   bool have_approach_{false};
   geometry_msgs::msg::PoseStamped latest_approach_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;

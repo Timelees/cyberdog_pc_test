@@ -17,6 +17,7 @@
 #include "football_navigation/core/football_geometry.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/point_stamped.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
@@ -173,6 +174,7 @@ private:
   std::string target_frame_;
   std::string base_frame_;
   std::string ball_topic_;
+  std::string soccer_global_topic_;
   std::string approach_pose_topic_;
   std::string tracking_pose_topic_;
   std::string goal_pose_topic_;
@@ -319,6 +321,7 @@ private:
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr command_marker_pub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr status_marker_pub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ball_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr soccer_global_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr approach_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr tracking_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_sub_;

@@ -123,6 +123,8 @@ FootballVisualizationNode::FootballVisualizationNode()
       "keyboard_robot_namespace", "");
 
     ball_topic_ = declare_parameter<std::string>("ball_topic", "/football/ball_pose");
+    soccer_global_topic_ = declare_parameter<std::string>(
+      "soccer_global_topic", "/field/soccer_global");
     approach_pose_topic_ =
       declare_parameter<std::string>("approach_pose_topic", "/football/approach_pose");
     tracking_pose_topic_ =
@@ -340,6 +342,22 @@ FootballVisualizationNode::FootballVisualizationNode()
       [this](const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
         std::lock_guard<std::mutex> lock(mutex_);
         ball_pose_ = *msg;
+        ball_time_ = now();
+        have_ball_ = true;
+      });
+    soccer_global_sub_ = create_subscription<geometry_msgs::msg::PointStamped>(
+      soccer_global_topic_, qos_profile_sensor_data,
+      [this](const geometry_msgs::msg::PointStamped::SharedPtr msg) {
+        if (!msg || msg->header.frame_id != target_frame_ ||
+          !std::isfinite(msg->point.x) || !std::isfinite(msg->point.y)) {
+          return;
+        }
+        std::lock_guard<std::mutex> lock(mutex_);
+        ball_pose_.header = msg->header;
+        ball_pose_.pose.position.x = msg->point.x;
+        ball_pose_.pose.position.y = msg->point.y;
+        ball_pose_.pose.position.z = msg->point.z;
+        ball_pose_.pose.orientation.w = 1.0;
         ball_time_ = now();
         have_ball_ = true;
       });
@@ -1493,7 +1511,7 @@ void FootballVisualizationNode::publishMarkers()
         1.0,
         0.55,
         0.0,
-        0.18,
+        0.22,
         false,
         stamp);
       if (show_ball_avoidance_zone_) {

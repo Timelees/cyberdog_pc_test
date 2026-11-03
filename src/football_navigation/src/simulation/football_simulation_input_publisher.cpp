@@ -76,6 +76,7 @@ FootballSimulationInputPublisher::FootballSimulationInputPublisher()
     control_state_topic_ = declare_parameter<std::string>(
       "control_state_topic", "/cyberdog_1/football/state");
     publish_rate_hz_ = declare_parameter<double>("publish_rate_hz", 20.0);
+    ball_input_timeout_sec_ = declare_parameter<double>("ball_input_timeout_sec", 0.5);
     cmd_vel_timeout_sec_ = declare_parameter<double>("cmd_vel_timeout_sec", 0.5);
     robot_x_ = declare_parameter<double>("robot_x", 0.0);
     robot_y_ = declare_parameter<double>("robot_y", 0.0);
@@ -91,6 +92,7 @@ FootballSimulationInputPublisher::FootballSimulationInputPublisher()
     ball_push_lateral_gain_ = declare_parameter<double>("ball_push_lateral_gain", 0.05);
 
     if (robot_namespace_.empty() || field_frame_.empty() || publish_rate_hz_ <= 0.0 ||
+      ball_input_timeout_sec_ <= 0.0 ||
       cmd_vel_timeout_sec_ <= 0.0 || ball_contact_distance_m_ <= 0.0 ||
       ball_push_transfer_gain_ < 0.0 || ball_push_transfer_gain_ > 1.0 ||
       ball_push_lateral_gain_ < 0.0 || ball_push_lateral_gain_ > 1.0)
@@ -126,14 +128,25 @@ FootballSimulationInputPublisher::FootballSimulationInputPublisher()
       ball_input_sub_ = create_subscription<geometry_msgs::msg::PointStamped>(
         ball_input_topic_, rclcpp::SensorDataQoS().keep_last(5),
         [this](const geometry_msgs::msg::PointStamped::SharedPtr msg) {
-          if (!msg || (!msg->header.frame_id.empty() && msg->header.frame_id != field_frame_) ||
+          if (!msg || msg->header.frame_id != field_frame_ ||
             !std::isfinite(msg->point.x) || !std::isfinite(msg->point.y))
           {
+            RCLCPP_WARN_THROTTLE(
+              get_logger(), *get_clock(), 3000,
+              "ignoring live ball input with invalid frame or coordinates (expected frame '%s')",
+              field_frame_.c_str());
             return;
           }
           ball_x_ = msg->point.x;
           ball_y_ = msg->point.y;
           ball_push_active_ = false;
+          last_ball_input_time_ = now();
+          if (!have_live_ball_input_ || live_ball_input_stale_) {
+            RCLCPP_INFO(
+              get_logger(), "live ball input active at (%.2f, %.2f)", ball_x_, ball_y_);
+          }
+          have_live_ball_input_ = true;
+          live_ball_input_stale_ = false;
         });
     }
     if (publish_path_) {
@@ -278,7 +291,17 @@ void FootballSimulationInputPublisher::publishScene()
     }
 
     if (ball_pub_) {
-      ball_pub_->publish(makePose(stamp, ball_x_, ball_y_, 0.0));
+      const bool live_ball_fresh = ball_input_topic_.empty() ||
+        (have_live_ball_input_ &&
+        (stamp - last_ball_input_time_).seconds() <= ball_input_timeout_sec_);
+      if (live_ball_fresh) {
+        ball_pub_->publish(makePose(stamp, ball_x_, ball_y_, 0.0));
+      } else if (!live_ball_input_stale_) {
+        live_ball_input_stale_ = true;
+        RCLCPP_WARN(
+          get_logger(), "live ball input stale; stopping ball pose publication after %.2f s",
+          ball_input_timeout_sec_);
+      }
     }
     kick_target_pub_->publish(makePose(stamp, kick_target_x_, kick_target_y_, 0.0));
 

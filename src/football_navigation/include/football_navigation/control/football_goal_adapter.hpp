@@ -89,6 +89,7 @@ private:
   void publishSpeedLimit(const std::string & state);
   void setControlState(const std::string & state, bool valid);
   void publishLocalizationValid(bool valid);
+  bool ballInsideGoal(const geometry_msgs::msg::PoseStamped & ball) const;
   void resetGoalStability();
   bool shouldPublishApproach(
     const geometry_msgs::msg::PoseStamped & field_goal,
@@ -169,6 +170,8 @@ private:
   double speed_limit_update_threshold_mps_;
   double speed_limit_refresh_sec_;
   double push_target_lead_m_;
+  double push_ball_center_offset_m_{0.43};
+  double kick_ball_lateral_offset_m_{-0.136};
   double push_enter_lateral_error_m_;
   double push_exit_lateral_error_m_;
   double push_realign_lateral_error_m_;
@@ -199,6 +202,9 @@ private:
   double minimum_behind_alignment_m_;
   double maximum_kick_lateral_error_m_;
   double kick_alignment_hold_sec_{0.35};
+  double goal_width_m_{1.2};
+  double goal_depth_m_{0.5};
+  bool goal_scored_{false};
   double cmd_vel_timeout_sec_;
   double goal_update_min_hold_sec_{0.25};
   double goal_update_position_threshold_m_{0.08};
@@ -307,6 +313,7 @@ private:
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr localization_valid_pub_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr state_pub_;
   rclcpp::Publisher<nav2_msgs::msg::SpeedLimit>::SharedPtr speed_limit_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr goal_event_pub_;
   rclcpp::TimerBase::SharedPtr safety_timer_;
 };
 

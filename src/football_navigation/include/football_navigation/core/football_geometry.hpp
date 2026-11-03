@@ -91,6 +91,8 @@ std::string selectStrikerWithHysteresis(
 struct ApproachConfig
 {
   double approach_distance{0.8};
+  // Desired ball lateral position in the robot frame. Positive is left.
+  double kick_ball_lateral_offset_m{0.0};
   double default_kick_yaw{0.0};
   double min_direction_norm{1e-4};
 };
@@ -184,7 +186,8 @@ bool isRobotBehindAndAlignedForKick(
   double ball_x, double ball_y,
   double target_x, double target_y,
   double minimum_behind_m,
-  double maximum_lateral_m);
+  double maximum_lateral_m,
+  double kick_ball_lateral_offset_m = 0.0);
 
 geometry_msgs::msg::Quaternion quaternionFromYaw(double yaw);
 
