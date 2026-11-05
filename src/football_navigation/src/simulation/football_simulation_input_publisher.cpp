@@ -73,8 +73,6 @@ FootballSimulationInputPublisher::FootballSimulationInputPublisher()
       "match_state_topic", "/football/match_state");
     cmd_vel_topic_ = declare_parameter<std::string>(
       "cmd_vel_topic", "/cyberdog_1/cmd_vel");
-    control_state_topic_ = declare_parameter<std::string>(
-      "control_state_topic", "/cyberdog_1/football/state");
     publish_rate_hz_ = declare_parameter<double>("publish_rate_hz", 20.0);
     ball_input_timeout_sec_ = declare_parameter<double>("ball_input_timeout_sec", 0.5);
     cmd_vel_timeout_sec_ = declare_parameter<double>("cmd_vel_timeout_sec", 0.5);
@@ -87,15 +85,10 @@ FootballSimulationInputPublisher::FootballSimulationInputPublisher()
     kick_target_y_ = declare_parameter<double>("kick_target_y", 0.0);
     stop_at_ball_ = declare_parameter<bool>("stop_at_ball", true);
     ball_contact_distance_m_ = declare_parameter<double>("ball_contact_distance_m", 0.42);
-    simulate_ball_push_ = declare_parameter<bool>("simulate_ball_push", true);
-    ball_push_transfer_gain_ = declare_parameter<double>("ball_push_transfer_gain", 1.0);
-    ball_push_lateral_gain_ = declare_parameter<double>("ball_push_lateral_gain", 0.05);
 
     if (robot_namespace_.empty() || field_frame_.empty() || publish_rate_hz_ <= 0.0 ||
       ball_input_timeout_sec_ <= 0.0 ||
-      cmd_vel_timeout_sec_ <= 0.0 || ball_contact_distance_m_ <= 0.0 ||
-      ball_push_transfer_gain_ < 0.0 || ball_push_transfer_gain_ > 1.0 ||
-      ball_push_lateral_gain_ < 0.0 || ball_push_lateral_gain_ > 1.0)
+      cmd_vel_timeout_sec_ <= 0.0 || ball_contact_distance_m_ <= 0.0)
     {
       throw std::invalid_argument("invalid football simulation input parameters");
     }
@@ -120,7 +113,6 @@ FootballSimulationInputPublisher::FootballSimulationInputPublisher()
         }
         ball_x_ = msg->pose.position.x;
         ball_y_ = msg->pose.position.y;
-        ball_push_active_ = false;
         RCLCPP_INFO(
           get_logger(), "simulation ball overridden to (%.2f, %.2f)", ball_x_, ball_y_);
       });
@@ -139,7 +131,6 @@ FootballSimulationInputPublisher::FootballSimulationInputPublisher()
           }
           ball_x_ = msg->point.x;
           ball_y_ = msg->point.y;
-          ball_push_active_ = false;
           last_ball_input_time_ = now();
           if (!have_live_ball_input_ || live_ball_input_stale_) {
             RCLCPP_INFO(
@@ -164,13 +155,6 @@ FootballSimulationInputPublisher::FootballSimulationInputPublisher()
           latest_cmd_vel_ = *msg;
           latest_cmd_vel_time_ = now();
           have_cmd_vel_ = true;
-        }
-      });
-    control_state_sub_ = create_subscription<std_msgs::msg::String>(
-      control_state_topic_, rclcpp::QoS(1).reliable().transient_local(),
-      [this](const std_msgs::msg::String::SharedPtr msg) {
-        if (msg) {
-          control_state_ = msg->data;
         }
       });
 
@@ -231,46 +215,7 @@ void FootballSimulationInputPublisher::publishScene()
       const double current_ball_distance = std::hypot(ball_x_ - robot_x_, ball_y_ - robot_y_);
       const double next_ball_distance = std::hypot(ball_x_ - next_x, ball_y_ - next_y);
 
-      const double kick_dx = kick_target_x_ - ball_x_;
-      const double kick_dy = kick_target_y_ - ball_y_;
-      const double kick_distance = std::hypot(kick_dx, kick_dy);
-      const double kick_x = kick_distance > 1e-6 ? kick_dx / kick_distance : 1.0;
-      const double kick_y = kick_distance > 1e-6 ? kick_dy / kick_distance : 0.0;
-      const double forward_motion = robot_dx * kick_x + robot_dy * kick_y;
-      const double lateral_motion = -robot_dx * kick_y + robot_dy * kick_x;
-      // Use the swept step as well as the current pose for contact acquisition.
-      // Otherwise the anti-penetration branch can stop the robot just outside
-      // the threshold while the push branch waits for a current-pose contact,
-      // leaving a narrow floating-point dead zone around 0.425 m.
-      const bool reaches_ball_contact =
-        std::min(current_ball_distance, next_ball_distance) <=
-        ball_contact_distance_m_ + 0.005;
-      const bool pushing_ball = simulate_ball_push_ &&
-        (control_state_ == "CONTACT_ACQUIRE" || control_state_ == "PUSH_BALL") &&
-        reaches_ball_contact &&
-        forward_motion > 0.0;
-
-      if (pushing_ball != ball_push_active_) {
-        RCLCPP_INFO(
-          get_logger(), "simulation ball push %s state=%s separation=%.3f",
-          pushing_ball ? "ACTIVE" : "INACTIVE", control_state_.c_str(),
-          current_ball_distance);
-        ball_push_active_ = pushing_ball;
-      }
-
-      if (pushing_ball) {
-        // A low-speed dribble transfers forward motion to the ball while
-        // heavily attenuating lateral slip. This keeps the ball in the
-        // configured ball -> kick-target corridor during simulation.
-        ball_x_ += ball_push_transfer_gain_ * forward_motion * kick_x -
-          ball_push_lateral_gain_ * lateral_motion * kick_y;
-        ball_y_ += ball_push_transfer_gain_ * forward_motion * kick_y +
-          ball_push_lateral_gain_ * lateral_motion * kick_x;
-        robot_x_ = next_x;
-        robot_y_ = next_y;
-      } else if (!stop_at_ball_ || control_state_ == "PUSH_REALIGN" ||
-        next_ball_distance >= ball_contact_distance_m_)
-      {
+      if (!stop_at_ball_ || next_ball_distance >= ball_contact_distance_m_) {
         robot_x_ = next_x;
         robot_y_ = next_y;
       } else {

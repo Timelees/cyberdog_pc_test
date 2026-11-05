@@ -55,11 +55,8 @@ FootballGoalAdapter::FootballGoalAdapter()
   last_cmd_vel_time_ = progress_anchor_time_ = recovery_hold_until_ = zero;
   previous_opponents_stamp_ = zero;
   kick_alignment_since_ = alignment_bad_since_ = alignment_started_ =
-    alignment_progress_window_started_ = drive_through_started_ =
-    contact_acquire_started_ = front_contact_since_ =
-    last_push_contact_time_ = zero;
+    alignment_progress_window_started_ = kick_stage_started_ = zero;
   alignment_position_lost_since_ = zero;
-  last_push_contact_progress_time_ = push_alignment_lost_since_ = zero;
   last_state_publish_time_ = last_speed_limit_publish_time_ =
     last_approach_publish_time_ = zero;
 
@@ -165,10 +162,6 @@ FootballGoalAdapter::FootballGoalAdapter()
     "obstacle_speed_limit_mps", 0.22);
   ball_approach_speed_limit_mps_ = declare_parameter<double>(
     "ball_approach_speed_limit_mps", 0.20);
-  contact_acquire_speed_limit_mps_ = declare_parameter<double>(
-    "contact_acquire_speed_limit_mps", 0.07);
-  push_speed_limit_mps_ = declare_parameter<double>(
-    "push_speed_limit_mps", 0.12);
   robot_collision_length_m_ = declare_parameter<double>(
     "robot_collision_length_m", 0.562);
   robot_collision_width_m_ = declare_parameter<double>(
@@ -197,46 +190,12 @@ FootballGoalAdapter::FootballGoalAdapter()
     "speed_limit_update_threshold_mps", 0.015);
   speed_limit_refresh_sec_ = declare_parameter<double>(
     "speed_limit_refresh_sec", 0.25);
-  push_target_lead_m_ = declare_parameter<double>("push_target_lead_m", 0.32);
-  push_ball_center_offset_m_ = declare_parameter<double>(
-    "push_ball_center_offset_m", 0.43);
   kick_ball_lateral_offset_m_ = declare_parameter<double>(
     "kick_ball_lateral_offset_m", -0.136);
-  push_enter_lateral_error_m_ = declare_parameter<double>(
-    "push_enter_lateral_error_m", 0.08);
-  push_exit_lateral_error_m_ = declare_parameter<double>(
-    "push_exit_lateral_error_m", 0.14);
-  push_realign_lateral_error_m_ = declare_parameter<double>(
-    "push_realign_lateral_error_m", 0.09);
-  push_enter_yaw_error_rad_ = declare_parameter<double>(
-    "push_enter_yaw_error_rad", 0.10);
-  push_exit_yaw_error_rad_ = declare_parameter<double>(
-    "push_exit_yaw_error_rad", 0.18);
-  push_direction_tracking_gain_ = declare_parameter<double>(
-    "push_direction_tracking_gain", 0.25);
-  push_contact_acquire_timeout_sec_ = declare_parameter<double>(
-    "push_contact_acquire_timeout_sec", 2.00);
-  contact_acquire_min_hold_sec_ = declare_parameter<double>(
-    "contact_acquire_min_hold_sec", 0.30);
-  push_contact_stable_hold_sec_ = declare_parameter<double>(
-    "push_contact_stable_hold_sec", 0.20);
-  push_contact_progress_timeout_sec_ = declare_parameter<double>(
-    "push_contact_progress_timeout_sec", 1.50);
-  push_contact_hard_timeout_sec_ = declare_parameter<double>(
-    "push_contact_hard_timeout_sec", 6.00);
-  push_contact_progress_epsilon_m_ = declare_parameter<double>(
-    "push_contact_progress_epsilon_m", 0.01);
-  push_alignment_loss_sec_ = declare_parameter<double>(
-    "push_alignment_loss_sec", 0.35);
-  push_contact_loss_sec_ = declare_parameter<double>(
-    "push_contact_loss_sec", 0.45);
   robot_front_extent_m_ = declare_parameter<double>("robot_front_extent_m", 0.302);
-  robot_rear_extent_m_ = declare_parameter<double>("robot_rear_extent_m", 0.301);
   robot_half_width_m_ = declare_parameter<double>("robot_half_width_m", 0.170);
   ball_radius_m_ = declare_parameter<double>("ball_radius_m", 0.11);
   contact_tolerance_m_ = declare_parameter<double>("contact_tolerance_m", 0.035);
-  push_goal_crossing_margin_m_ = declare_parameter<double>(
-    "push_goal_crossing_margin_m", 0.04);
   ball_protection_radius_m_ = declare_parameter<double>("ball_protection_radius_m", 0.28);
   max_local_goal_distance_m_ = declare_parameter<double>("max_local_goal_distance_m", 4.00);
   path_block_radius_m_ = declare_parameter<double>("path_block_radius_m", 0.50);
@@ -252,6 +211,7 @@ FootballGoalAdapter::FootballGoalAdapter()
   minimum_kick_target_distance_m_ = declare_parameter<double>(
     "minimum_kick_target_distance_m", 0.30);
   minimum_behind_alignment_m_ = declare_parameter<double>("minimum_behind_alignment_m", 0.18);
+  maximum_kick_distance_m_ = declare_parameter<double>("maximum_kick_distance_m", 0.55);
   maximum_kick_lateral_error_m_ = declare_parameter<double>(
     "maximum_kick_lateral_error_m", 0.20);
   kick_alignment_hold_sec_ = declare_parameter<double>(
@@ -271,6 +231,8 @@ FootballGoalAdapter::FootballGoalAdapter()
     approach_reached_exit_m_ < approach_reached_m_ ||
     align_yaw_tolerance_ <= 0.0 ||
     maximum_kick_lateral_error_m_ <= 0.0 ||
+    !std::isfinite(maximum_kick_distance_m_) ||
+    maximum_kick_distance_m_ <= minimum_behind_alignment_m_ ||
     alignment_reset_grace_sec_ <= 0.0 ||
     alignment_max_duration_sec_ <= 0.0 ||
     alignment_max_rotation_rad_ <= 0.0 ||
@@ -287,12 +249,6 @@ FootballGoalAdapter::FootballGoalAdapter()
     !std::isfinite(ball_approach_speed_limit_mps_) ||
     ball_approach_speed_limit_mps_ <= 0.0 ||
     ball_approach_speed_limit_mps_ > obstacle_speed_limit_mps_ ||
-    !std::isfinite(contact_acquire_speed_limit_mps_) ||
-    contact_acquire_speed_limit_mps_ <= 0.0 ||
-    !std::isfinite(push_speed_limit_mps_) ||
-    push_speed_limit_mps_ <= 0.0 ||
-    contact_acquire_speed_limit_mps_ >= push_speed_limit_mps_ ||
-    push_speed_limit_mps_ >= ball_approach_speed_limit_mps_ ||
     robot_collision_length_m_ <= 0.0 || robot_collision_width_m_ <= 0.0 ||
     collision_ellipse_expansion_m_ < 0.0 ||
     obstacle_slowdown_distance_m_ <= obstacle_stop_distance_m_ ||
@@ -305,37 +261,14 @@ FootballGoalAdapter::FootballGoalAdapter()
     ball_approach_exit_distance_m_ <= ball_approach_distance_m_ ||
     speed_limit_update_threshold_mps_ <= 0.0 ||
     speed_limit_refresh_sec_ <= 0.0 ||
-    push_target_lead_m_ <= 0.0 ||
-    push_ball_center_offset_m_ < robot_front_extent_m_ + ball_radius_m_ ||
     !std::isfinite(kick_ball_lateral_offset_m_) ||
     std::fabs(kick_ball_lateral_offset_m_) > robot_half_width_m_ + ball_radius_m_ ||
-    push_enter_lateral_error_m_ <= 0.0 ||
-    push_exit_lateral_error_m_ < push_enter_lateral_error_m_ ||
-    push_realign_lateral_error_m_ < push_enter_lateral_error_m_ ||
-    push_realign_lateral_error_m_ > push_exit_lateral_error_m_ ||
-    push_enter_yaw_error_rad_ <= 0.0 ||
-    push_exit_yaw_error_rad_ < push_enter_yaw_error_rad_ ||
-    push_direction_tracking_gain_ <= 0.0 ||
-    push_direction_tracking_gain_ > 1.0 ||
-    push_contact_acquire_timeout_sec_ <= 0.0 ||
-    contact_acquire_min_hold_sec_ < 0.0 ||
-    contact_acquire_min_hold_sec_ >= push_contact_acquire_timeout_sec_ ||
-    push_contact_stable_hold_sec_ <= 0.0 ||
-    push_contact_stable_hold_sec_ >= push_contact_acquire_timeout_sec_ ||
-    push_contact_progress_timeout_sec_ <= 0.0 ||
-    push_contact_hard_timeout_sec_ <= push_contact_acquire_timeout_sec_ ||
-    push_contact_progress_epsilon_m_ <= 0.0 ||
-    push_alignment_loss_sec_ <= 0.0 ||
-    push_contact_loss_sec_ <= 0.0 ||
     robot_front_extent_m_ <= 0.0 ||
-    robot_rear_extent_m_ <= 0.0 ||
     robot_half_width_m_ <= 0.0 ||
     ball_radius_m_ <= 0.0 ||
-    contact_tolerance_m_ < 0.0 ||
-    push_goal_crossing_margin_m_ < 0.0 ||
-    push_goal_crossing_margin_m_ >= ball_radius_m_)
+    contact_tolerance_m_ < 0.0)
   {
-    throw std::invalid_argument("invalid low-speed push parameters");
+    throw std::invalid_argument("invalid football approach parameters");
   }
 
   if (goal_update_min_hold_sec_ < 0.0 || goal_update_position_threshold_m_ <= 0.0 ||
@@ -362,8 +295,7 @@ FootballGoalAdapter::FootballGoalAdapter()
   }
   lateral_entry_config_.ball_protection_radius_m = std::max(
     ball_protection_radius_m_,
-    std::hypot(robot_front_extent_m_, robot_half_width_m_) +
-      ball_radius_m_ + contact_tolerance_m_);
+    robot_front_extent_m_ + ball_radius_m_ + contact_tolerance_m_);
   lateral_entry_config_.field_min_x = field_min_x_;
   lateral_entry_config_.field_max_x = field_max_x_;
   lateral_entry_config_.field_min_y = field_min_y_;
@@ -434,6 +366,13 @@ FootballGoalAdapter::FootballGoalAdapter()
   cmd_vel_sub_ = create_subscription<geometry_msgs::msg::Twist>(
     cmd_vel_topic_, rclcpp::SensorDataQoS().keep_last(5),
     std::bind(&FootballGoalAdapter::cmdVelCallback, this, std::placeholders::_1));
+  motion_result_client_ = create_client<protocol::srv::MotionResultCmd>(
+    "motion_result_cmd");
+  motion_queue_client_ = create_client<protocol::srv::MotionQueueCustomCmd>(
+    "motion_queue_cmd");
+  motion_status_sub_ = create_subscription<protocol::msg::MotionStatus>(
+    "motion_status", rclcpp::SystemDefaultsQoS(),
+    std::bind(&FootballGoalAdapter::motionStatusCallback, this, std::placeholders::_1));
   safety_timer_ = create_wall_timer(
     std::chrono::milliseconds(50), std::bind(&FootballGoalAdapter::safetyWatchdog, this));
   setControlState("SEARCH_BALL", false);
@@ -798,8 +737,207 @@ bool FootballGoalAdapter::inKickoffHold(const rclcpp::Time & stamp) const
   return kickoff_hold_until_.nanoseconds() > 0 && stamp < kickoff_hold_until_;
 }
 
+void FootballGoalAdapter::startKickAction()
+{
+  if (kick_attempted_) {
+    return;
+  }
+  kick_attempted_ = true;
+  // Ending motion_id=309 starts an asynchronous WalkStand (motion_id=112).
+  // Wait for that transition before asking the motion manager for 111.
+  kick_stage_ = KickStage::kWaitingForWalkStand;
+  kick_stage_started_ = now();
+  setControlState("KICK_PREPARING", false);
+
+  RCLCPP_INFO(
+    get_logger(),
+    "导航已停止；等待 motion_id=112 行走站立完成后再切换到踢球前置状态 111");
+}
+
+void FootballGoalAdapter::requestRecoveryStand()
+{
+  if (kick_stage_ != KickStage::kWaitingForWalkStand) {
+    return;
+  }
+  kick_stage_ = KickStage::kWaitingForStandResponse;
+  kick_stage_started_ = now();
+  auto request = std::make_shared<protocol::srv::MotionResultCmd::Request>();
+  request->motion_id = 111;
+  request->cmd_source = protocol::srv::MotionResultCmd::Request::APP;
+  request->vel_des = std::vector<float>{0.0F, 0.0F, 0.0F};
+  request->rpy_des = std::vector<float>{0.0F, 0.0F, 0.0F};
+  request->pos_des = std::vector<float>{0.0F, 0.0F, 0.0F};
+  request->acc_des = std::vector<float>{0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F};
+  request->ctrl_point = std::vector<float>{0.0F, 0.0F, 0.0F};
+  request->foot_pose = std::vector<float>{0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F};
+  request->step_height = std::vector<float>{0.0F, 0.0F};
+  request->duration = 0;
+  request->value = 0;
+  request->contact = 0;
+  motion_result_client_->async_send_request(
+    request,
+    [this](rclcpp::Client<protocol::srv::MotionResultCmd>::SharedFuture future) {
+      if (kick_stage_ != KickStage::kWaitingForStandResponse) {
+        return;
+      }
+      const auto response = future.get();
+      if (!response || !response->result) {
+        if (response) {
+          failKickAction(
+            "踢球前切换到 motion_id=111 失败：code=" +
+            std::to_string(response->code) + ", current_motion_id=" +
+            std::to_string(response->motion_id));
+        } else {
+          failKickAction("踢球前切换到 motion_id=111 未收到有效响应");
+        }
+        return;
+      }
+      kick_stage_ = KickStage::kWaitingForStandStatus;
+      kick_stage_started_ = now();
+      if (have_motion_status_ && latest_motion_id_ == 111 && latest_motion_progress_ >= 95) {
+        submitKickQueue();
+      }
+    });
+  RCLCPP_INFO(get_logger(), "到达足球后方并对准，已请求站立后执行一次踢球");
+}
+
+void FootballGoalAdapter::submitKickQueue()
+{
+  if (kick_stage_ != KickStage::kWaitingForStandStatus) {
+    return;
+  }
+  auto command = protocol::msg::MotionCustomCmd();
+  command.mode = 62;
+  command.gait_id = 88;
+  command.contact = 0x0F;
+  command.vel_des = std::vector<float>{0.0F, 0.0F, 0.0F};
+  command.rpy_des = std::vector<float>{0.0F, 0.0F, 0.0F};
+  command.pos_des = std::vector<float>{0.0F, 0.0F, 0.0F};
+  command.acc_des = std::vector<float>{0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F};
+  command.ctrl_point = std::vector<float>{0.0F, 0.0F, 0.0F};
+  command.foot_pose = std::vector<float>{0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F};
+  command.step_height = std::vector<float>{0.0F, 0.0F};
+
+  auto request = std::make_shared<protocol::srv::MotionQueueCustomCmd::Request>();
+  request->cmds = std::vector<protocol::msg::MotionCustomCmd>{command};
+  kick_stage_ = KickStage::kWaitingForKickResponse;
+  kick_stage_started_ = now();
+  motion_queue_client_->async_send_request(
+    request,
+    [this](rclcpp::Client<protocol::srv::MotionQueueCustomCmd>::SharedFuture future) {
+      if (kick_stage_ != KickStage::kWaitingForKickResponse &&
+        kick_stage_ != KickStage::kComplete)
+      {
+        return;
+      }
+      const auto response = future.get();
+      if (!response || !response->result) {
+        if (response) {
+          failKickAction(
+            "motion_manager 拒绝踢球队列：code=" +
+            std::to_string(response->code));
+        } else {
+          failKickAction("motion_manager 踢球队列响应无效");
+        }
+        return;
+      }
+      if (kick_stage_ == KickStage::kComplete) {
+        return;
+      }
+      kick_stage_ = KickStage::kMonitoringKick;
+      kick_stage_started_ = now();
+      RCLCPP_INFO(get_logger(), "motion_manager 已接受踢球动作 mode=62 gait_id=88");
+    });
+}
+
+void FootballGoalAdapter::motionStatusCallback(
+  const protocol::msg::MotionStatus::SharedPtr msg)
+{
+  if (!msg) {
+    return;
+  }
+  have_motion_status_ = true;
+  latest_motion_id_ = msg->motion_id;
+  latest_motion_progress_ = msg->order_process_bar;
+  latest_motion_has_error_ = false;
+  for (const auto error : msg->motor_error) {
+    if ((error & 0x3FFFFFFF) != 0) {
+      latest_motion_has_error_ = true;
+      break;
+    }
+  }
+
+  const bool active = kick_stage_ == KickStage::kWaitingForWalkStand ||
+    kick_stage_ == KickStage::kWaitingForStandResponse ||
+    kick_stage_ == KickStage::kWaitingForStandStatus ||
+    kick_stage_ == KickStage::kWaitingForKickResponse ||
+    kick_stage_ == KickStage::kMonitoringKick;
+  if (active && (latest_motion_has_error_ ||
+    (msg->switch_status != protocol::msg::MotionStatus::NORMAL &&
+    msg->switch_status != protocol::msg::MotionStatus::TRANSITIONING)))
+  {
+    failKickAction("踢球期间 motion_status 报告控制器或电机异常");
+    return;
+  }
+
+  if (kick_stage_ == KickStage::kWaitingForWalkStand &&
+    msg->motion_id == 112 && msg->order_process_bar >= 95)
+  {
+    requestRecoveryStand();
+  } else if (kick_stage_ == KickStage::kWaitingForStandStatus &&
+    msg->motion_id == 111 && msg->order_process_bar >= 95)
+  {
+    submitKickQueue();
+  } else if (kick_stage_ == KickStage::kWaitingForKickResponse ||
+    kick_stage_ == KickStage::kMonitoringKick)
+  {
+    if (msg->motion_id != 111) {
+      kick_motion_started_ = true;
+    } else if (kick_motion_started_ && msg->order_process_bar >= 95) {
+      kick_stage_ = KickStage::kComplete;
+      setControlState("KICK_COMPLETE", false);
+      RCLCPP_INFO(get_logger(), "踢球动作完成，机器人已恢复站立");
+    }
+  }
+}
+
+void FootballGoalAdapter::failKickAction(const std::string & reason)
+{
+  const bool kick_may_be_active = kick_stage_ == KickStage::kWaitingForKickResponse ||
+    kick_stage_ == KickStage::kMonitoringKick;
+  kick_stage_ = KickStage::kFailed;
+  kick_stage_started_ = now();
+  setControlState("KICK_FAILED", false);
+  RCLCPP_ERROR(get_logger(), "football kick failed: %s", reason.c_str());
+  if (kick_may_be_active && motion_result_client_->service_is_ready()) {
+    auto request = std::make_shared<protocol::srv::MotionResultCmd::Request>();
+    request->motion_id = 111;
+    request->cmd_source = protocol::srv::MotionResultCmd::Request::APP;
+    motion_result_client_->async_send_request(request);
+  }
+}
+
 void FootballGoalAdapter::safetyWatchdog()
 {
+  if (kick_stage_ != KickStage::kIdle) {
+    setControlState(
+      kick_stage_ == KickStage::kComplete ? "KICK_COMPLETE" :
+      kick_stage_ == KickStage::kFailed ? "KICK_FAILED" : "KICKING", false);
+    const double timeout =
+      kick_stage_ == KickStage::kWaitingForWalkStand ? 5.0 :
+      kick_stage_ == KickStage::kWaitingForStandResponse ? 25.0 :
+      kick_stage_ == KickStage::kWaitingForStandStatus ? 3.0 : 10.0;
+    if ((kick_stage_ == KickStage::kWaitingForWalkStand ||
+      kick_stage_ == KickStage::kWaitingForStandResponse ||
+      kick_stage_ == KickStage::kWaitingForStandStatus ||
+      kick_stage_ == KickStage::kWaitingForKickResponse ||
+      kick_stage_ == KickStage::kMonitoringKick) &&
+      (now() - kick_stage_started_).seconds() > timeout)
+    {
+      failKickAction("踢球动作等待超时");
+    }
+    return;
+  }
   if (!matchStateAllowsMovement() || inKickoffHold(now())) {
     setControlState("SAFE_STOP", false);
   } else if (recovery_hold_until_.nanoseconds() > 0 &&
@@ -1016,6 +1154,14 @@ void FootballGoalAdapter::ballPoseCallback(
     return;
   }
 
+  if (kick_attempted_) {
+    setControlState(
+      kick_stage_ == KickStage::kComplete ? "KICK_COMPLETE" :
+      kick_stage_ == KickStage::kFailed ? "KICK_FAILED" : "KICKING", false);
+    markProcessed();
+    return;
+  }
+
   if (!processingDue()) {
     return;
   }
@@ -1083,7 +1229,7 @@ void FootballGoalAdapter::ballPoseCallback(
   const double kick_norm = std::hypot(kick_dx, kick_dy);
 
   if (!std::isfinite(kick_norm) ||
-    (kick_norm < minimum_kick_target_distance_m_ && !drive_through_committed_))
+    kick_norm < minimum_kick_target_distance_m_)
   {
     resetGoalStability();
     setControlState("SAFE_STOP", false);
@@ -1091,28 +1237,21 @@ void FootballGoalAdapter::ballPoseCallback(
     return;
   }
 
-  const double ux =
-    kick_norm >= minimum_kick_target_distance_m_ ?
-    kick_dx / kick_norm : drive_direction_x_;
-  const double uy =
-    kick_norm >= minimum_kick_target_distance_m_ ?
-    kick_dy / kick_norm : drive_direction_y_;
+  const double ux = kick_dx / kick_norm;
+  const double uy = kick_dy / kick_norm;
   const auto behind = computeApproachPose(ball, kick_target, approach_config_);
 
   ApproachPlan plan{behind, true, false};
-  if (!drive_through_committed_) {
-    auto lateral = lateral_entry_config_;
-    lateral.preferred_side = deterministicYieldSide(team_id_, self_namespace_, 0.0);
-    plan = computeApproachPoseAvoidingBlocker(
-      ball,
-      kick_target,
-      robot,
-      opponents,
-      approach_config_,
-      lateral,
-      path_block_radius_m_);
-
-  }
+  auto lateral = lateral_entry_config_;
+  lateral.preferred_side = deterministicYieldSide(team_id_, self_namespace_, 0.0);
+  plan = computeApproachPoseAvoidingBlocker(
+    ball,
+    kick_target,
+    robot,
+    opponents,
+    approach_config_,
+    lateral,
+    path_block_radius_m_);
 
   const bool approach_unavailable = !plan.feasible;
   if (approach_unavailable) {
@@ -1163,8 +1302,7 @@ void FootballGoalAdapter::ballPoseCallback(
     robot.pose.position.y,
     behind.pose.position.x,
     behind.pose.position.y);
-  const double strict_lateral_tolerance = std::min(
-    maximum_kick_lateral_error_m_, push_enter_lateral_error_m_);
+  const double strict_lateral_tolerance = maximum_kick_lateral_error_m_;
   const bool centered_on_kick_line = isRobotBehindAndAlignedForKick(
     robot.pose.position.x,
     robot.pose.position.y,
@@ -1176,47 +1314,43 @@ void FootballGoalAdapter::ballPoseCallback(
     strict_lateral_tolerance,
     kick_ball_lateral_offset_m_);
 
-  if (!drive_through_committed_) {
-    if (
-      !alignment_position_latched_ &&
-      behind_error <= approach_reached_m_ &&
-      centered_on_kick_line)
-    {
-      alignment_position_latched_ = true;
+  if (!alignment_position_latched_ &&
+    behind_error <= approach_reached_m_ && centered_on_kick_line)
+  {
+    alignment_position_latched_ = true;
+    alignment_position_lost_since_ = rclcpp::Time(
+      0, 0, get_clock()->get_clock_type());
+    alignment_anchor_field_ = robot;
+    alignment_anchor_field_.header.frame_id = field_frame_;
+    alignment_anchor_field_.pose.orientation = behind.pose.orientation;
+    have_alignment_anchor_ = true;
+    resetProgressWatchdog();
+  } else if (alignment_position_latched_) {
+    const bool position_lost = behind_error > approach_reached_exit_m_ ||
+      !centered_on_kick_line;
+    if (!position_lost) {
       alignment_position_lost_since_ = rclcpp::Time(
         0, 0, get_clock()->get_clock_type());
-      alignment_anchor_field_ = robot;
-      alignment_anchor_field_.header.frame_id = field_frame_;
-      alignment_anchor_field_.pose.orientation = behind.pose.orientation;
-      have_alignment_anchor_ = true;
-      resetProgressWatchdog();
-    } else if (alignment_position_latched_) {
-      const bool position_lost = behind_error > approach_reached_exit_m_ ||
-        !centered_on_kick_line;
-      if (!position_lost) {
+    } else {
+      if (alignment_position_lost_since_.nanoseconds() <= 0) {
+        alignment_position_lost_since_ = now();
+      }
+      if ((now() - alignment_position_lost_since_).seconds() >=
+        alignment_position_loss_grace_sec_)
+      {
+        alignment_position_latched_ = false;
+        have_alignment_anchor_ = false;
         alignment_position_lost_since_ = rclcpp::Time(
           0, 0, get_clock()->get_clock_type());
-      } else {
-        if (alignment_position_lost_since_.nanoseconds() <= 0) {
-          alignment_position_lost_since_ = now();
-        }
-        if ((now() - alignment_position_lost_since_).seconds() >=
-          alignment_position_loss_grace_sec_)
-        {
-          alignment_position_latched_ = false;
-          have_alignment_anchor_ = false;
-          alignment_position_lost_since_ = rclcpp::Time(
-            0, 0, get_clock()->get_clock_type());
-          kick_alignment_since_ = rclcpp::Time(
-            0, 0, get_clock()->get_clock_type());
-          alignment_bad_since_ = rclcpp::Time(
-            0, 0, get_clock()->get_clock_type());
-        }
+        kick_alignment_since_ = rclcpp::Time(
+          0, 0, get_clock()->get_clock_type());
+        alignment_bad_since_ = rclcpp::Time(
+          0, 0, get_clock()->get_clock_type());
       }
     }
   }
 
-  if (!drive_through_committed_ && !alignment_position_latched_) {
+  if (!alignment_position_latched_) {
     const bool no_progress = updateNoProgress(robot, ball, plan.pose, opponents);
     if (no_progress && stalled_window_count_ >= 3) {
       recovery_hold_until_ = now() + rclcpp::Duration::from_seconds(0.3);
@@ -1283,13 +1417,13 @@ void FootballGoalAdapter::ballPoseCallback(
     (robot.pose.position.y - ball.pose.position.y) * ux +
     kick_ball_lateral_offset_m_);
 
-  const double strict_yaw_tolerance = std::min(
-    align_yaw_tolerance_, push_enter_yaw_error_rad_);
+  const double strict_yaw_tolerance = align_yaw_tolerance_;
   const bool at_behind_pose = alignment_position_latched_;
   const bool alignment_position_ready =
     centered_on_kick_line &&
     at_behind_pose &&
     robot_ball_distance > ball_protection_radius_m_ &&
+    robot_ball_distance <= maximum_kick_distance_m_ &&
     kick_lateral_error <= strict_lateral_tolerance;
   const bool strict_kick_alignment =
     alignment_position_ready &&
@@ -1297,17 +1431,15 @@ void FootballGoalAdapter::ballPoseCallback(
     yaw_error <= strict_yaw_tolerance;
 
   bool alignment_reacquire = false;
-  if (
-    !drive_through_committed_ && alignment_position_ready &&
-    yaw_error > strict_yaw_tolerance)
+  if (alignment_position_ready && yaw_error > strict_yaw_tolerance)
   {
     alignment_reacquire = alignmentWatchdogTriggered(robot_yaw, yaw_error);
-  } else if (!drive_through_committed_) {
+  } else {
     resetAlignmentWatchdog();
   }
 
   const auto alignment_now = now();
-  if (!drive_through_committed_ && at_behind_pose) {
+  if (at_behind_pose) {
     if (strict_kick_alignment) {
       alignment_bad_since_ = rclcpp::Time(
         0, 0, get_clock()->get_clock_type());
@@ -1327,7 +1459,7 @@ void FootballGoalAdapter::ballPoseCallback(
           0, 0, get_clock()->get_clock_type());
       }
     }
-  } else if (!drive_through_committed_) {
+  } else {
     kick_alignment_since_ = rclcpp::Time(
       0, 0, get_clock()->get_clock_type());
     alignment_bad_since_ = rclcpp::Time(
@@ -1340,54 +1472,17 @@ void FootballGoalAdapter::ballPoseCallback(
     kick_alignment_hold_sec_;
   const bool alignment_ready = strict_kick_alignment && alignment_held;
 
-  const double kick_corridor_radius = std::max(
-    path_block_radius_m_,
-    ball_protection_radius_m_ + 0.14);
-  // This is a centre-to-centre separation.  Limiting it to the robot front
-  // extent placed the ball centre on the front face and therefore pulled the
-  // physical ball underneath the body between the front legs.  Keep one ball
-  // radius outside the front envelope, allowing only the configured contact
-  // tolerance as compliant overlap.
-  const double push_contact_offset_m = push_ball_center_offset_m_;
-
-  auto assignPushTarget =
-    [&](const double direction_x, const double direction_y)
-    {
-      // Keep the robot centre behind the moving ball. A goal-side rolling
-      // target can carry the ball under the body; the front legs need clearance
-      // to swing into the ball.
-      approach = ball;
-      const double target_x = ball.pose.position.x - direction_x * push_contact_offset_m +
-        direction_y * kick_ball_lateral_offset_m_;
-      const double target_y = ball.pose.position.y - direction_y * push_contact_offset_m -
-        direction_x * kick_ball_lateral_offset_m_;
-      approach.pose.position.x = std::clamp(
-        target_x,
-        field_min_x_ + boundary_margin_m_,
-        field_max_x_ - boundary_margin_m_);
-      approach.pose.position.y = std::clamp(
-        target_y,
-        field_min_y_ + boundary_margin_m_,
-        field_max_y_ - boundary_margin_m_);
-      approach.pose.orientation = quaternionFromYaw(
-        std::atan2(direction_y, direction_x));
-    };
-
-  auto pushCorridorBlocked =
-    [&](const double direction_x, const double direction_y)
-    {
-      const double push_corridor_x =
-        ball.pose.position.x + direction_x * push_target_lead_m_;
-      const double push_corridor_y =
-        ball.pose.position.y + direction_y * push_target_lead_m_;
-      return isOpponentBlockingPathToPoint(
-        robot.pose.position.x,
-        robot.pose.position.y,
-        push_corridor_x,
-        push_corridor_y,
-        opponents,
-        kick_corridor_radius);
-    };
+  if (robot_ball_distance <= ball_approach_distance_m_ || at_behind_pose) {
+    RCLCPP_INFO_THROTTLE(
+      get_logger(), *get_clock(), 2000,
+      "kick alignment check: behind_error=%.3f ball_distance=%.3f(max=%.3f) "
+      "behind=%d centered=%d lateral_error=%.3f yaw_error=%.3f held=%.3f/%.3f ready=%d",
+      behind_error, robot_ball_distance, maximum_kick_distance_m_,
+      at_behind_pose, centered_on_kick_line, kick_lateral_error, yaw_error,
+      kick_alignment_since_.nanoseconds() > 0 ?
+      (alignment_now - kick_alignment_since_).seconds() : 0.0,
+      kick_alignment_hold_sec_, alignment_ready);
+  }
 
   auto assignApproachTravelOrientation =
     [&](geometry_msgs::msg::PoseStamped & target)
@@ -1405,259 +1500,10 @@ void FootballGoalAdapter::ballPoseCallback(
 
   std::string next_state = "NAV_TRANSIT";
 
-  // Once the robot is within the ball approach envelope, the rolling
-  // planner may intentionally report no feasible detour because the ball
-  // exclusion zone occupies the remaining path.  At that point direct
-  // contact acquisition is the required behavior; treating the planner
-  // result as a hard block leaves the striker frozen behind the ball.
   const bool planner_blocking_motion = approach_unavailable &&
     robot_ball_distance > ball_approach_distance_m_;
   if (dynamic_emergency_stop || planner_blocking_motion) {
     next_state = "BLOCKED_RECOVERY";
-  } else if (drive_through_committed_) {
-    resetAlignmentWatchdog();
-    // The ball can be deflected by a foot or by imperfect contact.  Continue
-    // steering the committed push direction toward the actual kick target
-    // instead of freezing the direction captured at first contact.
-    const double blended_x =
-      (1.0 - push_direction_tracking_gain_) * drive_direction_x_ +
-      push_direction_tracking_gain_ * ux;
-    const double blended_y =
-      (1.0 - push_direction_tracking_gain_) * drive_direction_y_ +
-      push_direction_tracking_gain_ * uy;
-    const double blended_norm = std::hypot(blended_x, blended_y);
-    if (blended_norm > 1e-6) {
-      drive_direction_x_ = blended_x / blended_norm;
-      drive_direction_y_ = blended_y / blended_norm;
-    }
-    assignPushTarget(drive_direction_x_, drive_direction_y_);
-
-    const double push_yaw = std::atan2(drive_direction_y_, drive_direction_x_);
-    const double push_yaw_error = yawDistance(robot_yaw, push_yaw);
-    const double push_lateral_error = std::fabs(
-      (robot.pose.position.x - ball.pose.position.x) * (-drive_direction_y_) +
-      (robot.pose.position.y - ball.pose.position.y) * drive_direction_x_ +
-      kick_ball_lateral_offset_m_);
-
-    const bool robot_still_behind = isRobotBehindAndAlignedForKick(
-      robot.pose.position.x,
-      robot.pose.position.y,
-      ball.pose.position.x,
-      ball.pose.position.y,
-      ball.pose.position.x + drive_direction_x_,
-      ball.pose.position.y + drive_direction_y_,
-      0.02,
-      push_exit_lateral_error_m_,
-      kick_ball_lateral_offset_m_);
-
-    const auto contact = computeBallContactMetrics(
-      robot.pose.position.x,
-      robot.pose.position.y,
-      robot_yaw,
-      robot_front_extent_m_,
-      robot_rear_extent_m_,
-      robot_half_width_m_,
-      ball.pose.position.x,
-      ball.pose.position.y,
-      ball_radius_m_,
-      contact_tolerance_m_);
-
-    const auto push_now = now();
-    if (!have_push_contact_progress_ ||
-      contact.separation_m <=
-      push_contact_best_separation_m_ - push_contact_progress_epsilon_m_)
-    {
-      push_contact_best_separation_m_ = contact.separation_m;
-      last_push_contact_progress_time_ = push_now;
-      have_push_contact_progress_ = true;
-    }
-
-    const bool retained_envelope_contact =
-      have_push_contact_ &&
-      ball_forward_projection > -ball_radius_m_ &&
-      push_lateral_error <= push_exit_lateral_error_m_ &&
-      robot_ball_distance <= push_ball_center_offset_m_ + contact_tolerance_m_;
-    if (contact.front_contact || retained_envelope_contact) {
-      last_push_contact_time_ = push_now;
-      if (front_contact_since_.nanoseconds() <= 0) {
-        front_contact_since_ = push_now;
-      }
-    } else {
-      front_contact_since_ = rclcpp::Time(
-        0, 0, get_clock()->get_clock_type());
-    }
-
-    const double contact_acquire_elapsed =
-      contact_acquire_started_.nanoseconds() > 0 ?
-      (push_now - contact_acquire_started_).seconds() : 0.0;
-    const bool stable_front_contact =
-      contact.front_contact &&
-      front_contact_since_.nanoseconds() > 0 &&
-      contact_acquire_elapsed >= contact_acquire_min_hold_sec_ &&
-      (push_now - front_contact_since_).seconds() >=
-      push_contact_stable_hold_sec_;
-    if (stable_front_contact) {
-      have_push_contact_ = true;
-    }
-
-    const double push_elapsed =
-      drive_through_started_.nanoseconds() > 0 ?
-      (push_now - drive_through_started_).seconds() : 0.0;
-    const bool contact_acquire_window_elapsed =
-      !have_push_contact_ &&
-      push_elapsed > push_contact_acquire_timeout_sec_;
-    const bool contact_progress_stalled =
-      contact_acquire_window_elapsed &&
-      (!have_push_contact_progress_ ||
-      last_push_contact_progress_time_.nanoseconds() <= 0 ||
-      (push_now - last_push_contact_progress_time_).seconds() >
-      push_contact_progress_timeout_sec_);
-    const bool contact_acquire_hard_expired =
-      !have_push_contact_ &&
-      push_elapsed > push_contact_hard_timeout_sec_;
-    const bool contact_lost =
-      have_push_contact_ &&
-      last_push_contact_time_.nanoseconds() > 0 &&
-      (push_now - last_push_contact_time_).seconds() > push_contact_loss_sec_;
-    // Keep the committed push direction through normal contact geometry
-    // jitter.  A robot can briefly cease to satisfy the strict "behind"
-    // predicate while the ball rolls forward; immediately resetting the
-    // whole approach state causes the observed ALIGN/BALL_APPROACH loop.
-    // Only abandon the push after the ball has clearly passed the robot or
-    // the lateral/yaw error is far outside the reacquisition envelope.
-    const bool alignment_lost_now =
-      ball_forward_projection < -ball_radius_m_ ||
-      push_lateral_error > push_exit_lateral_error_m_ * 1.5 ||
-      push_yaw_error > push_exit_yaw_error_rad_ * 1.8;
-
-    if (alignment_lost_now) {
-      if (push_alignment_lost_since_.nanoseconds() <= 0) {
-        push_alignment_lost_since_ = push_now;
-      }
-    } else {
-      push_alignment_lost_since_ = rclcpp::Time(
-        0, 0, get_clock()->get_clock_type());
-    }
-
-    const bool alignment_lost =
-      push_alignment_lost_since_.nanoseconds() > 0 &&
-      (push_now - push_alignment_lost_since_).seconds() >
-      push_alignment_loss_sec_;
-    const bool corridor_blocked =
-      pushCorridorBlocked(drive_direction_x_, drive_direction_y_);
-    const bool lateral_realign_requested =
-      push_lateral_error > push_realign_lateral_error_m_;
-
-    if (corridor_blocked) {
-      RCLCPP_WARN(
-        get_logger(),
-        "football push paused: corridor_blocked nearest=%.3f stop=%.3f",
-        latest_nearest_obstacle_distance_m_,
-        latest_dynamic_stop_distance_m_);
-      resetGoalStability();
-      approach = behind;
-      next_state = "BLOCKED_RECOVERY";
-    } else if (push_realign_active_ || lateral_realign_requested) {
-      if (!push_realign_active_) {
-        RCLCPP_WARN(
-          get_logger(),
-          "football push lateral realign: error=%.3f enter=%.3f trigger=%.3f",
-          push_lateral_error,
-          push_enter_lateral_error_m_,
-          push_realign_lateral_error_m_);
-        push_realign_active_ = true;
-        have_push_contact_ = false;
-        have_push_contact_progress_ = false;
-        front_contact_since_ = rclcpp::Time(0, 0, get_clock()->get_clock_type());
-        last_push_contact_time_ = rclcpp::Time(0, 0, get_clock()->get_clock_type());
-      }
-
-      const bool lateral_alignment_restored =
-        push_lateral_error <= push_enter_lateral_error_m_ &&
-        push_yaw_error <= push_exit_yaw_error_rad_ &&
-        robot_still_behind && ball_forward_projection > 0.0;
-      if (lateral_alignment_restored) {
-        push_realign_active_ = false;
-        assignPushTarget(drive_direction_x_, drive_direction_y_);
-        contact_acquire_started_ = push_now;
-        drive_through_started_ = push_now;
-        last_push_contact_progress_time_ = push_now;
-        push_contact_best_separation_m_ = std::numeric_limits<double>::infinity();
-        push_alignment_lost_since_ = rclcpp::Time(
-          0, 0, get_clock()->get_clock_type());
-        next_state = "CONTACT_ACQUIRE";
-      } else {
-        // Preserve the current longitudinal ball separation and remove only
-        // the lateral offset. This produces a short left/right correction
-        // instead of sending the striker back to the normal behind-ball pose.
-        const double longitudinal_from_ball =
-          (robot.pose.position.x - ball.pose.position.x) * drive_direction_x_ +
-          (robot.pose.position.y - ball.pose.position.y) * drive_direction_y_;
-        const double behind_separation = std::clamp(
-          -longitudinal_from_ball,
-          push_contact_offset_m,
-          approach_config_.approach_distance);
-        approach = ball;
-        approach.pose.position.x = std::clamp(
-          ball.pose.position.x - drive_direction_x_ * behind_separation +
-          drive_direction_y_ * kick_ball_lateral_offset_m_,
-          field_min_x_ + boundary_margin_m_,
-          field_max_x_ - boundary_margin_m_);
-        approach.pose.position.y = std::clamp(
-          ball.pose.position.y - drive_direction_y_ * behind_separation -
-          drive_direction_x_ * kick_ball_lateral_offset_m_,
-          field_min_y_ + boundary_margin_m_,
-          field_max_y_ - boundary_margin_m_);
-        approach.pose.orientation = quaternionFromYaw(push_yaw);
-        next_state = "PUSH_REALIGN";
-      }
-    } else if ((contact_lost || contact_progress_stalled) &&
-      !contact_acquire_hard_expired && !alignment_lost)
-    {
-      // A brief loss of the geometric front-contact sample is common while
-      // the Gazebo body rolls over the ball. Keep the committed kick
-      // direction and reacquire from the current longitudinal separation;
-      // resetting the whole commitment sends the robot back around the ball
-      // and can create an ALIGN/BALL_APPROACH loop without making progress.
-      push_realign_active_ = true;
-      have_push_contact_ = false;
-      have_push_contact_progress_ = false;
-      front_contact_since_ = rclcpp::Time(0, 0, get_clock()->get_clock_type());
-      last_push_contact_time_ = rclcpp::Time(0, 0, get_clock()->get_clock_type());
-      last_push_contact_progress_time_ = push_now;
-      push_contact_best_separation_m_ = std::numeric_limits<double>::infinity();
-      push_alignment_lost_since_ = rclcpp::Time(
-        0, 0, get_clock()->get_clock_type());
-      RCLCPP_WARN_THROTTLE(
-        get_logger(), *get_clock(), 1500,
-        "football push contact/progress lost; preserving committed direction for reacquire");
-      next_state = "PUSH_REALIGN";
-    } else if (contact_acquire_hard_expired || alignment_lost)
-    {
-      RCLCPP_WARN(
-        get_logger(),
-        "football push reacquire: hard_timeout=%d progress_stall=%d "
-        "contact_lost=%d alignment_lost=%d",
-        contact_acquire_hard_expired,
-        contact_progress_stalled,
-        contact_lost,
-        alignment_lost);
-      resetPushCommitment(behind_error <= approach_reached_exit_m_);
-      kick_alignment_since_ = rclcpp::Time(
-        0, 0, get_clock()->get_clock_type());
-      alignment_bad_since_ = rclcpp::Time(
-        0, 0, get_clock()->get_clock_type());
-      approach = behind;
-      next_state = "ALIGN_TO_GOAL";
-    } else if (have_push_contact_) {
-      next_state = "PUSH_BALL";
-    } else {
-      // CONTACT_ACQUIRE is deliberately latched. A single false contact
-      // sample does not return to ALIGN; the robot advances at a bounded
-      // straight-line speed until stable front contact, finite timeout,
-      // corridor blockage, or sustained alignment loss.
-      next_state = "CONTACT_ACQUIRE";
-    }
   } else if (at_behind_pose && !alignment_position_ready) {
     // A zero-translation ALIGN goal is valid only while the complete
     // behind-ball contact geometry is still valid. Otherwise Nav2 sees a
@@ -1718,38 +1564,10 @@ void FootballGoalAdapter::ballPoseCallback(
     approach.pose.orientation = behind.pose.orientation;
     next_state = "ALIGN_TO_GOAL";
   } else {
-    assignPushTarget(ux, uy);
-    const bool corridor_blocked = pushCorridorBlocked(ux, uy);
-
-    if (corridor_blocked) {
-      RCLCPP_WARN(
-        get_logger(),
-        "football contact delayed: corridor_blocked nearest=%.3f stop=%.3f",
-        latest_nearest_obstacle_distance_m_,
-        latest_dynamic_stop_distance_m_);
-      kick_alignment_since_ = rclcpp::Time(0, 0, get_clock()->get_clock_type());
-      alignment_bad_since_ = rclcpp::Time(0, 0, get_clock()->get_clock_type());
-      approach = behind;
-      next_state = "BLOCKED_RECOVERY";
-    } else {
-      drive_direction_x_ = ux;
-      drive_direction_y_ = uy;
-      drive_through_committed_ = true;
-      resetAlignmentWatchdog();
-      have_push_contact_ = false;
-      have_push_contact_progress_ = false;
-      push_contact_best_separation_m_ = std::numeric_limits<double>::infinity();
-      drive_through_started_ = now();
-      contact_acquire_started_ = drive_through_started_;
-      front_contact_since_ = rclcpp::Time(
-        0, 0, get_clock()->get_clock_type());
-      last_push_contact_time_ = rclcpp::Time(
-        0, 0, get_clock()->get_clock_type());
-      last_push_contact_progress_time_ = drive_through_started_;
-      push_alignment_lost_since_ = rclcpp::Time(
-        0, 0, get_clock()->get_clock_type());
-      next_state = "CONTACT_ACQUIRE";
-    }
+    setControlState("KICK_PREPARING", false);
+    markProcessed();
+    startKickAction();
+    return;
   }
 
   setControlState(next_state, true);
@@ -1912,31 +1730,6 @@ bool FootballGoalAdapter::alignmentWatchdogTriggered(
   return false;
 }
 
-void FootballGoalAdapter::resetPushCommitment(const bool keep_alignment_position)
-{
-  drive_through_committed_ = false;
-  push_realign_active_ = false;
-  drive_direction_x_ = 1.0;
-  drive_direction_y_ = 0.0;
-  have_push_contact_ = false;
-  have_push_contact_progress_ = false;
-  push_contact_best_separation_m_ = 0.0;
-  drive_through_started_ = rclcpp::Time(0, 0, get_clock()->get_clock_type());
-  contact_acquire_started_ = rclcpp::Time(0, 0, get_clock()->get_clock_type());
-  front_contact_since_ = rclcpp::Time(0, 0, get_clock()->get_clock_type());
-  last_push_contact_time_ = rclcpp::Time(0, 0, get_clock()->get_clock_type());
-  last_push_contact_progress_time_ = rclcpp::Time(
-    0, 0, get_clock()->get_clock_type());
-  push_alignment_lost_since_ = rclcpp::Time(
-    0, 0, get_clock()->get_clock_type());
-  alignment_position_latched_ = keep_alignment_position;
-  alignment_position_lost_since_ = rclcpp::Time(
-    0, 0, get_clock()->get_clock_type());
-  if (!keep_alignment_position) {
-    have_alignment_anchor_ = false;
-  }
-}
-
 void FootballGoalAdapter::resetGoalStability()
 {
   resetProgressWatchdog();
@@ -1945,7 +1738,8 @@ void FootballGoalAdapter::resetGoalStability()
   last_approach_state_.clear();
   obstacle_slowdown_latched_ = false;
   ball_approach_latched_ = false;
-  resetPushCommitment(false);
+  alignment_position_latched_ = false;
+  have_alignment_anchor_ = false;
   kick_alignment_since_ = rclcpp::Time(0, 0, get_clock()->get_clock_type());
   alignment_bad_since_ = rclcpp::Time(
     0, 0, get_clock()->get_clock_type());
@@ -2032,7 +1826,7 @@ double FootballGoalAdapter::speedLimitForState(const std::string & state) const
   }
   if (state == "OBSTACLE_APPROACH") {
     if (!std::isfinite(latest_nearest_obstacle_distance_m_)) {
-      return contact_acquire_speed_limit_mps_;
+      return ball_approach_speed_limit_mps_;
     }
     const double stop_distance = std::isfinite(latest_dynamic_stop_distance_m_) ?
       latest_dynamic_stop_distance_m_ : obstacle_stop_distance_m_;
@@ -2045,8 +1839,8 @@ double FootballGoalAdapter::speedLimitForState(const std::string & state) const
       std::max(1e-6, slowdown_distance - stop_distance),
       0.0,
       1.0);
-    const double interpolated = contact_acquire_speed_limit_mps_ +
-      ratio * (obstacle_speed_limit_mps_ - contact_acquire_speed_limit_mps_);
+    const double interpolated = ball_approach_speed_limit_mps_ +
+      ratio * (obstacle_speed_limit_mps_ - ball_approach_speed_limit_mps_);
     const double braking_available = std::max(
       0.0,
       latest_nearest_obstacle_distance_m_ - stop_distance);
@@ -2054,23 +1848,17 @@ double FootballGoalAdapter::speedLimitForState(const std::string & state) const
       2.0 * obstacle_braking_deceleration_mps2_ * braking_available);
     return std::clamp(
       std::min(interpolated, braking_limited_speed),
-      contact_acquire_speed_limit_mps_,
+      ball_approach_speed_limit_mps_,
       obstacle_speed_limit_mps_);
   }
   if (state == "BALL_APPROACH" || state == "APPROACH_BEHIND_BALL") {
     return ball_approach_speed_limit_mps_;
   }
-  if (state == "CONTACT_ACQUIRE" || state == "PUSH_REALIGN") {
-    return contact_acquire_speed_limit_mps_;
-  }
-  if (state == "PUSH_BALL") {
-    return push_speed_limit_mps_;
-  }
   if (state == "AVOID_BLOCKER") {
     return obstacle_speed_limit_mps_;
   }
   if (state == "BLOCKED_RECOVERY") {
-    return contact_acquire_speed_limit_mps_;
+    return ball_approach_speed_limit_mps_;
   }
 
   // ALIGN_TO_GOAL intentionally publishes Nav2 NO_SPEED_LIMIT (0.0).

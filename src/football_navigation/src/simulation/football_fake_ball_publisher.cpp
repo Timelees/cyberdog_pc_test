@@ -2,7 +2,7 @@
 //
 // Licensed under the Apache License, Version 2.0.
 //
-// 假球：开局静止在 ball_x/ball_y；所有机器人按真实接触方向推球；进球后中场开球。
+// 假球：在配置位置发布静态足球位姿，供导航和踢球动作流程验证。
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
@@ -60,13 +60,6 @@ FootballFakeBallPublisher::FootballFakeBallPublisher()
     robot_half_width_m_ = declare_parameter<double>("robot_half_width_m", 0.13);
     ball_radius_m_ = declare_parameter<double>("ball_radius_m", 0.11);
     contact_tolerance_m_ = declare_parameter<double>("contact_tolerance_m", 0.035);
-    minimum_contact_speed_mps_ =
-      declare_parameter<double>("minimum_contact_speed_mps", 0.02);
-    ball_friction_mps2_ = declare_parameter<double>("ball_friction_mps2", 0.8);
-    max_sim_ball_speed_mps_ = declare_parameter<double>("max_sim_ball_speed_mps", 0.25);
-    max_ball_acceleration_mps2_ = declare_parameter<double>(
-      "max_ball_acceleration_mps2", 0.45);
-    velocity_transfer_gain_ = declare_parameter<double>("velocity_transfer_gain", 0.85);
     goal_width_m_ = declare_parameter<double>("goal_width_m", 1.2);
     field_min_x_ = declare_parameter<double>("field_min_x", -2.0);
     field_max_x_ = declare_parameter<double>("field_max_x", 8.0);
@@ -96,8 +89,6 @@ FootballFakeBallPublisher::FootballFakeBallPublisher()
       declare_parameter<std::string>("controlled_robot_namespace", ""));
     match_state_topic_ = declare_parameter<std::string>(
       "match_state_topic", "/football/match_state");
-    control_state_topic_ = declare_parameter<std::string>(
-      "control_state_topic", "football/state");
     front_contact_topic_ = declare_parameter<std::string>(
       "front_contact_topic", "/football/fake_ball/front_contact");
     side_contact_topic_ = declare_parameter<std::string>(
@@ -123,22 +114,17 @@ FootballFakeBallPublisher::FootballFakeBallPublisher()
     if (publish_rate_hz_ <= 0.0 || robot_front_extent_m_ <= 0.0 ||
       robot_rear_extent_m_ <= 0.0 || robot_half_width_m_ <= 0.0 ||
       ball_radius_m_ <= 0.0 ||
-      contact_tolerance_m_ < 0.0 || minimum_contact_speed_mps_ < 0.0 ||
-      ball_friction_mps2_ < 0.0 || max_sim_ball_speed_mps_ <= 0.0 ||
-      max_sim_ball_speed_mps_ > 0.35 || max_ball_acceleration_mps2_ <= 0.0 ||
-      velocity_transfer_gain_ <= 0.0 ||
+      contact_tolerance_m_ < 0.0 ||
       field_min_x_ >= field_max_x_ || field_min_y_ >= field_max_y_ ||
       kickoff_hold_sec_ < 0.0 ||
       ((continuous_demo_enabled_ || single_shot_enabled_) &&
       controlled_robot_namespace_.empty()))
     {
-      throw std::invalid_argument("invalid continuous low-speed fake ball parameters");
+      throw std::invalid_argument("invalid fake ball parameters");
     }
 
     sim_ball_x_ = ball_x_;
     sim_ball_y_ = ball_y_;
-    last_publish_time_ = now();
-
     publisher_ = create_publisher<geometry_msgs::msg::PoseStamped>(
       ball_topic_, rclcpp::SensorDataQoS().keep_last(5));
     goal_event_pub_ = create_publisher<std_msgs::msg::String>(goal_event_topic_, 10);
@@ -185,13 +171,6 @@ FootballFakeBallPublisher::FootballFakeBallPublisher()
           msg->data == "PLAY" || msg->data == "FINISHED"))
         {
           match_state_ = msg->data;
-        }
-      });
-    control_state_sub_ = create_subscription<std_msgs::msg::String>(
-      control_state_topic_, rclcpp::QoS(1).reliable().transient_local(),
-      [this](const std_msgs::msg::String::SharedPtr msg) {
-        if (msg) {
-          control_state_ = msg->data;
         }
       });
     for (int robot_index = 1; robot_index <= 10; ++robot_index) {
@@ -249,12 +228,12 @@ FootballFakeBallPublisher::FootballFakeBallPublisher()
     RCLCPP_INFO(
       get_logger(),
       "football_fake_ball_publisher topic=%s frame=%s init=(%.2f,%.2f) kickoff=(%.2f,%.2f) "
-      "robot_footprint=(%.2f,%.2f) ball_radius=%.2f max_ball_speed=%.2f "
+      "robot_footprint=(%.2f,%.2f) ball_radius=%.2f "
       "goal_w=%.2f continuous_demo=%s single_shot=%s controlled_robot=%s",
       ball_topic_.c_str(), frame_id_.c_str(), ball_x_, ball_y_, kickoff_x_, kickoff_y_,
       robot_front_extent_m_ + robot_rear_extent_m_,
       2.0 * robot_half_width_m_, ball_radius_m_,
-      max_sim_ball_speed_mps_, goal_width_m_,
+      goal_width_m_,
       continuous_demo_enabled_ ? "true" : "false",
       single_shot_enabled_ ? "true" : "false",
       controlled_robot_namespace_.c_str());
@@ -344,8 +323,6 @@ void FootballFakeBallPublisher::resetToKickoff(const rclcpp::Time & stamp, const
 {
     sim_ball_x_ = kickoff_x_;
     sim_ball_y_ = kickoff_y_;
-    ball_velocity_x_ = 0.0;
-    ball_velocity_y_ = 0.0;
     kickoff_hold_until_ = stamp + rclcpp::Duration::from_seconds(kickoff_hold_sec_);
     const std::string kickoff_state = std::string(scoring_team) == "a" ?
       "KICKOFF_B" : "KICKOFF_A";
@@ -365,8 +342,6 @@ void FootballFakeBallPublisher::resetToKickoff(const rclcpp::Time & stamp, const
 void FootballFakeBallPublisher::finishSingleShot(const char * scoring_team)
 {
     goal_completed_ = true;
-    ball_velocity_x_ = 0.0;
-    ball_velocity_y_ = 0.0;
 
     std_msgs::msg::String event;
     event.data = std::string("goal team_") + scoring_team + " single_shot";
@@ -377,81 +352,6 @@ void FootballFakeBallPublisher::finishSingleShot(const char * scoring_team)
       get_logger(),
       "GOAL team_%s! single-shot ball remains beyond the goal line at (%.2f, %.2f)",
       scoring_team, sim_ball_x_, sim_ball_y_);
-  }
-
-bool FootballFakeBallPublisher::contactCandidate(const std::string & robot, ContactCandidate & output) const
-{
-    const std::string normalized_robot = normalizeNamespace(robot);
-    if (!controlled_robot_namespace_.empty() &&
-      normalized_robot != controlled_robot_namespace_)
-    {
-      return false;
-    }
-
-    const std::string team = inferTeamIdFromNamespace(normalized_robot);
-    if (match_state_ != "PLAY" &&
-      !((match_state_ == "KICKOFF_A" && team == "a") ||
-      (match_state_ == "KICKOFF_B" && team == "b")))
-    {
-      return false;
-    }
-
-    if (normalized_robot == controlled_robot_namespace_ &&
-      control_state_ != "CONTACT_ACQUIRE" &&
-      control_state_ != "PUSH_BALL" &&
-      control_state_ != "DRIVE_THROUGH")
-    {
-      return false;
-    }
-
-    if ((team == "a" && (!have_striker_a_ || striker_a_ != normalized_robot)) ||
-      (team == "b" && (!have_striker_b_ || striker_b_ != normalized_robot)))
-    {
-      return false;
-    }
-
-    const auto found = robot_odoms_.find(normalized_robot);
-    if (found == robot_odoms_.end()) {
-      return false;
-    }
-
-    const auto & odom = found->second;
-    const rclcpp::Time odom_stamp(
-      odom.header.stamp, get_clock()->get_clock_type());
-    if (odom_stamp.nanoseconds() <= 0 ||
-      (now() - odom_stamp).seconds() > 0.5)
-    {
-      return false;
-    }
-
-    double robot_yaw = 0.0;
-    if (!yawFromQuaternion(odom.pose.pose.orientation, robot_yaw)) {
-      return false;
-    }
-
-    const auto contact = computeBallContactMetrics(
-      odom.pose.pose.position.x, odom.pose.pose.position.y, robot_yaw,
-      robot_front_extent_m_, robot_rear_extent_m_, robot_half_width_m_,
-      sim_ball_x_, sim_ball_y_,
-      ball_radius_m_, contact_tolerance_m_);
-    if (!contact.front_contact) {
-      return false;
-    }
-
-    const double forward_speed = odom.twist.twist.linear.x;
-    if (!std::isfinite(forward_speed) ||
-      forward_speed < minimum_contact_speed_mps_)
-    {
-      return false;
-    }
-
-    const double ball_speed = std::clamp(
-      forward_speed * velocity_transfer_gain_, 0.0, max_sim_ball_speed_mps_);
-    output.robot = normalized_robot;
-    output.strength = forward_speed;
-    output.vx = ball_speed * std::cos(robot_yaw);
-    output.vy = ball_speed * std::sin(robot_yaw);
-    return true;
   }
 
 std::string FootballFakeBallPublisher::selectBallPossessionStriker() const
@@ -510,43 +410,6 @@ void FootballFakeBallPublisher::publishBallPossessionStriker(const std::string &
     std_msgs::msg::String msg;
     msg.data = possessor;
     ball_possession_pub_->publish(msg);
-  }
-
-bool FootballFakeBallPublisher::tryPushByAnyRobot(const rclcpp::Time & stamp, const double dt)
-{
-    if (inKickoffHold(stamp)) {
-      publishBallPossessionStriker("");
-      return false;
-    }
-
-    publishBallPossessionStriker(selectBallPossessionStriker());
-
-    ContactCandidate best;
-    bool pushed = false;
-    for (const auto & item : robot_odoms_) {
-      ContactCandidate candidate;
-      if (contactCandidate(item.first, candidate) &&
-        (!pushed || candidate.strength > best.strength))
-      {
-        best = candidate;
-        pushed = true;
-      }
-    }
-
-    if (pushed) {
-      current_contact_robot_ = best.robot;
-
-      const double delta_x = best.vx - ball_velocity_x_;
-      const double delta_y = best.vy - ball_velocity_y_;
-      const double delta_speed = std::hypot(delta_x, delta_y);
-      const double max_delta = max_ball_acceleration_mps2_ * std::max(0.0, dt);
-      const double scale = delta_speed > max_delta && delta_speed > 1e-9 ?
-        max_delta / delta_speed : 1.0;
-      ball_velocity_x_ += delta_x * scale;
-      ball_velocity_y_ += delta_y * scale;
-    }
-
-    return pushed;
   }
 
 bool FootballFakeBallPublisher::controlledRobotPoseFresh(const rclcpp::Time & stamp) const
@@ -661,8 +524,8 @@ void FootballFakeBallPublisher::publishDiagnostics(const rclcpp::Time & stamp)
     geometry_msgs::msg::TwistStamped velocity;
     velocity.header.stamp = stamp;
     velocity.header.frame_id = frame_id_;
-    velocity.twist.linear.x = ball_velocity_x_;
-    velocity.twist.linear.y = ball_velocity_y_;
+    velocity.twist.linear.x = 0.0;
+    velocity.twist.linear.y = 0.0;
     ball_velocity_pub_->publish(velocity);
   }
 
@@ -680,19 +543,14 @@ void FootballFakeBallPublisher::performPendingOpponentKickoff(const rclcpp::Time
       return;
     }
 
-    // The fake ball may not acquire momentum without a real robot-footprint
-    // contact. Resume play, but leave the ball stationary until a robot
-    // reaches it through the normal navigation and contact chain.
+    // The fake ball remains static; only match state changes after kickoff.
     pending_opponent_kickoff_ = false;
-    ball_velocity_x_ = 0.0;
-    ball_velocity_y_ = 0.0;
     publishMatchStateCommand("PLAY");
   }
 
 void FootballFakeBallPublisher::signalOutOfBounds()
 {
     goal_completed_ = true;
-    ball_velocity_x_ = ball_velocity_y_ = 0.0;
     std_msgs::msg::String event;
     event.data = "OUT_OF_BOUNDS";
     goal_event_pub_->publish(event);
@@ -702,12 +560,6 @@ void FootballFakeBallPublisher::signalOutOfBounds()
 void FootballFakeBallPublisher::publishBallPose()
 {
     const auto stamp = now();
-    double dt = (stamp - last_publish_time_).seconds();
-    if (dt <= 0.0 || dt > 0.5) {
-      dt = publish_rate_hz_ > 0.0 ? 1.0 / publish_rate_hz_ : 0.1;
-    }
-    last_publish_time_ = stamp;
-
     if (goal_completed_) {
       geometry_msgs::msg::PoseStamped pose;
       pose.header.stamp = stamp;
@@ -722,17 +574,7 @@ void FootballFakeBallPublisher::publishBallPose()
     }
 
     performPendingOpponentKickoff(stamp);
-    const bool pushed = tryPushByAnyRobot(stamp, dt);
-    sim_ball_x_ += ball_velocity_x_ * dt;
-    sim_ball_y_ += ball_velocity_y_ * dt;
-    const double speed = std::hypot(ball_velocity_x_, ball_velocity_y_);
-    if (!pushed && speed > 1e-6) {
-      const double new_speed = std::max(0.0, speed - ball_friction_mps2_ * dt);
-      const double scale = new_speed / speed;
-      ball_velocity_x_ *= scale;
-      ball_velocity_y_ *= scale;
-    }
-
+    publishBallPossessionStriker(inKickoffHold(stamp) ? "" : selectBallPossessionStriker());
     if (teamAScored()) {
       if (single_shot_enabled_) {
         finishSingleShot("a");

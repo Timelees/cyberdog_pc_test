@@ -43,17 +43,8 @@ private:
   void resetToKickoff(const rclcpp::Time & stamp, const char * scoring_team);
   void finishSingleShot(const char * scoring_team);
 
-  struct ContactCandidate
-  {
-    std::string robot;
-    double strength{0.0};
-    double vx{0.0};
-    double vy{0.0};
-  };
-  bool contactCandidate(const std::string & robot, ContactCandidate & output) const;
   std::string selectBallPossessionStriker() const;
   void publishBallPossessionStriker(const std::string & possessor);
-  bool tryPushByAnyRobot(const rclcpp::Time & stamp, const double dt);
   bool controlledRobotPoseFresh(const rclcpp::Time & stamp) const;
   bool controlledRobotSeen(const rclcpp::Time & stamp) const;
   void updateControlledContactDiagnostics(const rclcpp::Time & stamp);
@@ -79,11 +70,6 @@ private:
   double robot_half_width_m_{0.13};
   double ball_radius_m_{0.11};
   double contact_tolerance_m_{0.03};
-  double minimum_contact_speed_mps_{0.02};
-  double ball_friction_mps2_{0.8};
-  double max_sim_ball_speed_mps_{0.25};
-  double max_ball_acceleration_mps2_{0.45};
-  double velocity_transfer_gain_{0.85};
   double goal_width_m_{1.2};
   double field_min_x_{-2.0};
   double field_max_x_{8.0};
@@ -101,7 +87,6 @@ private:
   bool single_shot_enabled_{false};
   std::string controlled_robot_namespace_;
   std::string match_state_topic_;
-  std::string control_state_topic_;
   std::string front_contact_topic_;
   std::string side_contact_topic_;
   std::string rear_contact_topic_;
@@ -112,13 +97,9 @@ private:
   std::string controlled_robot_seen_topic_;
   std::string ball_velocity_topic_;
   std::string match_state_{"STOP"};
-  std::string control_state_{"SAFE_STOP"};
 
   double sim_ball_x_{2.0};
   double sim_ball_y_{0.0};
-  double ball_velocity_x_{0.0};
-  double ball_velocity_y_{0.0};
-  rclcpp::Time last_publish_time_;
   rclcpp::Time kickoff_hold_until_;
   bool pending_opponent_kickoff_{false};
   bool goal_completed_{false};
@@ -153,7 +134,6 @@ private:
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr striker_a_sub_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr striker_b_sub_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr match_state_sub_;
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr control_state_sub_;
   std::vector<rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr> odom_subs_;
   rclcpp::TimerBase::SharedPtr timer_;
 };

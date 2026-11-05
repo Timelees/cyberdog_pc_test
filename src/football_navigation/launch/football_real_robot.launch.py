@@ -194,7 +194,6 @@ def launch_test_input(context):
             LaunchConfiguration('test_kick_target_x').perform(context)),
         'kick_target_y': float(
             LaunchConfiguration('test_kick_target_y').perform(context)),
-        'simulate_ball_push': False,
         'stop_at_ball': False,
         'ball_topic': LaunchConfiguration('ball_pose_topic').perform(context),
         'kick_target_topic': LaunchConfiguration('kick_target_topic').perform(context),

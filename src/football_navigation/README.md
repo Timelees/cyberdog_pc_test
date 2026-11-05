@@ -6,7 +6,7 @@
 
 ## 功能边界
 
-本包提供足球接近/推球状态机、球目标适配、多机器人代价地图障碍层、动态障碍预测、球融合和角色分配。`football_single_robot_simulation.launch.py` 使用轻量级动作服务器验证单台 striker 的闭环接口；实机使用 `football_real_robot.launch.py`，由标准 Nav2 controller/planner 和 `football_multi_robot_obstacle_layer` 负责局部/全局 rolling costmap。若机器人产品导航栈已由外部 bringup 启动，则只启动 `football_robot_runtime.launch.py`，避免重复启动 Nav2。
+本包提供足球后方接近与单次踢球状态机、球目标适配、多机器人代价地图障碍层、动态障碍预测、球融合和角色分配。striker 到达球后目标并对准后，调用 motion_manager 执行一次右前腿踢球，不通过导航速度推球。`football_single_robot_simulation.launch.py` 使用轻量级动作服务器验证单台 striker 的闭环接口；实机使用 `football_real_robot.launch.py`，由标准 Nav2 controller/planner 和 `football_multi_robot_obstacle_layer` 负责局部/全局 rolling costmap。若机器人产品导航栈已由外部 bringup 启动，则只启动 `football_robot_runtime.launch.py`，避免重复启动 Nav2。
 
 实机入口默认 `enable_motion:=false`。先确认定位、10 路全局 odom、球/角色输入和两个 costmap 正常，再显式使用 `enable_motion:=true`。本包不启动 VIO、底盘驱动、球融合或角色权威；这些必须由实机/PC authority 系统提供。
 
@@ -68,8 +68,7 @@ ros2 launch football_navigation football_gazebo_simulation.launch.py \
 `/cyberdog_N/cmd_vel` 发布 `geometry_msgs/Twist`。底层状态、关节命令和
 `usr_cmd` 服务全部位于各自
 `cyberdog_N` 命名空间，不会串控。默认不注入人工踢球力，
-球的运动由腿部—球—地面刚体接触决定；仅做随机接触压力测试时可设
-`enable_contact_wrench_fallback:=true`。另外九台机器人的初始位置复用
+球的运动由腿部—球—地面刚体接触决定。另外九台机器人的初始位置复用
 `football_team_simulation.yaml` 中的 `initial_pose_cyberdog_2`～`initial_pose_cyberdog_10`。
 
 使用自己的协同程序时应关闭内置十机规划器，避免两个节点同时发布速度；
@@ -82,9 +81,9 @@ ros2 launch football_navigation football_gazebo_simulation.launch.py \
 
 该 launch 启动十机假位姿、可配置移动球、唯一 `football_team_role_assigner` 和可视化。策略实现分别位于 `src/coordination/*_role_strategy.cpp`，角色权威只负责安全门控、前锋迟滞、身份绑定和消息发布。
 
-团队仿真默认将球固定在场地中心 `(3.0, 0.0)`，`cyberdog_1` 至 `cyberdog_5` 放在同一侧，`cyberdog_6` 至 `cyberdog_10` 沿远端边线布置。A 队五台机器人分别启动与单机仿真一致的 GoalAdapter、轨迹适配器、Action Client 和轻量导航器：距离球最近者成为 striker，先导航到球后方，再完成接触和推球；其他角色进入对应的 `TACTICAL_*` 状态并跟踪各自 tactical target。团队可视化不固定 ego/striker，机器人标签直接显示角色权威发布的职责和当前位置。假世界和导航器共同保持机器人椭圆碰撞净空，默认安全净空为 `0.12 m`。
+团队仿真默认将球固定在场地中心 `(3.0, 0.0)`，`cyberdog_1` 至 `cyberdog_5` 放在同一侧，`cyberdog_6` 至 `cyberdog_10` 沿远端边线布置。A 队五台机器人分别启动与单机仿真一致的 GoalAdapter、轨迹适配器、Action Client 和轻量导航器：距离球最近者成为 striker，规划到球后方并对准后提交一次踢球动作；其他角色进入对应的 `TACTICAL_*` 状态并跟踪各自 tactical target。团队可视化不固定 ego/striker，机器人标签直接显示角色权威发布的职责和当前位置。假世界和导航器共同保持机器人椭圆碰撞净空，默认安全净空为 `0.12 m`。
 
-该启动文件会由 `football_simulation_input_publisher` 持续发布球、射门目标、比赛状态和 striker 身份。单障碍优先使用低开销的单峰平滑曲线；当多台机器人同时封住左右候选曲线时，规划器会沿前进方向搜索可切换绕行侧的多层横向走廊，并将结果插值为连续轨迹发布到 `/cyberdog_1/local_plan`。非推球阶段控制器只发布前向速度和转向速度，不发布横向侧移速度。
+该启动文件会由 `football_simulation_input_publisher` 持续发布球、射门目标、比赛状态和 striker 身份。单障碍优先使用低开销的单峰平滑曲线；当多台机器人同时封住左右候选曲线时，规划器会沿前进方向搜索可切换绕行侧的多层横向走廊，并将结果插值为连续轨迹发布到 `/cyberdog_1/local_plan`。striker 只导航到球后方并完成对准，不通过导航速度接触或推动足球。
 
 其他机器人初始位置均可在 [football_single_robot_simulation.yaml](params/football_single_robot_simulation.yaml) 中修改：
 
@@ -114,27 +113,23 @@ ros2 run football_navigation football_keyboard_robot_controller
 
 ## 待办测试清单
 
-状态说明：`[x]` 表示已具备自动化/闭环覆盖；`[ ]` 表示必须保留现场记录后才能关闭，不能仅因代码路径存在而标记通过。
+状态说明：`[x]` 表示已有自动化/闭环覆盖；`[ ]` 表示仍需现场证据。
 
-- [x] 单机路径规划验证：起点 -> 足球后位置 -> 推球到目标点。
-  - 验收：状态依次出现 `NAV_TRANSIT`/`BALL_APPROACH`、`ALIGN_TO_GOAL`、`CONTACT_ACQUIRE`、`PUSH_BALL`；球沿 ball-to-target 方向前进，且推进阶段速度受 `push_speed_limit_mps` 限制。推球中球横向偏离超过 `push_realign_lateral_error_m` 时进入 `PUSH_REALIGN`，striker 暂停前推并左右移动，对准至进入阈值后重新触球继续推球。
-  - 覆盖实现：`football_goal_adapter` 的接近/对齐/接触状态机，`football_simulation_input_publisher` 的低速推球模型，以及 `football_simulation_navigator` 的动作闭环。
+- [ ] 单机接近与踢球闭环：从起点规划到足球后方，稳定对准后执行一次右前腿踢球动作。
+  - 验收：出现 `NAV_TRANSIT`/`BALL_APPROACH`、`ALIGN_TO_GOAL`、`KICK_PREPARING`、`KICKING`、`KICK_COMPLETE`；motion_manager 仅接收一条踢球队列，踢球过程中导航控制保持无效。异常或超时进入 `KICK_FAILED` 并停止导航，不自动重试踢球。
+  - 仿真假球固定不动，仅用于导航与动作服务流程验证；真实足球运动需在 Gazebo 刚体接触或实机中验证。
 
-- [x] 多机环境下，单机静态接近路径避障测试（轻量仿真规划器）。
+- [ ] 多机环境下，单机静态接近路径避障测试（轻量仿真规划器）。
   - 场景：`cyberdog_2` 位于 `(1.25,1.08)`，`cyberdog_10` 位于 `(1.4,0.3)`，两台机器人分别封住原直线和单峰曲线的候选侧；其余机器人保持可观测且不运动。
-  - 已验证：规划器识别两个阻挡机器人并选择 `multi_obstacle_lattice`，生成 65 点平滑轨迹，规划椭圆边缘最小净空 `0.20 m`，大于 `collision_path_clearance_m: 0.08`；机器人完成绕障并依次进入 `BALL_APPROACH`、`CONTACT_ACQUIRE` 和 `PUSH_BALL`。
+  - 验收：规划器识别阻挡机器人并选择安全绕行路径，机器人最终抵达足球后方；不以接触或推动足球作为通过条件。
   - 关联参数：除椭圆净空和跟踪参数外，多障碍搜索由 `multi_obstacle_lattice_stations`、`multi_obstacle_lateral_step_m`、`multi_obstacle_max_lateral_m`、`multi_obstacle_max_lane_change_m` 和 `multi_obstacle_turn_penalty` 控制，见 [football_single_robot_simulation.yaml](params/football_single_robot_simulation.yaml)。实机 costmap 场景仍需单独验收。
 
-- [ ] 推球走廊静态障碍专项测试。
-  - 场景：在 ball-to-goal 走廊中放置静止机器人，球前 0.8--1.5 m；不得以穿过障碍物的方式继续推球。
-  - 当前安全行为：进入减速/硬停车区时不再发布向障碍物推进的线速度，状态机可进入 `BLOCKED_RECOVERY`。后续需单独设计带球绕行或清障策略后再关闭此项。
-
-- [x] 多机环境下，单机动态避障推球测试（轻量仿真规划器）。
-  - 场景：`cyberdog_1` 作为 striker，其余九台机器人以 `0.08--0.18 m/s` 随机航点运动；移动机器人可横穿接近路径和推球走廊。
-  - 已验证：35 秒内收到全部 10 路全局 odom，九台 peer 均有效移动；局部路径产生 150 种采样形状，状态进入 `PUSH_BALL`，控制命令最大横向速度为 `0.0 m/s`。全体外接椭圆最小净空 `0.024 m`，striker 与 peer 最小净空 `0.029 m`，未发生碰撞。近距离阻挡时状态进入 `BLOCKED_RECOVERY`，障碍离开后恢复接近或推球。
+- [ ] 多机环境下动态避障接近测试。
+  - 场景：`cyberdog_1` 作为 striker，其余九台机器人随机航点运动，移动机器人可横穿规划路线。
+  - 验收：障碍变化时安全重规划或进入 `BLOCKED_RECOVERY`，障碍离开后重新规划并抵达足球后方；不以足球移动作为验收条件。
   - 关联实现：peer 随机航点、边界/椭圆碰撞约束和 `random_peer_min_clearance_m`，以及仿真导航器的障碍位姿变化触发重规划。实机 `multi_robot_obstacle_layer` 的预测扫掠区仍需在实机/完整 Nav2 场景单独验收。
 
-- [ ] 多机环境下，双方 striker 竞争球场景（可选，建议在前两项稳定后执行）。
+- [ ] 多机环境下，双方 striker 竞争球场景。
   - 同时给 A、B 队发布同一球位置，并让两个候选 striker 到球距离相近；重复测试距离相等、当前 striker 失联和球位置突变。
   - 验收：每队每个周期只发布一个有效 striker，角色切换受保持/超时逻辑约束；失联者降为 `STOP`，另一候选可接管；双方的代价地图均把对方视为障碍，不能因角色竞争相互穿透。
   - 关联实现：[football_team_role_assigner.cpp](src/coordination/football_team_role_assigner.cpp) 的唯一角色发布与 striker 重选逻辑。
@@ -144,19 +139,12 @@ ros2 run football_navigation football_keyboard_robot_controller
   - 验收：`football_ball_fusion` 仅融合满足时间同步/内点条件的观测；`football_team_role_assigner` 使用预测球位更新 striker，并为 SUPPORT、DEFENDER_LEFT、DEFENDER_RIGHT、GOALKEEPER 发布不冲突的战术目标。球停下、观测超时或比赛状态非 `PLAY` 时，所有运动命令安全收敛。
 
 - [ ] 实机测试。
-  - 在每台狗完成定位、急停和限速检查后，按“静态 -> 动态 -> 竞争 -> 轨迹预测”顺序执行；每个场景先低速、低人数、空旷区域复现。
-  - 验收：与仿真一致的状态转移和安全停车；TF、里程计、球观测及角色消息均无持续超时；保留 rosbag、参数快照、日志和现场视频。任一安全停车、定位或障碍观测异常均记为未通过，而非重试后覆盖结果。
-
-
-
-- [ ] 推球接触偏差、球偏移及异常恢复测试。
-  - 接触前横向偏差：将球分别放在机器人推进轴线左/右 `0.05`、`0.10`、`0.15`、`0.20 m`；同时覆盖机器人偏航左/右 `5°`、`10°`、`15°`。验收：偏差小于进入阈值时可稳定进入 `CONTACT_ACQUIRE`/`PUSH_BALL`；超过 `push_enter_lateral_error_m` 或 `push_enter_yaw_error_rad` 时必须先重新对齐，不能侧向硬推球。
-  - 推送中球向左/右偏移：在 `PUSH_BALL` 后人为使球横向偏离目标走廊 `0.05`、`0.10`、`0.15`、`0.20 m`，并分别在低速和最大 `push_speed_limit_mps` 下测试。验收：小偏差应通过限速前进和偏航修正收敛；超过 `push_exit_lateral_error_m` 或 `push_exit_yaw_error_rad` 时退出推进，回到 `ALIGN_TO_GOAL`/`BALL_APPROACH` 重新获得站位；不得持续横移挤压球或将球推向错误球门方向。
-  - 接触丢失与卡球：推进中使球突然前滚、被障碍物挡住、夹在机器人与边界之间，或机器人轮腿打滑导致球不动。验收：`push_contact_loss_sec`、`push_contact_progress_timeout_sec` 和 `push_contact_hard_timeout_sec` 到期后停止推进并进入恢复流程；恢复前不应继续输出推球速度。
+  - 完成定位、急停、限速、足球方位及右前腿踢球区域检查后，先在空旷区域低速验证到球后方的路径，再验证单次踢球。
+  - 保留 rosbag、参数快照、日志和现场视频；确认动作失败时不会重复提交踢球请求。
   - 球位置突变与观测抖动：注入单帧跳变、左右高频摆动、丢帧、过期时间戳、未来时间戳，以及球速超过 `max_ball_speed_mps` 的观测。验收：非法观测不得清除最近有效球状态或触发危险目标更新；有效的新球位应受目标刷新阈值/保持时间约束，避免动作目标来回跳变。
-  - 球在边界、角落或球门附近：将球放在场地边线、角点、球门线前和目标点重合处。验收：接近点和局部推球目标始终在场地安全边界内；无可行的球后方站位时进入安全停止/恢复，不能把机器人或球推出边界。
-  - 障碍物与球重叠：在球周围、机器人与球之间、以及球前推进走廊分别放置静态/动态机器人。验收：不将机器人障碍物误识别为球；障碍阻塞时按动态安全距离减速或停止，障碍离开后重新评估球后方接近位，而非沿旧目标盲推。
-  - 关联参数：`push_enter_lateral_error_m`、`push_exit_lateral_error_m`、`push_enter_yaw_error_rad`、`push_exit_yaw_error_rad`、`push_contact_*`、`max_ball_jump_m`、`max_ball_speed_mps`、`ball_protection_radius_m`、`ball_boundary_margin_m`。
+  - 球在边界、角落或球门附近：将球放在场地边线、角点、球门线前和目标点重合处。验收：接近点始终在场地安全边界内；无可行的球后方站位时进入安全停止/恢复。
+  - 障碍物与球重叠：在球周围、机器人与球之间及球后方规划路线上分别放置静态/动态机器人。验收：不将机器人障碍物误识别为球；障碍阻塞时按动态安全距离减速或停止，障碍离开后重新评估球后方接近位。
+  - 关联参数：`max_ball_jump_m`、`max_ball_speed_mps`、`ball_protection_radius_m`、`ball_boundary_margin_m`。
 
 
 ## 实机路径规划测试入口

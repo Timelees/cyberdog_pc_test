@@ -1,0 +1,90 @@
+# FR ball kick (gait_id 88)
+# Pose foot commands are incremental. Leg order in foot_support is FR, FL, RR, RL.
+# The strike target is approximately x=0.23 m relative to the FR hip, placing
+# the foot near x=0.394 m in the body frame (nose location: x=0.294 m).
+
+[[step]]
+type     = "transition"
+height   = 0.25
+duration = 300
+
+# Shift the body left and slightly backward to unload FR.
+[[step]]
+type         = "pose"
+foot_support = [1.0, 1.0, 1.0, 1.0]
+body_cmd     = [-0.05, 0.0, 0.0, -0.02, 0.06, 0.0]
+foot_pose    = [0.0, 0.0, 0.0]
+ctrl_point   = [0.0, 0.0, 0.0]
+duration     = 500
+
+# Lift FR while adding a little more leftward body shift.
+[[step]]
+type         = "pose"
+foot_support = [-1.0, 1.0, 1.0, 1.0]
+body_cmd     = [0.0, 0.0, 0.0, 0.0, 0.02, 0.0]
+foot_pose    = [0.0, 0.0, 0.04]
+ctrl_point   = [0.0, 0.0, 0.0]
+duration     = 300
+
+# Backswing: retract FR by 9 cm and lift it to build clearance.
+[[step]]
+type         = "pose"
+foot_support = [-1.0, 1.0, 1.0, 1.0]
+body_cmd     = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+foot_pose    = [-0.09, 0.0, 0.06]
+ctrl_point   = [0.0, 0.0, 0.0]
+duration     = 350
+
+# Strike: move 32 cm forward from the backswing. IK extends both the hip and
+# lower leg while keeping the endpoint inside CyberDog2 joint limits.
+[[step]]
+type         = "pose"
+foot_support = [-1.0, 1.0, 1.0, 1.0]
+body_cmd     = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+foot_pose    = [0.32, 0.0, -0.01]
+ctrl_point   = [0.0, 0.0, 0.0]
+duration     = 180
+
+# Follow through without snapping the knee back immediately after contact.
+[[step]]
+type         = "pose"
+foot_support = [-1.0, 1.0, 1.0, 1.0]
+body_cmd     = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+foot_pose    = [-0.04, 0.0, -0.03]
+ctrl_point   = [0.0, 0.0, 0.0]
+duration     = 180
+
+# Retract FR beneath the hip, then lower it onto the ground.
+[[step]]
+type         = "pose"
+foot_support = [-1.0, 1.0, 1.0, 1.0]
+body_cmd     = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+foot_pose    = [-0.19, 0.0, 0.02]
+ctrl_point   = [0.0, 0.0, 0.0]
+duration     = 350
+
+[[step]]
+type         = "pose"
+foot_support = [-1.0, 1.0, 1.0, 1.0]
+body_cmd     = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+foot_pose    = [0.0, 0.0, -0.08]
+ctrl_point   = [0.0, 0.0, 0.0]
+duration     = 300
+
+# Restore four-leg support and undo the accumulated body shift.
+[[step]]
+type         = "pose"
+foot_support = [1.0, 1.0, 1.0, 1.0]
+body_cmd     = [0.05, 0.0, 0.0, 0.02, -0.08, 0.0]
+foot_pose    = [0.0, 0.0, 0.0]
+ctrl_point   = [0.0, 0.0, 0.0]
+duration     = 500
+
+[[step]]
+type     = "transition"
+height   = 0.25
+duration = 200
+
+[[step]]
+type     = "recoverystand"
+duration = 1600

@@ -25,7 +25,6 @@ football_simulation_input_publisher:
     publish_ball: false
     publish_odom: false
     publish_path: false
-    simulate_ball_push: false
     stop_at_ball: false
 
 football_gazebo_state_bridge:
@@ -35,22 +34,6 @@ football_gazebo_state_bridge:
     field_frame: world
     base_frame: base_link
     ball_topic: /football/ball_pose
-
-football_gazebo_leg_contact_simulator:
-  ros__parameters:
-    ball_topic: /football/ball_pose
-    ball_link: football::ball
-    reference_frame: world
-    apply_wrench_service: /apply_link_wrench
-    trigger_probability: 1.0  # Deterministic forward assistance prevents the ball settling between the front legs.
-    cooldown_sec: 0.25  # Match the low-speed push cadence without applying a continuous wrench.
-    contact_min_x: -0.30  # Cover the full under-body region after the robot overruns the ball.
-    contact_max_x: 0.58
-    contact_half_width: 0.42
-    forward_force_n: 1.50
-    lateral_force_n: 0.0
-    force_duration_sec: 0.10
-    random_seed: 2026  # Reproducible sequence while still varying individual contacts.
 
 football_servo_to_cyber_guide:
   ros__parameters:
@@ -97,21 +80,15 @@ football_goal_adapter:
     # test publisher is started with publish_ball=false by the Gazebo launch.
     ball_pose_topic: /football/ball_pose
     kick_target_topic: /football/team_a/kick_target
-    # Use the simulated team kick target (8, 0).  Falling back to
-    # default_kick_yaw=0 would incorrectly push parallel to +X from an
-    # off-centre ball instead of steering toward the goal.
+    # Use the simulated team kick target (8, 0) to orient the robot behind the ball.
     use_team_kick_target: true
-    approach_distance_m: 0.60
+    approach_distance_m: 0.48
     ball_timeout_sec: 0.60
     max_ball_age_sec: 0.50
     max_ball_jump_m: 1.00  # Gazebo 30 Hz model states can move the ball >0.35 m per sample.
     max_ball_speed_mps: 15.0
     odom_timeout_sec: 0.60
     max_ball_odom_skew_sec: 0.20
-    push_contact_loss_sec: 1.00
-    push_speed_limit_mps: 0.18
-    contact_acquire_speed_limit_mps: 0.10
-    push_target_lead_m: 0.42
     goal_update_position_threshold_m: 0.03
     goal_update_max_refresh_sec: 0.35
 

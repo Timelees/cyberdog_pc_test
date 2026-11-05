@@ -8,7 +8,6 @@ football_simulation_input_publisher:
     field_frame: tag_global  # 仿真全局坐标系。
     odom_topic_template: /global_vio/{namespace}/odom  # 各机器人仿真全局里程计话题模板。
     cmd_vel_topic: /cyberdog_1/cmd_vel  # striker 接收导航命令的话题。
-    control_state_topic: /cyberdog_1/football/state  # 仅在接触或推球状态允许仿真足球被 striker 推动。
     publish_rate_hz: 20.0  # 仿真输入发布频率。
     cmd_vel_timeout_sec: 0.5  # striker 命令超时后停止的等待时间。
     robot_x: 0.0  # striker 初始 X 坐标。
@@ -20,9 +19,6 @@ football_simulation_input_publisher:
     kick_target_y: 0.0  # 足球期望射门目标 Y 坐标。
     stop_at_ball: true  # 到达球附近后由足球状态机接管而非直接穿过球。
     ball_contact_distance_m: 0.42  # 认为 striker 已接触足球的距离。
-    simulate_ball_push: true  # 是否启用简化推球模型。
-    ball_push_transfer_gain: 1.0  # striker 前向速度传递给足球的比例。
-    ball_push_lateral_gain: 0.05  # striker 横向误差传递给足球的比例。
 
 football_fake_other_robot_publisher:
   ros__parameters:
@@ -79,14 +75,12 @@ football_fake_other_robot_publisher:
 
 football_goal_adapter:
   ros__parameters:
-    approach_distance_m: 0.55  # 仿真中标准球后接近点距足球的距离；为原地转向保留机身外接圆安全余量。
+    approach_distance_m: 0.48  # 仿真和实机共用球后踢球站位距离。
     approach_reached_m: 0.03  # 球后接近点到位阈值；避免通用导航容差导致过早进入原地对准。
     approach_reached_exit_m: 0.10  # 已进入对准后离开球后点的迟滞阈值，抑制接近与对准状态抖动。
     approach_speed_limit_mps: 0.85  # 仿真正常接近阶段的最高线速度。
     obstacle_speed_limit_mps: 0.42  # 仿真障碍附近的最高线速度。
     ball_approach_speed_limit_mps: 0.38  # 仿真接近足球阶段的最高线速度。
-    contact_acquire_speed_limit_mps: 0.13  # 仿真建立触球阶段的最高线速度。
-    push_speed_limit_mps: 0.24  # 仿真推球阶段的最高线速度。
     field_min_x: -2.0  # 仿真 GoalAdapter 安全边界最小 X 坐标。
     field_max_x: 8.0  # 仿真 GoalAdapter 安全边界最大 X 坐标。
     field_min_y: -4.0  # 仿真 GoalAdapter 安全边界最小 Y 坐标。
@@ -98,14 +92,12 @@ football_simulation_navigator:
     action_name: navigate_to_pose  # 仿真的 NavigateToPose Action 名称。
     odom_topic: /global_vio/cyberdog_1/odom  # striker 全局里程计话题。
     cmd_vel_topic: cmd_vel  # 输出给 striker 的速度命令话题。
-    push_cmd_vel_topic: football/push_cmd_vel  # 推球阶段的诊断速度命令话题。
     speed_limit_topic: speed_limit  # 接收 GoalAdapter 速度上限的话题。
     control_state_topic: football/state  # 接收足球状态机状态的话题。
     ball_pose_topic: /football/ball_pose  # 用于在到达球后接近点前生成绕球圆弧的足球位姿话题。
     control_rate_hz: 20.0  # 轻量规划器控制循环频率。
     linear_gain: 1.7  # 距离到线速度的比例增益。
     angular_gain: 1.5  # 终点航向误差的角速度比例增益。
-    push_bearing_gain: 0.6  # 推球时路径方位误差的附加角速度增益。
     max_linear_speed_mps: 0.85  # 轻量规划器最高线速度。
     max_angular_speed_rps: 1.4  # 轻量规划器最高角速度。
     position_tolerance_m: 0.06  # 导航目标位置到达容差。
@@ -146,7 +138,7 @@ football_simulation_navigator:
     detour_extra_clearance_m: 0.08  # 生成绕行曲线和 lattice 时的额外净空。
     local_path_lookahead_m: 0.28  # 跟踪局部路径时的前视距离。
     path_heading_gain: 2.4  # 局部路径航向误差的角速度比例增益。
-    enable_holonomic_avoidance: true  # 非推球避障时允许按局部路径倒退和横移，避免近距离原地转向卡死。
+    enable_holonomic_avoidance: true  # 允许按局部路径倒退和横移，避免近距离原地转向卡死。
     diagnostic_log_enabled: true  # 是否将动态避障诊断数据写入 JSONL 文件。
     diagnostic_log_path: /tmp/football_navigation_dynamic_avoidance.jsonl  # Docker 内诊断日志路径；每次仿真启动会覆盖旧文件。
     diagnostic_robot_namespaces_csv: cyberdog_2,cyberdog_4,cyberdog_10  # 诊断中持续记录的键盘机器人及狭窄通道机器人。
@@ -197,7 +189,7 @@ football_visualization_node:
     show_ball_marker: true  # 是否显示足球 Marker。
     show_ball_avoidance_zone: true  # 只显示地面禁入圆轮廓，不显示随球旋转的半透明填充层。
     ball_avoidance_radius_m: 0.46  # 可视化足球禁入圆半径，需与仿真局部规划器保持一致。
-    control_state_topic: football/state  # 用于显示绕球、接触和推球阶段的足球控制状态话题。
+    control_state_topic: football/state  # 足球控制状态显示话题。
     show_goal_markers: true  # 是否显示两队球门和射门目标。
     show_ego_robot_marker: true  # 是否显示 striker Marker。
     show_other_robot_markers: true  # 是否显示其他机器人 Marker。

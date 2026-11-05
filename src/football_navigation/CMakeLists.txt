@@ -81,6 +81,7 @@ set(team_role_assigner_dependencies
   rclcpp
   geometry_msgs
   nav_msgs
+  protocol
   std_msgs
   tf2
 )
@@ -159,6 +160,7 @@ ament_target_dependencies(football_goal_adapter
   rclcpp
   nav2_msgs
   nav_msgs
+  protocol
   std_msgs
   tf2
   tf2_geometry_msgs
@@ -215,11 +217,6 @@ add_executable(football_gazebo_state_bridge
   src/simulation/football_gazebo_state_bridge.cpp)
 ament_target_dependencies(football_gazebo_state_bridge
   rclcpp gazebo_msgs geometry_msgs nav_msgs)
-
-add_executable(football_gazebo_leg_contact_simulator
-  src/simulation/football_gazebo_leg_contact_simulator.cpp)
-ament_target_dependencies(football_gazebo_leg_contact_simulator
-  rclcpp gazebo_msgs geometry_msgs nav_msgs std_msgs tf2)
 
 add_executable(football_gazebo_marker_bridge
   src/simulation/football_gazebo_marker_bridge.cpp)
@@ -457,7 +454,6 @@ set(football_identity_sources
   src/simulation/football_fake_ball_publisher_node.cpp
   src/simulation/football_simulation_input_publisher.cpp
   src/simulation/football_simulation_input_publisher_node.cpp
-  src/simulation/football_gazebo_leg_contact_simulator.cpp
   src/simulation/football_simulation_navigator.cpp
   src/simulation/football_simulation_navigator_node.cpp
   src/simulation/football_fake_other_robot_publisher.cpp
@@ -574,7 +570,6 @@ install(TARGETS
   football_fake_ball_publisher
   football_simulation_input_publisher
   football_gazebo_state_bridge
-  football_gazebo_leg_contact_simulator
   football_gazebo_marker_bridge
   football_simulation_navigator
   football_fake_other_robot_publisher

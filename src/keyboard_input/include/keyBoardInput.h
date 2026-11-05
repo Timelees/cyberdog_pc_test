@@ -8,6 +8,9 @@
 #include <string>
 
 #include "protocol/msg/motion_servo_cmd.hpp"
+#include "protocol/msg/motion_custom_cmd.hpp"
+#include "protocol/msg/motion_status.hpp"
+#include "protocol/srv/motion_queue_custom_cmd.hpp"
 #include "protocol/srv/motion_result_cmd.hpp"
 #include "rclcpp/rclcpp.hpp"
 
@@ -29,6 +32,11 @@ private:
 	void PublishServoStop() const;
 	void StopWalking();
 	bool CallMotionResult(int32_t motion_id, const std::string & action_name);
+	bool ExecuteKickTest();
+	bool SubmitKickQueue();
+	bool WaitForRecoveryStand(double timeout_sec);
+	bool MonitorKick(double timeout_sec);
+	void OnMotionStatus(const protocol::msg::MotionStatus::SharedPtr status);
 	void ConfigureTerminal();
 	void RestoreTerminal();
 	void PrintHelp() const;
@@ -36,6 +44,8 @@ private:
 	rclcpp::Node::SharedPtr node_;
 	rclcpp::Publisher<protocol::msg::MotionServoCmd>::SharedPtr motion_servo_pub_;
 	rclcpp::Client<protocol::srv::MotionResultCmd>::SharedPtr motion_result_client_;
+	rclcpp::Client<protocol::srv::MotionQueueCustomCmd>::SharedPtr motion_queue_client_;
+	rclcpp::Subscription<protocol::msg::MotionStatus>::SharedPtr motion_status_sub_;
 
 	std::string robot_namespace_;
 	int32_t current_motion_id_;
@@ -49,6 +59,12 @@ private:
 	bool walking_active_;
 	bool need_start_frame_;
 	bool terminal_configured_;
+	int32_t observed_motion_id_;
+	int32_t observed_order_process_bar_;
+	bool motion_status_received_;
+	bool kick_started_;
+	bool kick_completed_;
+	bool kick_status_problem_;
 	termios original_termios_;
 };
 

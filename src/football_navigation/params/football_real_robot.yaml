@@ -11,8 +11,6 @@ football_goal_adapter:
     approach_speed_limit_mps: 0.25  # 远距离正常接近阶段最高线速度。
     obstacle_speed_limit_mps: 0.15  # 障碍物附近最高线速度。
     ball_approach_speed_limit_mps: 0.12  # 近球接近阶段最高线速度。
-    contact_acquire_speed_limit_mps: 0.07  # 建立触球阶段最高线速度。
-    push_speed_limit_mps: 0.10  # 稳定推球阶段最高线速度。
     ball_approach_distance_m: 1.25  # 距球低于该距离时切换到近球限速。
     ball_approach_exit_distance_m: 1.40  # 距球超过该距离时解除近球限速。
     obstacle_reaction_time_sec: 0.35  # 实机动态障碍制动计算采用的反应时间。

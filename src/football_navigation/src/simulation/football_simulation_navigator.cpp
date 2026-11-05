@@ -81,8 +81,6 @@ FootballSimulationNavigator::FootballSimulationNavigator()
     odom_topic_ = declare_parameter<std::string>(
       "odom_topic", "/global_vio/cyberdog_1/odom");
     cmd_vel_topic_ = declare_parameter<std::string>("cmd_vel_topic", "cmd_vel");
-    push_cmd_vel_topic_ = declare_parameter<std::string>(
-      "push_cmd_vel_topic", "football/push_cmd_vel");
     speed_limit_topic_ = declare_parameter<std::string>("speed_limit_topic", "speed_limit");
     control_state_topic_ = declare_parameter<std::string>(
       "control_state_topic", "football/state");
@@ -98,7 +96,6 @@ FootballSimulationNavigator::FootballSimulationNavigator()
     control_rate_hz_ = declare_parameter<double>("control_rate_hz", 20.0);
     linear_gain_ = declare_parameter<double>("linear_gain", 0.9);
     angular_gain_ = declare_parameter<double>("angular_gain", 1.5);
-    push_bearing_gain_ = declare_parameter<double>("push_bearing_gain", 0.6);
     max_linear_speed_mps_ = declare_parameter<double>("max_linear_speed_mps", 0.45);
     max_angular_speed_rps_ = declare_parameter<double>("max_angular_speed_rps", 0.8);
     position_tolerance_m_ = declare_parameter<double>("position_tolerance_m", 0.06);
@@ -187,7 +184,7 @@ FootballSimulationNavigator::FootballSimulationNavigator()
     field_max_y_ = declare_parameter<double>("field_max_y", 4.0);
 
     if (field_frame_.empty() || control_rate_hz_ <= 0.0 || linear_gain_ <= 0.0 ||
-      angular_gain_ <= 0.0 || push_bearing_gain_ < 0.0 || max_linear_speed_mps_ <= 0.0 ||
+      angular_gain_ <= 0.0 || max_linear_speed_mps_ <= 0.0 ||
       max_angular_speed_rps_ <= 0.0 || position_tolerance_m_ <= 0.0 ||
       ball_goal_position_tolerance_m_ <= 0.0 ||
       ball_goal_position_tolerance_m_ > position_tolerance_m_ ||
@@ -245,7 +242,6 @@ FootballSimulationNavigator::FootballSimulationNavigator()
     }
 
     cmd_vel_pub_ = create_publisher<geometry_msgs::msg::Twist>(cmd_vel_topic_, 10);
-    push_cmd_vel_pub_ = create_publisher<geometry_msgs::msg::Twist>(push_cmd_vel_topic_, 10);
     local_plan_pub_ = create_publisher<nav_msgs::msg::Path>(local_plan_topic_, 10);
     odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
       odom_topic_, rclcpp::SensorDataQoS().keep_last(10),
@@ -300,11 +296,7 @@ FootballSimulationNavigator::FootballSimulationNavigator()
           return;
         }
         std::lock_guard<std::mutex> lock(mutex_);
-        const bool was_pushing = isPushState();
         control_state_ = msg->data;
-        if (was_pushing && !isPushState()) {
-          push_cmd_vel_pub_->publish(geometry_msgs::msg::Twist());
-        }
       });
 
     action_server_ = rclcpp_action::create_server<NavigateToPose>(
@@ -359,23 +351,9 @@ void FootballSimulationNavigator::publishStop()
     publishCommand(geometry_msgs::msg::Twist());
   }
 
-bool FootballSimulationNavigator::isPushState() const
-{
-    return control_state_ == "CONTACT_ACQUIRE" || control_state_ == "PUSH_BALL" ||
-           isPushRealignState();
-  }
-
-bool FootballSimulationNavigator::isPushRealignState() const
-{
-    return control_state_ == "PUSH_REALIGN";
-  }
-
 void FootballSimulationNavigator::publishCommand(const geometry_msgs::msg::Twist & command)
 {
     cmd_vel_pub_->publish(command);
-    if (isPushState()) {
-      push_cmd_vel_pub_->publish(command);
-  }
 }
 
 void FootballSimulationNavigator::otherRobotOdomCallback(
@@ -606,7 +584,7 @@ bool FootballSimulationNavigator::buildBallAvoidancePath(
   const double target_x, const double target_y, bool & avoidance_required)
 {
   avoidance_required = false;
-  if (isPushState() || !have_ball_pose_ ||
+  if (!have_ball_pose_ ||
     (now() - latest_ball_pose_time_).seconds() > ball_pose_timeout_sec_)
   {
     return false;
@@ -784,7 +762,7 @@ bool FootballSimulationNavigator::buildSmoothLocalPath(
   // A clearance-recovery path deliberately points away from the goal. It is
   // never a reusable normal-navigation path: once the robot has recovered
   // enough clearance, immediately plan a new route toward the actual goal.
-  if (!isPushState() && avoidance_strategy_ != "clearance_recovery" &&
+  if (avoidance_strategy_ != "clearance_recovery" &&
     same_target && !local_path_points_.empty()) {
     if (last_local_path_plan_time_.nanoseconds() > 0 &&
       (stamp - last_local_path_plan_time_).seconds() < dynamic_replan_min_period_sec_)
@@ -907,7 +885,7 @@ bool FootballSimulationNavigator::buildSmoothLocalPath(
       return curve;
     };
 
-  if (!blocker || isPushState()) {
+  if (!blocker) {
     local_path_points_ = make_curve(0.0, 0.0);
     if (avoidance_active_) {
       RCLCPP_INFO(get_logger(), "smooth local avoidance cleared; direct path restored");
@@ -1508,7 +1486,7 @@ void FootballSimulationNavigator::controlTick()
       target.pose.position.x - latest_ball_pose_.pose.position.x,
       target.pose.position.y - latest_ball_pose_.pose.position.y) :
       std::numeric_limits<double>::infinity();
-    const bool near_ball_staging_goal = !isPushState() && fresh_ball &&
+    const bool near_ball_staging_goal = fresh_ball &&
       target_ball_distance <= ball_avoidance_max_radius_m_;
     const double active_position_tolerance = near_ball_staging_goal ?
       ball_goal_position_tolerance_m_ : position_tolerance_m_;
@@ -1529,7 +1507,7 @@ void FootballSimulationNavigator::controlTick()
     // clearance-increasing route until the configured exit clearance is
     // actually reached. Testing only the entry threshold caused a 20 Hz
     // forward/backward switch at narrow-passage entrances.
-    const bool recovery_requested = !isPushState() &&
+    const bool recovery_requested =
       (clearance_recovery_active_ ?
       nearest_robot_clearance <
       clearance_recovery_exit_clearance_m_ - clearance_recovery_exit_tolerance_m_ :
@@ -1551,7 +1529,7 @@ void FootballSimulationNavigator::controlTick()
       // close peer occupies its first segment.  Before accepting a local
       // stop, search for a clearance-increasing escape route from the exact
       // current pose.
-      if (!isPushState() && avoidance_strategy_ == "hard_stop" &&
+      if (avoidance_strategy_ == "hard_stop" &&
         recovery_requested)
       {
         clearance_recovery = buildClearanceRecoveryPath(
@@ -1567,62 +1545,31 @@ void FootballSimulationNavigator::controlTick()
     const double distance = std::hypot(dx, dy);
 
     geometry_msgs::msg::Twist command;
-    double push_bearing_error = 0.0;
     if (distance > active_position_tolerance) {
       const double active_speed_limit = speed_limit_mps_ > 0.0 ?
         std::min(max_linear_speed_mps_, speed_limit_mps_) : max_linear_speed_mps_;
       const double world_speed = std::min(active_speed_limit, linear_gain_ * distance);
-      if (isPushRealignState()) {
-        // The GoalAdapter keeps the target at the current longitudinal ball
-        // separation, so only the body-frame lateral component is needed.
-        // Forward motion remains paused until the striker is centered again.
-        const double path_bearing_error = signedYawError(std::atan2(dy, dx), robot_yaw);
-        command.linear.x = 0.0;
+      const double path_bearing_error = signedYawError(std::atan2(dy, dx), robot_yaw);
+      if (enable_holonomic_avoidance_) {
+        command.linear.x = world_speed * std::cos(path_bearing_error);
         command.linear.y = world_speed * std::sin(path_bearing_error);
-      } else if (isPushState()) {
-        // During contact, forbid holonomic lateral translation. Move along
-        // the robot heading and steer gently back toward the push corridor.
-        push_bearing_error = signedYawError(std::atan2(dy, dx), robot_yaw);
-        command.linear.x = world_speed * std::max(0.0, std::cos(push_bearing_error));
-        command.linear.y = 0.0;
       } else {
-        const double path_bearing_error = signedYawError(std::atan2(dy, dx), robot_yaw);
-        if (enable_holonomic_avoidance_) {
-          // The simulation motion model accepts a body-frame planar velocity.
-          // Do not require a close robot to rotate in place before escaping:
-          // project the collision-free local-path direction into body axes so a
-          // path behind/right of the robot becomes safe reverse/side motion.
-          command.linear.x = world_speed * std::cos(path_bearing_error);
-          command.linear.y = world_speed * std::sin(path_bearing_error);
-        } else {
-          const double heading_scale = std::fabs(path_bearing_error) >= turn_in_place_threshold_rad_ ?
-            0.0 : std::max(0.0, std::cos(path_bearing_error));
-          command.linear.x = world_speed * heading_scale;
-          command.linear.y = 0.0;
-        }
+        const double heading_scale = std::fabs(path_bearing_error) >= turn_in_place_threshold_rad_ ?
+          0.0 : std::max(0.0, std::cos(path_bearing_error));
+        command.linear.x = world_speed * heading_scale;
+        command.linear.y = 0.0;
       }
     }
-    if (isPushState()) {
-      // Continue rotating after the translational tolerance is reached;
-      // otherwise a contact goal can remain active forever with zero cmd_vel.
-      command.angular.z = std::clamp(
-        angular_gain_ * yaw_error + push_bearing_gain_ * push_bearing_error,
-        -max_angular_speed_rps_, max_angular_speed_rps_);
-    } else {
-      const double heading_target = distance > active_position_tolerance ?
-        std::atan2(dy, dx) : target_yaw;
-      command.angular.z = std::clamp(
-        path_heading_gain_ * signedYawError(heading_target, robot_yaw),
-        -max_angular_speed_rps_, max_angular_speed_rps_);
-      // The recovery candidate is already expressed as a holonomic escape
-      // direction. Holding yaw prevents a close ellipse from alternately
-      // growing/shrinking while the robot is trying to leave it.
-      if (clearance_recovery_active_ && enable_holonomic_avoidance_) {
-        command.angular.z = 0.0;
-      }
+    const double heading_target = distance > active_position_tolerance ?
+      std::atan2(dy, dx) : target_yaw;
+    command.angular.z = std::clamp(
+      path_heading_gain_ * signedYawError(heading_target, robot_yaw),
+      -max_angular_speed_rps_, max_angular_speed_rps_);
+    if (clearance_recovery_active_ && enable_holonomic_avoidance_) {
+      command.angular.z = 0.0;
     }
     if (nearest_robot_clearance <= collision_hard_stop_clearance_m_) {
-      if (clearance_recovery_active_ && !isPushState()) {
+      if (clearance_recovery_active_) {
         // Preserve the planned escape direction (including reverse/lateral
         // components), while capping its planar magnitude near contact.
         const double planar_speed = std::hypot(command.linear.x, command.linear.y);
@@ -1643,7 +1590,7 @@ void FootballSimulationNavigator::controlTick()
       command.linear.x *= scale;
       command.linear.y *= scale;
     }
-    if (clearance_recovery_active_ && !isPushState()) {
+    if (clearance_recovery_active_) {
       // A recovery candidate was checked sample-by-sample for non-decreasing
       // clearance. Do not let the generic proximity slowdown reduce this
       // verified escape to an effectively zero command.
@@ -1654,7 +1601,7 @@ void FootballSimulationNavigator::controlTick()
         command.linear.y *= scale;
       }
     }
-    if (!isPushState() && avoidance_strategy_ == "hard_stop" &&
+    if (avoidance_strategy_ == "hard_stop" &&
       !clearance_recovery_active_)
     {
       command.linear.x = 0.0;

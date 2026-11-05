@@ -15,6 +15,10 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "nav2_msgs/msg/speed_limit.hpp"
+#include "protocol/msg/motion_custom_cmd.hpp"
+#include "protocol/msg/motion_status.hpp"
+#include "protocol/srv/motion_queue_custom_cmd.hpp"
+#include "protocol/srv/motion_result_cmd.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "std_msgs/msg/string.hpp"
@@ -42,6 +46,11 @@ private:
     const std::string & robot_namespace,
     const nav_msgs::msg::Odometry::SharedPtr msg);
   void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
+  void motionStatusCallback(const protocol::msg::MotionStatus::SharedPtr msg);
+  void startKickAction();
+  void requestRecoveryStand();
+  void submitKickQueue();
+  void failKickAction(const std::string & reason);
   void safetyWatchdog();
   bool inKickoffHold(const rclcpp::Time & stamp) const;
   bool matchStateAllowsMovement() const;
@@ -77,7 +86,6 @@ private:
   void resetProgressWatchdog();
   void resetAlignmentWatchdog();
   bool alignmentWatchdogTriggered(double robot_yaw, double yaw_error);
-  void resetPushCommitment(bool keep_alignment_position);
   double nearestOpponentDistance(
     const geometry_msgs::msg::PoseStamped & robot_pose,
     const std::vector<OpponentPoint2D> & opponents) const;
@@ -154,8 +162,6 @@ private:
   double approach_speed_limit_mps_;
   double obstacle_speed_limit_mps_;
   double ball_approach_speed_limit_mps_;
-  double contact_acquire_speed_limit_mps_;
-  double push_speed_limit_mps_;
   double robot_collision_length_m_{0.562};
   double robot_collision_width_m_{0.339};
   double collision_ellipse_expansion_m_{0.05};
@@ -169,29 +175,11 @@ private:
   double ball_approach_exit_distance_m_;
   double speed_limit_update_threshold_mps_;
   double speed_limit_refresh_sec_;
-  double push_target_lead_m_;
-  double push_ball_center_offset_m_{0.43};
   double kick_ball_lateral_offset_m_{-0.136};
-  double push_enter_lateral_error_m_;
-  double push_exit_lateral_error_m_;
-  double push_realign_lateral_error_m_;
-  double push_enter_yaw_error_rad_;
-  double push_exit_yaw_error_rad_;
-  double push_direction_tracking_gain_{0.25};
-  double push_contact_acquire_timeout_sec_;
-  double contact_acquire_min_hold_sec_;
-  double push_contact_stable_hold_sec_;
-  double push_contact_progress_timeout_sec_;
-  double push_contact_hard_timeout_sec_;
-  double push_contact_progress_epsilon_m_;
-  double push_alignment_loss_sec_;
-  double push_contact_loss_sec_;
   double robot_front_extent_m_;
-  double robot_rear_extent_m_;
   double robot_half_width_m_;
   double ball_radius_m_;
   double contact_tolerance_m_;
-  double push_goal_crossing_margin_m_;
   double ball_protection_radius_m_;
   double max_local_goal_distance_m_;
   double boundary_margin_m_;
@@ -200,6 +188,7 @@ private:
   double maximum_ball_chase_distance_m_;
   double minimum_kick_target_distance_m_;
   double minimum_behind_alignment_m_;
+  double maximum_kick_distance_m_{0.55};
   double maximum_kick_lateral_error_m_;
   double kick_alignment_hold_sec_{0.35};
   double goal_width_m_{1.2};
@@ -236,12 +225,6 @@ private:
   rclcpp::Time alignment_position_lost_since_;
   rclcpp::Time alignment_started_;
   rclcpp::Time alignment_progress_window_started_;
-  rclcpp::Time drive_through_started_;
-  rclcpp::Time contact_acquire_started_;
-  rclcpp::Time front_contact_since_;
-  rclcpp::Time last_push_contact_time_;
-  rclcpp::Time last_push_contact_progress_time_;
-  rclcpp::Time push_alignment_lost_since_;
   geometry_msgs::msg::PoseStamped last_ball_in_field_;
   geometry_msgs::msg::PoseStamped latest_tactical_target_;
   geometry_msgs::msg::PoseStamped progress_anchor_ball_;
@@ -278,19 +261,31 @@ private:
   std::string last_approach_state_;
   double kickoff_hold_sec_{3.0};
 
-  bool drive_through_committed_{false};
-  bool push_realign_active_{false};
+  enum class KickStage
+  {
+    kIdle,
+    kWaitingForWalkStand,
+    kWaitingForStandResponse,
+    kWaitingForStandStatus,
+    kWaitingForKickResponse,
+    kMonitoringKick,
+    kComplete,
+    kFailed
+  };
+  KickStage kick_stage_{KickStage::kIdle};
+  bool kick_attempted_{false};
+  bool kick_motion_started_{false};
+  bool have_motion_status_{false};
+  int32_t latest_motion_id_{-1};
+  int32_t latest_motion_progress_{0};
+  bool latest_motion_has_error_{false};
+  rclcpp::Time kick_stage_started_;
   bool alignment_position_latched_{false};
   bool alignment_watchdog_active_{false};
   double alignment_last_yaw_{0.0};
   double alignment_accumulated_rotation_rad_{0.0};
   double alignment_window_start_error_rad_{0.0};
   double alignment_best_error_rad_{0.0};
-  double drive_direction_x_{1.0};
-  double drive_direction_y_{0.0};
-  bool have_push_contact_{false};
-  bool have_push_contact_progress_{false};
-  double push_contact_best_separation_m_{0.0};
   double latest_robot_ball_distance_m_{std::numeric_limits<double>::infinity()};
   double latest_nearest_obstacle_distance_m_{std::numeric_limits<double>::infinity()};
   double latest_max_closing_speed_mps_{0.0};
@@ -308,12 +303,15 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_global_sub_;
   std::vector<rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr> other_robot_odom_subs_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
+  rclcpp::Subscription<protocol::msg::MotionStatus>::SharedPtr motion_status_sub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr approach_pose_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr control_valid_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr localization_valid_pub_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr state_pub_;
   rclcpp::Publisher<nav2_msgs::msg::SpeedLimit>::SharedPtr speed_limit_pub_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr goal_event_pub_;
+  rclcpp::Client<protocol::srv::MotionResultCmd>::SharedPtr motion_result_client_;
+  rclcpp::Client<protocol::srv::MotionQueueCustomCmd>::SharedPtr motion_queue_client_;
   rclcpp::TimerBase::SharedPtr safety_timer_;
 };
 

@@ -18,6 +18,9 @@ constexpr int32_t kMotionIdGetDown = 101;
 constexpr int32_t kMotionIdRecoveryStand = 111;
 constexpr int32_t kMotionIdSlowWalk = 303;
 constexpr int32_t kMotionIdFastWalk = 305;
+constexpr int32_t kKickMode = 62;
+constexpr int32_t kKickGait = 88;
+constexpr int8_t kKickContact = 0x0F;
 
 constexpr int32_t kMotionCodeStateInvalid = 3003;
 constexpr int32_t kMotionCodeParametersInvalid = 3010;
@@ -116,7 +119,13 @@ KeyboardInput::KeyboardInput()
 	last_motion_input_time_(std::chrono::steady_clock::now()),
 	walking_active_(false),
 	need_start_frame_(false),
-	terminal_configured_(false)
+	terminal_configured_(false),
+	observed_motion_id_(-1),
+	observed_order_process_bar_(0),
+	motion_status_received_(false),
+	kick_started_(false),
+	kick_completed_(false),
+	kick_status_problem_(false)
 {
 	ReadConfigParameters();
 
@@ -124,6 +133,11 @@ KeyboardInput::KeyboardInput()
 		BuildNamespacedName("motion_servo_cmd"), rclcpp::SystemDefaultsQoS());
 	motion_result_client_ = node_->create_client<protocol::srv::MotionResultCmd>(
 		BuildNamespacedName("motion_result_cmd"));
+	motion_queue_client_ = node_->create_client<protocol::srv::MotionQueueCustomCmd>(
+		BuildNamespacedName("motion_queue_cmd"));
+	motion_status_sub_ = node_->create_subscription<protocol::msg::MotionStatus>(
+		BuildNamespacedName("motion_status"), rclcpp::SystemDefaultsQoS(),
+		std::bind(&KeyboardInput::OnMotionStatus, this, std::placeholders::_1));
 
 	RCLCPP_INFO(
 		node_->get_logger(),
@@ -305,6 +319,12 @@ void KeyboardInput::HandleKey(char key)
 		case '2':
 			StopWalking();
 			CallMotionResult(kMotionIdRecoveryStand, "站立");
+			break;
+
+		case 'k':
+		case 'K':
+			StopWalking();
+			ExecuteKickTest();
 			break;
 
 		case '3':
@@ -527,6 +547,148 @@ bool KeyboardInput::CallMotionResult(int32_t motion_id, const std::string & acti
 	return true;
 }
 
+bool KeyboardInput::WaitForRecoveryStand(double timeout_sec)
+{
+	const auto deadline = std::chrono::steady_clock::now() +
+		std::chrono::duration<double>(timeout_sec);
+	while (rclcpp::ok() && std::chrono::steady_clock::now() < deadline) {
+		rclcpp::spin_some(node_);
+		if (motion_status_received_ && observed_motion_id_ == kMotionIdRecoveryStand &&
+			observed_order_process_bar_ >= 95)
+		{
+			return true;
+		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	}
+	return false;
+}
+
+bool KeyboardInput::SubmitKickQueue()
+{
+	if (!motion_queue_client_->wait_for_service(std::chrono::seconds(8))) {
+		RCLCPP_ERROR(node_->get_logger(), "服务 motion_queue_cmd 不可用，无法提交踢球动作");
+		return false;
+	}
+
+	auto command = protocol::msg::MotionCustomCmd();
+	command.mode = kKickMode;
+	command.gait_id = kKickGait;
+	command.contact = kKickContact;
+	command.vel_des = std::vector<float>{0.0F, 0.0F, 0.0F};
+	command.rpy_des = std::vector<float>{0.0F, 0.0F, 0.0F};
+	command.pos_des = std::vector<float>{0.0F, 0.0F, 0.0F};
+	command.acc_des = std::vector<float>{0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F};
+	command.ctrl_point = std::vector<float>{0.0F, 0.0F, 0.0F};
+	command.foot_pose = std::vector<float>{0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F};
+	command.step_height = std::vector<float>{0.0F, 0.0F};
+
+	auto request = std::make_shared<protocol::srv::MotionQueueCustomCmd::Request>();
+	request->cmds = std::vector<protocol::msg::MotionCustomCmd>{command};
+	const auto future = motion_queue_client_->async_send_request(request);
+	const auto ret = rclcpp::spin_until_future_complete(node_, future, std::chrono::seconds(8));
+	if (ret != rclcpp::FutureReturnCode::SUCCESS) {
+		RCLCPP_ERROR(node_->get_logger(), "踢球队列提交超时或失败");
+		return false;
+	}
+
+	const auto response = future.get();
+	if (!response->result) {
+		RCLCPP_ERROR(node_->get_logger(), "motion_manager 拒绝踢球队列，code=%d", response->code);
+		return false;
+	}
+	RCLCPP_INFO(node_->get_logger(), "踢球队列已接受：mode=%d, gait_id=%d", kKickMode, kKickGait);
+	return true;
+}
+
+void KeyboardInput::OnMotionStatus(const protocol::msg::MotionStatus::SharedPtr status)
+{
+	motion_status_received_ = true;
+	observed_motion_id_ = status->motion_id;
+	observed_order_process_bar_ = status->order_process_bar;
+	if (status->switch_status != protocol::msg::MotionStatus::NORMAL &&
+		status->switch_status != protocol::msg::MotionStatus::TRANSITIONING)
+	{
+		kick_status_problem_ = true;
+		RCLCPP_ERROR(
+			node_->get_logger(), "动作控制器状态异常：switch_status=%d, motion_id=%d",
+			status->switch_status, status->motion_id);
+	}
+	for (size_t index = 0; index < status->motor_error.size(); ++index) {
+		if ((status->motor_error[index] & 0x3FFFFFFF) != 0) {
+			kick_status_problem_ = true;
+			RCLCPP_ERROR(
+				node_->get_logger(), "检测到电机错误：index=%zu, error=%d",
+				index, status->motor_error[index]);
+			break;
+		}
+	}
+
+	if (status->motion_id != kMotionIdRecoveryStand) {
+		kick_started_ = true;
+	} else if (kick_started_ && status->motion_id == kMotionIdRecoveryStand &&
+		status->order_process_bar >= 95)
+	{
+		kick_completed_ = true;
+	}
+}
+
+bool KeyboardInput::MonitorKick(double timeout_sec)
+{
+	const auto deadline = std::chrono::steady_clock::now() +
+		std::chrono::duration<double>(timeout_sec);
+	while (rclcpp::ok() && std::chrono::steady_clock::now() < deadline) {
+		rclcpp::spin_some(node_);
+		if (kick_status_problem_) {
+			return false;
+		}
+		if (kick_completed_) {
+			RCLCPP_INFO(node_->get_logger(), "踢球动作已完成并恢复站立");
+			return true;
+		}
+		if (observed_motion_id_ != kMotionIdRecoveryStand) {
+			kick_started_ = true;
+		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	}
+	if (!kick_started_) {
+		RCLCPP_ERROR(node_->get_logger(), "队列已接受，但状态未离开站立，踢球动作没有启动");
+	} else {
+		RCLCPP_ERROR(node_->get_logger(), "踢球动作启动后未在 %.1f 秒内恢复站立", timeout_sec);
+	}
+	return false;
+}
+
+bool KeyboardInput::ExecuteKickTest()
+{
+	RCLCPP_WARN(
+		node_->get_logger(),
+		"准备执行右前腿踢球测试（mode=62, gait_id=88）；确认周围无人且踢腿区域无障碍物");
+	motion_status_received_ = false;
+	if (!CallMotionResult(kMotionIdRecoveryStand, "踢球前站立")) {
+		return false;
+	}
+	if (!WaitForRecoveryStand(3.0)) {
+		RCLCPP_ERROR(node_->get_logger(), "未从 motion_status 确认站立完成，取消踢球请求");
+		return false;
+	}
+
+	kick_started_ = false;
+	kick_completed_ = false;
+	kick_status_problem_ = false;
+	if (!SubmitKickQueue()) {
+		RCLCPP_WARN(node_->get_logger(), "踢球请求未确认成功，尝试恢复站立");
+		CallMotionResult(kMotionIdRecoveryStand, "踢球请求失败后恢复站立");
+		return false;
+	}
+	if (MonitorKick(10.0)) {
+		return true;
+	}
+
+	RCLCPP_WARN(node_->get_logger(), "踢球动作异常，尝试恢复站立");
+	CallMotionResult(kMotionIdRecoveryStand, "踢球失败后恢复站立");
+	return false;
+}
+
 void KeyboardInput::ConfigureTerminal()
 {
 	if (!isatty(STDIN_FILENO)) {
@@ -570,6 +732,7 @@ void KeyboardInput::PrintHelp() const
 		"=======================\n"
 		"1 : 站立切换到趴下\n"
 		"2 : 趴下切换到站立\n"
+		"k : 测试右前腿踢球（mode=62, gait_id=88）\n"
 		"3 : 慢走步态\n"
 		"4 : 快走步态\n"
 		"e : 紧急停止并切换到站立（motion_id=111）\n"

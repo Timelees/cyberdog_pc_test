@@ -95,8 +95,6 @@ def generate_launch_description():
     enable_team_coordination = LaunchConfiguration('enable_team_coordination')
     enable_builtin_team_control = LaunchConfiguration(
         'enable_builtin_team_control')
-    enable_contact_wrench_fallback = LaunchConfiguration(
-        'enable_contact_wrench_fallback')
     use_rviz = LaunchConfiguration('use_rviz')
 
     # Own Gazebo processes directly. gazebo_ros/launch/gzserver.launch.py uses
@@ -353,21 +351,6 @@ def generate_launch_description():
         output='screen',
         parameters=[marker_bridge_params],
     )
-    leg_contact_simulator = Node(
-        condition=IfCondition(enable_contact_wrench_fallback),
-        package='football_navigation',
-        executable='football_gazebo_leg_contact_simulator',
-        name='football_gazebo_leg_contact_simulator',
-        output='screen',
-        parameters=[{
-            'use_sim_time': True,
-            'odom_topic': ['/global_vio/', robot_namespace, '/odom'],
-            'control_state_topic': [
-                '/', robot_namespace, '/football/state'],
-        }, load_node_params(
-            gazebo_params, 'football_gazebo_leg_contact_simulator')],
-    )
-
     visualization_params = load_node_params(
         team_params, 'football_visualization_node')
     visualization_params.update(
@@ -429,11 +412,6 @@ def generate_launch_description():
             description=(
                 'Run the built-in planner/controller for every robot. Set false '
                 'when an external coordinator publishes /cyberdog_N/cmd_vel.')),
-        DeclareLaunchArgument(
-            'enable_contact_wrench_fallback', default_value='true',
-            description=(
-                'Inject deterministic low-force leg-contact assistance for Gazebo. '
-                'Enabled by default because a centred rigid-body contact can trap the ball between the front legs.')),
         DeclareLaunchArgument('use_rviz', default_value='false'),
         # Do not inherit a robot-only CycloneDDS configuration.
         UnsetEnvironmentVariable(name='CYCLONEDDS_URI'),
@@ -451,5 +429,5 @@ def generate_launch_description():
             gazebo_state_bridge, team_role_assigner, *motion_nodes]),
         TimerAction(period=7.0, actions=[
             *football_nodes, visualization, gazebo_marker_bridge,
-            leg_contact_simulator, rviz]),
+            rviz]),
     ])

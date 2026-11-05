@@ -43,8 +43,6 @@ private:
   rclcpp_action::CancelResponse handleCancel(const std::shared_ptr<GoalHandle>);
   void handleAccepted(const std::shared_ptr<GoalHandle> goal_handle);
   void publishStop();
-  bool isPushState() const;
-  bool isPushRealignState() const;
   void publishCommand(const geometry_msgs::msg::Twist & command);
   void otherRobotOdomCallback(
     const std::string & robot_namespace,
@@ -71,7 +69,6 @@ private:
   std::string action_name_;
   std::string odom_topic_;
   std::string cmd_vel_topic_;
-  std::string push_cmd_vel_topic_;
   std::string speed_limit_topic_;
   std::string control_state_topic_;
   std::string ball_pose_topic_;
@@ -82,7 +79,6 @@ private:
   double control_rate_hz_{20.0};
   double linear_gain_{0.9};
   double angular_gain_{1.5};
-  double push_bearing_gain_{0.6};
   double max_linear_speed_mps_{0.45};
   double max_angular_speed_rps_{0.8};
   double position_tolerance_m_{0.06};
@@ -161,7 +157,6 @@ private:
   rclcpp::Time goal_started_time_;
   std::shared_ptr<GoalHandle> active_goal_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
-  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr push_cmd_vel_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr local_plan_pub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ball_pose_sub_;

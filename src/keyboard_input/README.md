@@ -3,6 +3,7 @@
 用于在 PC 端通过键盘控制 Cyberdog2 的一个 ROS2 节点。
 
 - 1 / 2 通过 motion_result_cmd 服务触发趴下与站立动作。
+- k 通过 motion_result_cmd 确认站立后，向 motion_queue_cmd 提交一次右前腿踢球测试（mode=62、gait_id=88），并监控 motion_status；异常或超时会尝试恢复站立。实机测试前确认周围无人、急停可用且右前腿前方无障碍物。
 - 3 / 4 只选择下一条 ServoCmd 使用的慢走 / 快走步态，不会额外发送零速 MotionResultCmd。
 - 按住 w / s / a / d 时会持续发送运动指令，松开按键超过 `step_duration_ms` 后自动停止。默认值为 `800 ms`，需大于桌面环境的首次按键自动重复延迟，否则按住键时会出现 `START -> END -> START`。
 - 按住 j / l 时会持续发送角速度指令完成左转与右转，从而改变机器人朝向。
