@@ -8,6 +8,9 @@
 #include <cctype>
 #include <cmath>
 #include <functional>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <limits>
 #include <sstream>
 #include <stdexcept>
@@ -141,6 +144,10 @@ FootballGoalAdapter::FootballGoalAdapter()
   approach_reached_m_ = declare_parameter<double>("approach_reached_m", 0.16);
   approach_reached_exit_m_ = declare_parameter<double>(
     "approach_reached_exit_m", 0.22);
+  behind_capture_tolerance_m_ = declare_parameter<double>(
+    "behind_capture_tolerance_m", approach_reached_m_);
+  behind_capture_exit_tolerance_m_ = declare_parameter<double>(
+    "behind_capture_exit_tolerance_m", approach_reached_exit_m_);
   align_yaw_tolerance_ = declare_parameter<double>("align_yaw_tolerance", 0.22);
   alignment_reset_grace_sec_ = declare_parameter<double>(
     "alignment_reset_grace_sec", 0.25);
@@ -196,7 +203,20 @@ FootballGoalAdapter::FootballGoalAdapter()
   robot_half_width_m_ = declare_parameter<double>("robot_half_width_m", 0.170);
   ball_radius_m_ = declare_parameter<double>("ball_radius_m", 0.11);
   contact_tolerance_m_ = declare_parameter<double>("contact_tolerance_m", 0.035);
-  ball_protection_radius_m_ = declare_parameter<double>("ball_protection_radius_m", 0.28);
+  use_kick_foot_trajectory_model_ = declare_parameter<bool>(
+    "use_kick_foot_trajectory_model", false);
+  kick_foot_contact_x_m_ = declare_parameter<double>("kick_foot_contact_x_m", 0.374);
+  kick_foot_contact_y_m_ = declare_parameter<double>("kick_foot_contact_y_m", -0.056);
+  kick_foot_backswing_x_m_ = declare_parameter<double>(
+    "kick_foot_backswing_x_m", 0.054);
+  kick_foot_backswing_y_m_ = declare_parameter<double>(
+    "kick_foot_backswing_y_m", -0.056);
+  kick_foot_backswing_vertical_error_m_ = declare_parameter<double>(
+    "kick_foot_backswing_vertical_error_m", 0.05);
+  kick_foot_strike_vertical_error_m_ = declare_parameter<double>(
+    "kick_foot_strike_vertical_error_m", 0.06);
+  kick_contact_margin_m_ = declare_parameter<double>("kick_contact_margin_m", 0.02);
+  ball_protection_radius_m_ = declare_parameter<double>("ball_protection_radius_m", 0.45);
   max_local_goal_distance_m_ = declare_parameter<double>("max_local_goal_distance_m", 4.00);
   path_block_radius_m_ = declare_parameter<double>("path_block_radius_m", 0.50);
   field_min_x_ = declare_parameter<double>("field_min_x", -2.0);
@@ -216,6 +236,8 @@ FootballGoalAdapter::FootballGoalAdapter()
     "maximum_kick_lateral_error_m", 0.20);
   kick_alignment_hold_sec_ = declare_parameter<double>(
     "kick_alignment_hold_sec", 0.35);
+  kick_action_timeout_sec_ = declare_parameter<double>(
+    "kick_action_timeout_sec", 20.0);
   goal_width_m_ = declare_parameter<double>("goal_width_m", 1.2);
   goal_depth_m_ = declare_parameter<double>("goal_depth_m", 0.5);
   cmd_vel_timeout_sec_ = declare_parameter<double>("cmd_vel_timeout_sec", 0.35);
@@ -226,9 +248,15 @@ FootballGoalAdapter::FootballGoalAdapter()
     "goal_update_yaw_threshold_rad", 0.10);
   goal_update_max_refresh_sec_ = declare_parameter<double>(
     "goal_update_max_refresh_sec", 1.0);
+  diagnostic_log_enabled_ = declare_parameter<bool>("diagnostic_log_enabled", true);
+  diagnostic_log_period_sec_ = declare_parameter<double>("diagnostic_log_period_sec", 0.10);
+  diagnostic_log_path_ = declare_parameter<std::string>(
+    "diagnostic_log_path", "test_log/football_goal_adapter.jsonl");
 
   if (approach_reached_m_ <= 0.0 ||
     approach_reached_exit_m_ < approach_reached_m_ ||
+    behind_capture_tolerance_m_ <= 0.0 ||
+    behind_capture_exit_tolerance_m_ < behind_capture_tolerance_m_ ||
     align_yaw_tolerance_ <= 0.0 ||
     maximum_kick_lateral_error_m_ <= 0.0 ||
     !std::isfinite(maximum_kick_distance_m_) ||
@@ -266,7 +294,18 @@ FootballGoalAdapter::FootballGoalAdapter()
     robot_front_extent_m_ <= 0.0 ||
     robot_half_width_m_ <= 0.0 ||
     ball_radius_m_ <= 0.0 ||
-    contact_tolerance_m_ < 0.0)
+    contact_tolerance_m_ < 0.0 ||
+    !std::isfinite(kick_foot_contact_x_m_) || kick_foot_contact_x_m_ <= 0.0 ||
+    !std::isfinite(kick_foot_contact_y_m_) ||
+    !std::isfinite(kick_foot_backswing_x_m_) ||
+    !std::isfinite(kick_foot_backswing_y_m_) ||
+    !std::isfinite(kick_foot_backswing_vertical_error_m_) ||
+    kick_foot_backswing_vertical_error_m_ < 0.0 ||
+    !std::isfinite(kick_foot_strike_vertical_error_m_) ||
+    kick_foot_strike_vertical_error_m_ < 0.0 ||
+    !std::isfinite(kick_contact_margin_m_) || kick_contact_margin_m_ <= 0.0 ||
+    kick_contact_margin_m_ >= ball_radius_m_ ||
+    !std::isfinite(kick_action_timeout_sec_) || kick_action_timeout_sec_ <= 0.0)
   {
     throw std::invalid_argument("invalid football approach parameters");
   }
@@ -276,6 +315,56 @@ FootballGoalAdapter::FootballGoalAdapter()
     goal_update_max_refresh_sec_ <= goal_update_min_hold_sec_)
   {
     throw std::invalid_argument("invalid football goal update stability parameters");
+  }
+  if (!std::isfinite(diagnostic_log_period_sec_) || diagnostic_log_period_sec_ <= 0.0) {
+    throw std::invalid_argument("diagnostic_log_period_sec must be positive and finite");
+  }
+  if (diagnostic_log_enabled_) {
+    try {
+      const std::filesystem::path log_path(diagnostic_log_path_);
+      if (!log_path.parent_path().empty()) {
+        std::filesystem::create_directories(log_path.parent_path());
+      }
+      diagnostic_log_stream_.open(log_path, std::ios::out | std::ios::app);
+    } catch (const std::exception & error) {
+      RCLCPP_WARN(get_logger(), "cannot create diagnostic log %s: %s",
+        diagnostic_log_path_.c_str(), error.what());
+    }
+    if (!diagnostic_log_stream_.is_open()) {
+      RCLCPP_WARN(get_logger(), "diagnostic log is unavailable: %s",
+        diagnostic_log_path_.c_str());
+      diagnostic_log_enabled_ = false;
+    } else {
+      diagnostic_log_stream_ << "{\"event\":\"start\",\"stamp_ns\":" <<
+        now().nanoseconds() << ",\"robot\":\"" << self_namespace_ <<
+        "\",\"field_frame\":\"" << field_frame_ << "\",\"settings\":{\"approach_reached_m\":" <<
+        approach_reached_m_ << ",\"align_yaw_tolerance_rad\":" << align_yaw_tolerance_ <<
+        ",\"behind_capture_tolerance_m\":" << behind_capture_tolerance_m_ <<
+        ",\"behind_capture_exit_tolerance_m\":" <<
+        behind_capture_exit_tolerance_m_ <<
+        ",\"kick_ball_lateral_offset_m\":" << kick_ball_lateral_offset_m_ <<
+        ",\"robot_front_extent_m\":" << robot_front_extent_m_ <<
+        ",\"ball_radius_m\":" << ball_radius_m_ <<
+        ",\"contact_tolerance_m\":" << contact_tolerance_m_ <<
+        ",\"use_kick_foot_trajectory_model\":" <<
+        (use_kick_foot_trajectory_model_ ? "true" : "false") <<
+        ",\"kick_foot_contact_x_m\":" << kick_foot_contact_x_m_ <<
+        ",\"kick_foot_contact_y_m\":" << kick_foot_contact_y_m_ <<
+        ",\"kick_foot_backswing_x_m\":" << kick_foot_backswing_x_m_ <<
+        ",\"kick_foot_backswing_y_m\":" << kick_foot_backswing_y_m_ <<
+        ",\"kick_foot_backswing_vertical_error_m\":" <<
+        kick_foot_backswing_vertical_error_m_ <<
+        ",\"kick_foot_strike_vertical_error_m\":" <<
+        kick_foot_strike_vertical_error_m_ <<
+        ",\"kick_contact_margin_m\":" << kick_contact_margin_m_ <<
+        ",\"kick_contact_radius_m\":" << ball_radius_m_ - kick_contact_margin_m_ <<
+        ",\"ball_protection_radius_m\":" << ball_protection_radius_m_ <<
+        ",\"maximum_kick_distance_m\":" << maximum_kick_distance_m_ <<
+        ",\"maximum_kick_lateral_error_m\":" << maximum_kick_lateral_error_m_ <<
+        ",\"kick_alignment_hold_sec\":" << kick_alignment_hold_sec_ <<
+        ",\"kick_action_timeout_sec\":" << kick_action_timeout_sec_ << "}}\n";
+      diagnostic_log_stream_.flush();
+    }
   }
 
   approach_config_.approach_distance = declare_parameter<double>("approach_distance_m", 0.60);
@@ -296,6 +385,10 @@ FootballGoalAdapter::FootballGoalAdapter()
   lateral_entry_config_.ball_protection_radius_m = std::max(
     ball_protection_radius_m_,
     robot_front_extent_m_ + ball_radius_m_ + contact_tolerance_m_);
+  lateral_entry_config_.robot_footprint_radius_m =
+    circumscribedRobotFootprintRadius(
+    robot_front_extent_m_, robot_half_width_m_,
+    robot_collision_length_m_, robot_collision_width_m_);
   lateral_entry_config_.field_min_x = field_min_x_;
   lateral_entry_config_.field_max_x = field_max_x_;
   lateral_entry_config_.field_min_y = field_min_y_;
@@ -598,6 +691,9 @@ void FootballGoalAdapter::cmdVelCallback(const geometry_msgs::msg::Twist::Shared
   }
   latest_command_linear_speed_ = std::hypot(msg->linear.x, msg->linear.y);
   latest_command_angular_speed_ = std::fabs(msg->angular.z);
+  latest_command_vx_ = msg->linear.x;
+  latest_command_vy_ = msg->linear.y;
+  latest_command_wz_ = msg->angular.z;
   latest_command_speed_ = latest_command_linear_speed_ +
     0.25 * latest_command_angular_speed_;
   last_cmd_vel_time_ = now();
@@ -743,10 +839,16 @@ void FootballGoalAdapter::startKickAction()
     return;
   }
   kick_attempted_ = true;
+  have_kick_start_ball_ = have_last_ball_;
+  if (have_kick_start_ball_) {
+    kick_start_ball_x_ = last_ball_in_field_.pose.position.x;
+    kick_start_ball_y_ = last_ball_in_field_.pose.position.y;
+  }
   // Ending motion_id=309 starts an asynchronous WalkStand (motion_id=112).
   // Wait for that transition before asking the motion manager for 111.
   kick_stage_ = KickStage::kWaitingForWalkStand;
   kick_stage_started_ = now();
+  writeKickLifecycleDiagnostic("kick_triggered");
   setControlState("KICK_PREPARING", false);
 
   RCLCPP_INFO(
@@ -761,6 +863,7 @@ void FootballGoalAdapter::requestRecoveryStand()
   }
   kick_stage_ = KickStage::kWaitingForStandResponse;
   kick_stage_started_ = now();
+  writeKickLifecycleDiagnostic("stand_request_sent");
   auto request = std::make_shared<protocol::srv::MotionResultCmd::Request>();
   request->motion_id = 111;
   request->cmd_source = protocol::srv::MotionResultCmd::Request::APP;
@@ -781,7 +884,9 @@ void FootballGoalAdapter::requestRecoveryStand()
         return;
       }
       const auto response = future.get();
+      last_kick_service_result_code_ = response ? response->code : -1;
       if (!response || !response->result) {
+        writeKickLifecycleDiagnostic("stand_response_failed");
         if (response) {
           failKickAction(
             "踢球前切换到 motion_id=111 失败：code=" +
@@ -794,11 +899,12 @@ void FootballGoalAdapter::requestRecoveryStand()
       }
       kick_stage_ = KickStage::kWaitingForStandStatus;
       kick_stage_started_ = now();
+      writeKickLifecycleDiagnostic("stand_response_accepted");
       if (have_motion_status_ && latest_motion_id_ == 111 && latest_motion_progress_ >= 95) {
         submitKickQueue();
       }
     });
-  RCLCPP_INFO(get_logger(), "到达足球后方并对准，已请求站立后执行一次踢球");
+  RCLCPP_INFO(get_logger(), "已完成球后对准和受控贴球，等待行走站立后执行一次踢球");
 }
 
 void FootballGoalAdapter::submitKickQueue()
@@ -822,6 +928,7 @@ void FootballGoalAdapter::submitKickQueue()
   request->cmds = std::vector<protocol::msg::MotionCustomCmd>{command};
   kick_stage_ = KickStage::kWaitingForKickResponse;
   kick_stage_started_ = now();
+  writeKickLifecycleDiagnostic("kick_queue_sent");
   motion_queue_client_->async_send_request(
     request,
     [this](rclcpp::Client<protocol::srv::MotionQueueCustomCmd>::SharedFuture future) {
@@ -831,7 +938,9 @@ void FootballGoalAdapter::submitKickQueue()
         return;
       }
       const auto response = future.get();
+      last_kick_service_result_code_ = response ? response->code : -1;
       if (!response || !response->result) {
+        writeKickLifecycleDiagnostic("kick_queue_rejected");
         if (response) {
           failKickAction(
             "motion_manager 拒绝踢球队列：code=" +
@@ -846,6 +955,7 @@ void FootballGoalAdapter::submitKickQueue()
       }
       kick_stage_ = KickStage::kMonitoringKick;
       kick_stage_started_ = now();
+      writeKickLifecycleDiagnostic("kick_queue_accepted");
       RCLCPP_INFO(get_logger(), "motion_manager 已接受踢球动作 mode=62 gait_id=88");
     });
 }
@@ -859,12 +969,35 @@ void FootballGoalAdapter::motionStatusCallback(
   have_motion_status_ = true;
   latest_motion_id_ = msg->motion_id;
   latest_motion_progress_ = msg->order_process_bar;
+  latest_motion_switch_status_ = msg->switch_status;
+  latest_motion_orientation_error_ = msg->ori_error;
+  latest_motion_foot_position_error_ = msg->footpos_error;
+  latest_motion_error_mask_ = 0;
   latest_motion_has_error_ = false;
   for (const auto error : msg->motor_error) {
+    latest_motion_error_mask_ |= error;
     if ((error & 0x3FFFFFFF) != 0) {
       latest_motion_has_error_ = true;
-      break;
     }
+  }
+
+  const bool kick_active = kick_stage_ == KickStage::kWaitingForWalkStand ||
+    kick_stage_ == KickStage::kWaitingForStandResponse ||
+    kick_stage_ == KickStage::kWaitingForStandStatus ||
+    kick_stage_ == KickStage::kWaitingForKickResponse ||
+    kick_stage_ == KickStage::kMonitoringKick;
+  const int32_t progress_bucket = msg->order_process_bar / 10;
+  if (kick_active && (latest_motion_id_ != last_logged_motion_id_ ||
+    progress_bucket != last_logged_motion_progress_bucket_ ||
+    latest_motion_has_error_ != last_logged_motion_error_ ||
+    last_motion_diagnostic_time_.nanoseconds() <= 0 ||
+    (now() - last_motion_diagnostic_time_).seconds() >= 1.0))
+  {
+    writeKickLifecycleDiagnostic("motion_status");
+    last_motion_diagnostic_time_ = now();
+    last_logged_motion_id_ = latest_motion_id_;
+    last_logged_motion_progress_bucket_ = progress_bucket;
+    last_logged_motion_error_ = latest_motion_has_error_;
   }
 
   const bool active = kick_stage_ == KickStage::kWaitingForWalkStand ||
@@ -892,9 +1025,13 @@ void FootballGoalAdapter::motionStatusCallback(
     kick_stage_ == KickStage::kMonitoringKick)
   {
     if (msg->motion_id != 111) {
+      if (!kick_motion_started_) {
+        writeKickLifecycleDiagnostic("kick_motion_started");
+      }
       kick_motion_started_ = true;
     } else if (kick_motion_started_ && msg->order_process_bar >= 95) {
       kick_stage_ = KickStage::kComplete;
+      writeKickLifecycleDiagnostic("kick_motion_completed");
       setControlState("KICK_COMPLETE", false);
       RCLCPP_INFO(get_logger(), "踢球动作完成，机器人已恢复站立");
     }
@@ -907,6 +1044,8 @@ void FootballGoalAdapter::failKickAction(const std::string & reason)
     kick_stage_ == KickStage::kMonitoringKick;
   kick_stage_ = KickStage::kFailed;
   kick_stage_started_ = now();
+  last_kick_failure_reason_ = reason;
+  writeKickLifecycleDiagnostic("kick_failed");
   setControlState("KICK_FAILED", false);
   RCLCPP_ERROR(get_logger(), "football kick failed: %s", reason.c_str());
   if (kick_may_be_active && motion_result_client_->service_is_ready()) {
@@ -926,7 +1065,8 @@ void FootballGoalAdapter::safetyWatchdog()
     const double timeout =
       kick_stage_ == KickStage::kWaitingForWalkStand ? 5.0 :
       kick_stage_ == KickStage::kWaitingForStandResponse ? 25.0 :
-      kick_stage_ == KickStage::kWaitingForStandStatus ? 3.0 : 10.0;
+      kick_stage_ == KickStage::kWaitingForStandStatus ? 3.0 :
+      kick_stage_ == KickStage::kMonitoringKick ? kick_action_timeout_sec_ : 10.0;
     if ((kick_stage_ == KickStage::kWaitingForWalkStand ||
       kick_stage_ == KickStage::kWaitingForStandResponse ||
       kick_stage_ == KickStage::kWaitingForStandStatus ||
@@ -1240,6 +1380,12 @@ void FootballGoalAdapter::ballPoseCallback(
   const double ux = kick_dx / kick_norm;
   const double uy = kick_dy / kick_norm;
   const auto behind = computeApproachPose(ball, kick_target, approach_config_);
+  // Navigation targets a body stance with explicit nose-to-ball clearance.
+  // The gait trajectory is only a feasibility gate; using its endpoint as the
+  // body target couples navigation to an approximate foot model.
+  const auto contact = computeContactApproachPose(
+    ball, kick_target, approach_config_, robot_front_extent_m_, ball_radius_m_,
+    contact_tolerance_m_);
 
   ApproachPlan plan{behind, true, false};
   auto lateral = lateral_entry_config_;
@@ -1315,7 +1461,7 @@ void FootballGoalAdapter::ballPoseCallback(
     kick_ball_lateral_offset_m_);
 
   if (!alignment_position_latched_ &&
-    behind_error <= approach_reached_m_ && centered_on_kick_line)
+    behind_error <= behind_capture_tolerance_m_ && centered_on_kick_line)
   {
     alignment_position_latched_ = true;
     alignment_position_lost_since_ = rclcpp::Time(
@@ -1325,8 +1471,8 @@ void FootballGoalAdapter::ballPoseCallback(
     alignment_anchor_field_.pose.orientation = behind.pose.orientation;
     have_alignment_anchor_ = true;
     resetProgressWatchdog();
-  } else if (alignment_position_latched_) {
-    const bool position_lost = behind_error > approach_reached_exit_m_ ||
+  } else if (alignment_position_latched_ && !contact_approach_active_) {
+    const bool position_lost = behind_error > behind_capture_exit_tolerance_m_ ||
       !centered_on_kick_line;
     if (!position_lost) {
       alignment_position_lost_since_ = rclcpp::Time(
@@ -1350,8 +1496,9 @@ void FootballGoalAdapter::ballPoseCallback(
     }
   }
 
-  if (!alignment_position_latched_) {
-    const bool no_progress = updateNoProgress(robot, ball, plan.pose, opponents);
+  if (!alignment_position_latched_ || contact_approach_active_) {
+    const bool no_progress = updateNoProgress(
+      robot, ball, contact_approach_active_ ? contact : plan.pose, opponents);
     if (no_progress && stalled_window_count_ >= 3) {
       recovery_hold_until_ = now() + rclcpp::Duration::from_seconds(0.3);
       resetProgressWatchdog();
@@ -1378,6 +1525,18 @@ void FootballGoalAdapter::ballPoseCallback(
   const double robot_to_ball_x = ball.pose.position.x - robot.pose.position.x;
   const double robot_to_ball_y = ball.pose.position.y - robot.pose.position.y;
   const double robot_ball_distance = std::hypot(robot_to_ball_x, robot_to_ball_y);
+  const double contact_error = planarDistance(
+    robot.pose.position.x, robot.pose.position.y,
+    contact.pose.position.x, contact.pose.position.y);
+  const double kick_foot_ball_distance = use_kick_foot_trajectory_model_ ?
+    distanceBallToKickTrajectory(
+    robot.pose.position.x, robot.pose.position.y, robot_yaw,
+    ball.pose.position.x, ball.pose.position.y,
+    kick_foot_backswing_x_m_, kick_foot_backswing_y_m_,
+    kick_foot_backswing_vertical_error_m_,
+    kick_foot_contact_x_m_, kick_foot_contact_y_m_,
+    kick_foot_strike_vertical_error_m_) : std::numeric_limits<double>::infinity();
+  latest_kick_foot_ball_distance_m_ = kick_foot_ball_distance;
   latest_robot_ball_distance_m_ = robot_ball_distance;
   latest_nearest_obstacle_distance_m_ = nearestOpponentDistance(robot, opponents);
   if (!std::isfinite(latest_dynamic_stop_distance_m_)) {
@@ -1423,15 +1582,29 @@ void FootballGoalAdapter::ballPoseCallback(
     centered_on_kick_line &&
     at_behind_pose &&
     robot_ball_distance > ball_protection_radius_m_ &&
-    robot_ball_distance <= maximum_kick_distance_m_ &&
     kick_lateral_error <= strict_lateral_tolerance;
-  const bool strict_kick_alignment =
+  const bool strict_stage_alignment =
     alignment_position_ready &&
     ball_forward_projection > 0.0 &&
     yaw_error <= strict_yaw_tolerance;
+  const bool contact_position_ready =
+    contact_approach_active_ &&
+    contact_error <= approach_reached_m_ &&
+    centered_on_kick_line &&
+    robot_ball_distance <= maximum_kick_distance_m_ &&
+    kick_lateral_error <= strict_lateral_tolerance &&
+    (!use_kick_foot_trajectory_model_ ||
+    kick_foot_ball_distance <= ball_radius_m_ - kick_contact_margin_m_);
+  const bool strict_contact_alignment =
+    contact_position_ready &&
+    ball_forward_projection > 0.0 &&
+    yaw_error <= strict_yaw_tolerance;
+  const bool strict_kick_alignment = contact_approach_active_ ?
+    strict_contact_alignment : strict_stage_alignment;
 
   bool alignment_reacquire = false;
-  if (alignment_position_ready && yaw_error > strict_yaw_tolerance)
+  if (!contact_approach_active_ && alignment_position_ready &&
+    yaw_error > strict_yaw_tolerance)
   {
     alignment_reacquire = alignmentWatchdogTriggered(robot_yaw, yaw_error);
   } else {
@@ -1470,15 +1643,27 @@ void FootballGoalAdapter::ballPoseCallback(
     kick_alignment_since_.nanoseconds() > 0 &&
     (alignment_now - kick_alignment_since_).seconds() >=
     kick_alignment_hold_sec_;
-  const bool alignment_ready = strict_kick_alignment && alignment_held;
+  const bool alignment_ready =
+    contact_approach_active_ && strict_contact_alignment && alignment_held;
 
-  if (robot_ball_distance <= ball_approach_distance_m_ || at_behind_pose) {
+  if (!contact_approach_active_ && strict_stage_alignment && alignment_held) {
+    contact_approach_active_ = true;
+    kick_alignment_since_ = rclcpp::Time(0, 0, get_clock()->get_clock_type());
+    alignment_bad_since_ = rclcpp::Time(0, 0, get_clock()->get_clock_type());
+    resetAlignmentWatchdog();
+  }
+
+  if (robot_ball_distance <= ball_approach_distance_m_ || at_behind_pose ||
+    contact_approach_active_)
+  {
     RCLCPP_INFO_THROTTLE(
       get_logger(), *get_clock(), 2000,
-      "kick alignment check: behind_error=%.3f ball_distance=%.3f(max=%.3f) "
-      "behind=%d centered=%d lateral_error=%.3f yaw_error=%.3f held=%.3f/%.3f ready=%d",
-      behind_error, robot_ball_distance, maximum_kick_distance_m_,
-      at_behind_pose, centered_on_kick_line, kick_lateral_error, yaw_error,
+      "kick alignment check: behind_error=%.3f contact_error=%.3f "
+      "ball_distance=%.3f(max=%.3f) behind=%d contact=%d centered=%d "
+      "lateral_error=%.3f yaw_error=%.3f held=%.3f/%.3f ready=%d",
+      behind_error, contact_error, robot_ball_distance, maximum_kick_distance_m_,
+      at_behind_pose, contact_approach_active_, centered_on_kick_line,
+      kick_lateral_error, yaw_error,
       kick_alignment_since_.nanoseconds() > 0 ?
       (alignment_now - kick_alignment_since_).seconds() : 0.0,
       kick_alignment_hold_sec_, alignment_ready);
@@ -1504,6 +1689,29 @@ void FootballGoalAdapter::ballPoseCallback(
     robot_ball_distance > ball_approach_distance_m_;
   if (dynamic_emergency_stop || planner_blocking_motion) {
     next_state = "BLOCKED_RECOVERY";
+  } else if (contact_approach_active_) {
+    if (alignment_ready) {
+      setControlState("KICK_PREPARING", false);
+      writeKickLifecycleDiagnostic("kick_alignment_ready");
+      markProcessed();
+      startKickAction();
+      return;
+    }
+    if (contact_error <= approach_reached_m_) {
+      if (!have_contact_alignment_anchor_) {
+        contact_alignment_anchor_field_ = robot;
+        contact_alignment_anchor_field_.header = contact.header;
+        have_contact_alignment_anchor_ = true;
+      }
+      approach = contact_alignment_anchor_field_;
+      approach.pose.orientation = contact.pose.orientation;
+      next_state = "CONTACT_ALIGN";
+    } else {
+      have_contact_alignment_anchor_ = false;
+      approach = contact;
+      assignApproachTravelOrientation(approach);
+      next_state = "KICK_APPROACH";
+    }
   } else if (at_behind_pose && !alignment_position_ready) {
     // A zero-translation ALIGN goal is valid only while the complete
     // behind-ball contact geometry is still valid. Otherwise Nav2 sees a
@@ -1555,7 +1763,7 @@ void FootballGoalAdapter::ballPoseCallback(
     } else {
       next_state = "NAV_TRANSIT";
     }
-  } else if (!alignment_ready) {
+  } else if (!strict_stage_alignment || !alignment_held) {
     // Freeze the ALIGN target position in the stable field frame. Only yaw
     // remains the kick direction, so the controller cannot keep translating
     // or chase a target that rotates with base_link.
@@ -1563,11 +1771,6 @@ void FootballGoalAdapter::ballPoseCallback(
     approach.header = behind.header;
     approach.pose.orientation = behind.pose.orientation;
     next_state = "ALIGN_TO_GOAL";
-  } else {
-    setControlState("KICK_PREPARING", false);
-    markProcessed();
-    startKickAction();
-    return;
   }
 
   setControlState(next_state, true);
@@ -1600,6 +1803,13 @@ void FootballGoalAdapter::ballPoseCallback(
     // Keep the state-machine yaw. Replacing it with the bearing of the
     // clamped local vector would re-introduce a robot-relative yaw target.
   }
+
+  writeApproachDiagnostic(
+    robot, ball, kick_target, behind, contact, local, next_state,
+    robot_yaw, desired_yaw, yaw_error, robot_ball_distance,
+    ball_forward_projection, kick_lateral_error, behind_error, contact_error,
+    centered_on_kick_line, alignment_position_ready, contact_position_ready,
+    alignment_ready);
 
   local.header.stamp = msg->header.stamp;
   approach_pose_pub_->publish(local);
@@ -1739,6 +1949,8 @@ void FootballGoalAdapter::resetGoalStability()
   obstacle_slowdown_latched_ = false;
   ball_approach_latched_ = false;
   alignment_position_latched_ = false;
+  contact_approach_active_ = false;
+  have_contact_alignment_anchor_ = false;
   have_alignment_anchor_ = false;
   kick_alignment_since_ = rclcpp::Time(0, 0, get_clock()->get_clock_type());
   alignment_bad_since_ = rclcpp::Time(
@@ -1851,7 +2063,9 @@ double FootballGoalAdapter::speedLimitForState(const std::string & state) const
       ball_approach_speed_limit_mps_,
       obstacle_speed_limit_mps_);
   }
-  if (state == "BALL_APPROACH" || state == "APPROACH_BEHIND_BALL") {
+  if (state == "BALL_APPROACH" || state == "APPROACH_BEHIND_BALL" ||
+    state == "KICK_APPROACH")
+  {
     return ball_approach_speed_limit_mps_;
   }
   if (state == "AVOID_BLOCKER") {
@@ -1861,11 +2075,263 @@ double FootballGoalAdapter::speedLimitForState(const std::string & state) const
     return ball_approach_speed_limit_mps_;
   }
 
-  // ALIGN_TO_GOAL intentionally publishes Nav2 NO_SPEED_LIMIT (0.0).
-  // The target remains at the latched behind-ball position and the
-  // RotateToGoal critic produces zero translation while retaining enough
-  // angular authority to converge by the shortest wrapped yaw error.
+  // ALIGN_TO_GOAL and CONTACT_ALIGN intentionally publish Nav2 NO_SPEED_LIMIT
+  // (0.0). Their targets are position-latched and the RotateToGoal critic
+  // produces zero translation while retaining angular authority. KICK_APPROACH
+  // must remain explicitly speed-limited above so it can translate to contact.
   return 0.0;
+}
+
+void FootballGoalAdapter::writeApproachDiagnostic(
+  const geometry_msgs::msg::PoseStamped & robot,
+  const geometry_msgs::msg::PoseStamped & ball,
+  const geometry_msgs::msg::PoseStamped & kick_target,
+  const geometry_msgs::msg::PoseStamped & behind,
+  const geometry_msgs::msg::PoseStamped & contact,
+  const geometry_msgs::msg::PoseStamped & output_goal,
+  const std::string & state,
+  const double robot_yaw,
+  const double desired_yaw,
+  const double yaw_error,
+  const double robot_ball_distance,
+  const double ball_forward_projection,
+  const double kick_lateral_error,
+  const double behind_error,
+  const double contact_error,
+  const bool centered,
+  const bool alignment_position_ready,
+  const bool contact_position_ready,
+  const bool alignment_ready)
+{
+  if (!diagnostic_log_enabled_ || !diagnostic_log_stream_.is_open()) {
+    return;
+  }
+  const auto stamp = now();
+  if (last_diagnostic_log_time_.nanoseconds() > 0 &&
+      (stamp - last_diagnostic_log_time_).seconds() < diagnostic_log_period_sec_) {
+    return;
+  }
+  last_diagnostic_log_time_ = stamp;
+
+  const auto number = [](const double value) {
+      if (!std::isfinite(value)) {
+        return std::string("null");
+      }
+      std::ostringstream output;
+      output << std::fixed << std::setprecision(5) << value;
+      return output.str();
+    };
+  const double ball_dx = ball.pose.position.x - robot.pose.position.x;
+  const double ball_dy = ball.pose.position.y - robot.pose.position.y;
+  const double target_bearing = std::atan2(
+    kick_target.pose.position.y - ball.pose.position.y,
+    kick_target.pose.position.x - ball.pose.position.x);
+  const double body_lateral = -std::sin(robot_yaw) * ball_dx +
+    std::cos(robot_yaw) * ball_dy;
+  const double body_forward = std::cos(robot_yaw) * ball_dx +
+    std::sin(robot_yaw) * ball_dy;
+  const double kick_foot_field_x = robot.pose.position.x +
+    std::cos(robot_yaw) * kick_foot_contact_x_m_ -
+    std::sin(robot_yaw) * kick_foot_contact_y_m_;
+  const double kick_foot_field_y = robot.pose.position.y +
+    std::sin(robot_yaw) * kick_foot_contact_x_m_ +
+    std::cos(robot_yaw) * kick_foot_contact_y_m_;
+  const double kick_foot_ball_distance = distanceBallToKickTrajectory(
+    robot.pose.position.x, robot.pose.position.y, robot_yaw,
+    ball.pose.position.x, ball.pose.position.y,
+    kick_foot_backswing_x_m_, kick_foot_backswing_y_m_,
+    kick_foot_backswing_vertical_error_m_,
+    kick_foot_contact_x_m_, kick_foot_contact_y_m_,
+    kick_foot_strike_vertical_error_m_);
+  double output_goal_yaw = 0.0;
+  if (!yawFromQuaternion(output_goal.pose.orientation, output_goal_yaw)) {
+    output_goal_yaw = 0.0;
+  }
+  const double cmd_age = last_cmd_vel_time_.nanoseconds() > 0 ?
+    (stamp - last_cmd_vel_time_).seconds() : std::numeric_limits<double>::infinity();
+  const double ball_age = last_ball_stamp_.nanoseconds() > 0 ?
+    (stamp - last_ball_stamp_).seconds() : std::numeric_limits<double>::infinity();
+
+  diagnostic_log_stream_ << "{\"event\":\"approach_state\",\"stamp_ns\":" <<
+    stamp.nanoseconds() << ",\"state\":\"" << state << "\",\"valid\":" <<
+    (control_valid_ ? "true" : "false") << ",\"frame\":\"" << field_frame_ <<
+    "\",\"output_frame\":\"" << output_frame_ <<
+    "\",\"robot\":[" << number(robot.pose.position.x) << ',' <<
+    number(robot.pose.position.y) << ',' << number(robot_yaw) << "],\"ball\":[" <<
+    number(ball.pose.position.x) << ',' << number(ball.pose.position.y) <<
+    "],\"kick_target\":[" << number(kick_target.pose.position.x) << ',' <<
+    number(kick_target.pose.position.y) << "],\"target_bearing_rad\":" <<
+    number(target_bearing) << ",\"desired_yaw_rad\":" << number(desired_yaw) <<
+    ",\"yaw_error_rad\":" << number(yaw_error) << ",\"bearing_yaw_error_rad\":" <<
+    number(yawDistance(robot_yaw, target_bearing)) << ",\"behind_goal\":[" <<
+    number(behind.pose.position.x) << ',' << number(behind.pose.position.y) << ',' <<
+    number(desired_yaw) << "],\"contact_goal\":[" <<
+    number(contact.pose.position.x) << ',' << number(contact.pose.position.y) << ',' <<
+    number(desired_yaw) << "],\"published_goal\":[" <<
+    number(output_goal.pose.position.x) << ',' << number(output_goal.pose.position.y) << ',' <<
+    number(output_goal_yaw) <<
+    "],\"robot_ball_distance_m\":" << number(robot_ball_distance) <<
+    ",\"body_forward_ball_m\":" << number(body_forward) <<
+    ",\"body_lateral_ball_m\":" << number(body_lateral) <<
+    ",\"ball_forward_projection_m\":" << number(ball_forward_projection) <<
+    ",\"kick_foot_endpoint_field\":[" << number(kick_foot_field_x) << ',' <<
+    number(kick_foot_field_y) << "]"
+    << ",\"ball_to_kick_foot_distance_m\":" << number(kick_foot_ball_distance)
+    << ",\"kick_lateral_error_m\":" << number(kick_lateral_error) <<
+    ",\"behind_error_m\":" << number(behind_error) <<
+    ",\"contact_error_m\":" << number(contact_error)
+    << ",\"flags\":{\"centered\":" << (centered ? "true" : "false")
+    << ",\"behind_capture_ready\":" <<
+    (behind_error <= behind_capture_tolerance_m_ ? "true" : "false")
+    << ",\"behind_latched\":" << (alignment_position_latched_ ? "true" : "false")
+    << ",\"contact_active\":" << (contact_approach_active_ ? "true" : "false")
+    << ",\"alignment_position_ready\":" << (alignment_position_ready ? "true" : "false")
+    << ",\"contact_position_ready\":" << (contact_position_ready ? "true" : "false")
+    << ",\"kick_trajectory_model_enforced\":" <<
+    (use_kick_foot_trajectory_model_ ? "true" : "false")
+    << ",\"contact_error_ready\":" <<
+    (contact_error <= approach_reached_m_ ? "true" : "false")
+    << ",\"contact_distance_ready\":" <<
+    (robot_ball_distance <= maximum_kick_distance_m_ ? "true" : "false")
+    << ",\"contact_lateral_ready\":" <<
+    (kick_lateral_error <= maximum_kick_lateral_error_m_ ? "true" : "false")
+    << ",\"contact_forward_ready\":" <<
+    (ball_forward_projection > 0.0 ? "true" : "false")
+    << ",\"kick_foot_in_ball_reach\":" <<
+    (kick_foot_ball_distance <= ball_radius_m_ - kick_contact_margin_m_ ? "true" : "false")
+    << ",\"contact_yaw_ready\":" <<
+    (yaw_error <= align_yaw_tolerance_ ? "true" : "false")
+    << ",\"alignment_held_sec\":" << number(
+    kick_alignment_since_.nanoseconds() > 0 ?
+    (stamp - kick_alignment_since_).seconds() : 0.0)
+    << ",\"alignment_ready\":" << (alignment_ready ? "true" : "false") << "}"
+    << ",\"limits\":{\"approach_distance_m\":" << number(approach_config_.approach_distance)
+    << ",\"approach_reached_m\":" << number(approach_reached_m_)
+    << ",\"behind_capture_tolerance_m\":" <<
+    number(behind_capture_tolerance_m_)
+    << ",\"behind_capture_exit_tolerance_m\":" <<
+    number(behind_capture_exit_tolerance_m_)
+    << ",\"yaw_tolerance_rad\":" << number(align_yaw_tolerance_)
+    << ",\"lateral_tolerance_m\":" << number(maximum_kick_lateral_error_m_)
+    << ",\"ball_protection_radius_m\":" << number(ball_protection_radius_m_)
+    << ",\"contact_tolerance_m\":" << number(contact_tolerance_m_)
+    << ",\"kick_foot_contact_x_m\":" << number(kick_foot_contact_x_m_)
+    << ",\"kick_foot_contact_y_m\":" << number(kick_foot_contact_y_m_)
+    << ",\"kick_foot_backswing_x_m\":" << number(kick_foot_backswing_x_m_)
+    << ",\"kick_foot_backswing_y_m\":" << number(kick_foot_backswing_y_m_)
+    << ",\"kick_foot_backswing_vertical_error_m\":" <<
+    number(kick_foot_backswing_vertical_error_m_)
+    << ",\"kick_foot_strike_vertical_error_m\":" <<
+    number(kick_foot_strike_vertical_error_m_)
+    << ",\"kick_contact_radius_m\":" <<
+    number(ball_radius_m_ - kick_contact_margin_m_)
+    << ",\"kick_contact_margin_m\":" << number(kick_contact_margin_m_)
+    << ",\"front_extent_m\":" << number(robot_front_extent_m_)
+    << ",\"ball_radius_m\":" << number(ball_radius_m_)
+    << ",\"kick_lateral_offset_m\":" << number(kick_ball_lateral_offset_m_)
+    << ",\"kick_alignment_hold_sec\":" << number(kick_alignment_hold_sec_)
+    << ",\"maximum_kick_distance_m\":" << number(maximum_kick_distance_m_) << "}"
+    << ",\"command\":[" << number(latest_command_vx_) << ','
+    << number(latest_command_vy_) << ',' << number(latest_command_wz_)
+    << "],\"command_speed_mps\":" << number(latest_command_linear_speed_)
+    << ",\"command_age_sec\":" << number(cmd_age)
+    << ",\"ball_age_sec\":" << number(ball_age) << "}\n";
+  diagnostic_log_stream_.flush();
+}
+
+void FootballGoalAdapter::writeKickLifecycleDiagnostic(const char * event)
+{
+  if (!diagnostic_log_enabled_ || !diagnostic_log_stream_.is_open()) {
+    return;
+  }
+  const char * stage = "IDLE";
+  const auto number = [](const double value) {
+      if (!std::isfinite(value)) {
+        return std::string("null");
+      }
+      std::ostringstream output;
+      output << std::fixed << std::setprecision(5) << value;
+      return output.str();
+    };
+  const auto escaped = [](const std::string & value) {
+      std::string output;
+      output.reserve(value.size());
+      for (const char c : value) {
+        if (c == '\\' || c == '"') {
+          output.push_back('\\');
+          output.push_back(c);
+        } else if (c == '\n') {
+          output += "\\n";
+        } else if (c == '\r') {
+          output += "\\r";
+        } else if (c == '\t') {
+          output += "\\t";
+        } else {
+          output.push_back(c);
+        }
+      }
+      return output;
+    };
+  const double current_ball_x = have_last_ball_ ?
+    last_ball_in_field_.pose.position.x : std::numeric_limits<double>::quiet_NaN();
+  const double current_ball_y = have_last_ball_ ?
+    last_ball_in_field_.pose.position.y : std::numeric_limits<double>::quiet_NaN();
+  const double kick_ball_dx = have_kick_start_ball_ && have_last_ball_ ?
+    current_ball_x - kick_start_ball_x_ : std::numeric_limits<double>::quiet_NaN();
+  const double kick_ball_dy = have_kick_start_ball_ && have_last_ball_ ?
+    current_ball_y - kick_start_ball_y_ : std::numeric_limits<double>::quiet_NaN();
+  switch (kick_stage_) {
+    case KickStage::kWaitingForWalkStand:
+      stage = "WAITING_FOR_WALK_STAND";
+      break;
+    case KickStage::kWaitingForStandResponse:
+      stage = "WAITING_FOR_STAND_RESPONSE";
+      break;
+    case KickStage::kWaitingForStandStatus:
+      stage = "WAITING_FOR_STAND_STATUS";
+      break;
+    case KickStage::kWaitingForKickResponse:
+      stage = "WAITING_FOR_KICK_RESPONSE";
+      break;
+    case KickStage::kMonitoringKick:
+      stage = "MONITORING_KICK";
+      break;
+    case KickStage::kComplete:
+      stage = "COMPLETE";
+      break;
+    case KickStage::kFailed:
+      stage = "FAILED";
+      break;
+    case KickStage::kIdle:
+    default:
+      break;
+  }
+  diagnostic_log_stream_ << "{\"event\":\"kick_lifecycle\",\"stamp_ns\":" <<
+    now().nanoseconds() << ",\"action\":\"" << event << "\",\"stage\":\"" <<
+    stage << "\",\"control_state\":\"" << control_state_ <<
+    "\",\"motion_id\":" << latest_motion_id_ <<
+    ",\"motion_progress\":" << latest_motion_progress_ <<
+    ",\"service_result_code\":" << last_kick_service_result_code_ <<
+    ",\"motion_switch_status\":" << static_cast<int>(latest_motion_switch_status_) <<
+    ",\"orientation_error\":" << static_cast<int>(latest_motion_orientation_error_) <<
+    ",\"foot_position_error\":" << latest_motion_foot_position_error_ <<
+    ",\"motor_error_mask\":" << latest_motion_error_mask_ <<
+    ",\"motion_error\":" << (latest_motion_has_error_ ? "true" : "false") <<
+    ",\"failure_reason\":\"" << escaped(last_kick_failure_reason_) << "\""
+    << ",\"robot_ball_distance_m\":" << number(latest_robot_ball_distance_m_) <<
+    ",\"ball_to_kick_trajectory_distance_m\":" <<
+    number(latest_kick_foot_ball_distance_m_) <<
+    ",\"kick_start_ball\":[" << number(kick_start_ball_x_) << ',' <<
+    number(kick_start_ball_y_) << "]"
+    << ",\"ball_current\":[" << number(current_ball_x) << ',' <<
+    number(current_ball_y) << "]"
+    << ",\"kick_ball_delta\":[" << number(kick_ball_dx) << ',' <<
+    number(kick_ball_dy) << "]"
+    << ",\"kick_ball_displacement_m\":" <<
+    number(std::hypot(kick_ball_dx, kick_ball_dy))
+    << ",\"command\":[" << number(latest_command_vx_) << ',' <<
+    number(latest_command_vy_) << ',' << number(latest_command_wz_) << "]}\n";
+  diagnostic_log_stream_.flush();
 }
 
 void FootballGoalAdapter::publishSpeedLimit(const std::string & state)

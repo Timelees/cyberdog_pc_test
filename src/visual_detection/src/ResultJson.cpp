@@ -50,17 +50,9 @@ void appendFrameJson(std::ostream& output, const FrameResult& frame, int indent,
          << comma_newline;
   output << (pretty ? pad2 : "") << "\"timestamp_sec\"" << colon_space << frame.timestamp_sec
          << comma_newline;
-  output << (pretty ? pad2 : "") << "\"goal_origin\"" << colon_space;
-  if (frame.goal_origin.has_value()) {
-    // goal_origin 是图像坐标系下的原点位置。
-    output << "{\"x\"" << colon_space << frame.goal_origin->x << item_space << "\"y\""
-           << colon_space << frame.goal_origin->y << "}" << comma_newline;
-  } else {
-    output << "null" << comma_newline;
-  }
   output << (pretty ? pad2 : "") << "\"points\"" << colon_space << "[";
   for (size_t i = 0; i < frame.points.size(); ++i) {
-    // 每个 point 同时包含图像坐标和 goal_relative 坐标。
+    // Each point is reported in image pixel coordinates.
     const auto& point = frame.points[i];
     if (i != 0) {
       output << item_space;
@@ -72,10 +64,7 @@ void appendFrameJson(std::ostream& output, const FrameResult& frame, int indent,
            << item_space << "\"predicted\"" << colon_space << (point.predicted ? "true" : "false")
            << item_space << "\"image_point\"" << colon_space << "{\"x\"" << colon_space
            << point.image_point.x << item_space << "\"y\"" << colon_space << point.image_point.y
-           << "}"
-           << item_space << "\"goal_relative_point\"" << colon_space << "{\"x\"" << colon_space
-           << point.goal_relative_point.x << item_space << "\"y\"" << colon_space
-           << point.goal_relative_point.y << "}}";
+           << "}}";
   }
   output << "]" << newline;
   output << (pretty ? pad : "") << "}";
@@ -98,7 +87,7 @@ std::string videoResultToJson(const VideoResult& result) {
   output << "  \"fps\": " << result.fps << ",\n";
   output << "  \"frame_count\": " << result.frame_count << ",\n";
   // 明确坐标系，避免客户端把图像 y 轴方向理解反。
-  output << "  \"coordinate_system\": \"origin=goal center, x=right, y=up, unit=pixel\",\n";
+  output << "  \"coordinate_system\": \"origin=top-left, x=right, y=down, unit=pixel\",\n";
   output << "  \"frames\": [\n";
   for (size_t i = 0; i < result.frames.size(); ++i) {
     appendFrameJson(output, result.frames[i], 4, true);

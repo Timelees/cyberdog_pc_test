@@ -670,10 +670,12 @@ if(BUILD_TESTING)
     )
   endif()
 
-  ament_add_pytest_test(
-    test_launch_parameter_layering
-    test/test_launch_parameter_layering.py
-  )
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/test_launch_parameter_layering.py")
+    ament_add_pytest_test(
+      test_launch_parameter_layering
+      test/test_launch_parameter_layering.py
+    )
+  endif()
 endif()
 
 ament_export_include_directories(include)

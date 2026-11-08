@@ -4,8 +4,8 @@ football_simulation_input_publisher:
     field_frame: tag_global  # 测试足球和射门目标所在的全局坐标系。
     ball_x: 0.0  # 尚未收到实时坐标前的回退值。
     ball_y: 0.0  # 尚未收到实时坐标前的回退值。
-    kick_target_x: 1.504  # 固定射门目标的 X 坐标。
-    kick_target_y: 0.062  # 固定射门目标的 Y 坐标。
+    kick_target_x: 1.322  # 固定射门目标的 X 坐标。
+    kick_target_y: 0.034  # 固定射门目标的 Y 坐标。
     ball_topic: /football/real_test/ball_pose
     ball_input_topic: /field/soccer_global  # 转换后的足球全局坐标 (PointStamped)。
     ball_input_timeout_sec: 1.5  # 转换器实测约 0.63 s/帧；容忍短暂抖动后再安全停止。
@@ -21,10 +21,18 @@ football_simulation_input_publisher:
 football_goal_adapter:
   ros__parameters:
     use_team_kick_target: true
-    # 右前髋位于机身前方约 0.164m、右侧约 0.136m；配合 0.11m 球半径，
-    # 使用更近的公共球后站位，并收紧到位容差以进入右前腿有效踢球范围。
-    approach_reached_m: 0.03
-    approach_reached_exit_m: 0.07
+    # 到达安全球后点并完成角度对准后，再以受控低速接近触球位置。
+    # Nav2 XY goal tolerance is 0.08 m; the previous 0.03 m gate stranded
+    # contact approach after Nav2 had already stopped within its tolerance.
+    approach_reached_m: 0.09
+    approach_reached_exit_m: 0.14
+    align_yaw_tolerance: 0.12
+    kick_alignment_hold_sec: 0.25
+    kick_action_timeout_sec: 20.0
+    # VIO/底盘在球后点附近稳定存在约 0.16-0.18 m 的到位偏差；
+    # 该门限只捕获球后站位以进入原地对准，不放宽后续触球位置/足端门槛。
+    behind_capture_tolerance_m: 0.20
+    behind_capture_exit_tolerance_m: 0.27
     alignment_position_loss_grace_sec: 0.60
     alignment_reset_grace_sec: 0.80
     alignment_max_duration_sec: 10.0
@@ -38,8 +46,27 @@ football_goal_adapter:
     goal_update_yaw_threshold_rad: 0.15
     goal_update_max_refresh_sec: 1.50
     robot_front_extent_m: 0.302
+    approach_distance_m: 1.00
     ball_radius_m: 0.11
-    contact_tolerance_m: 0.035
+    ball_protection_radius_m: 0.45
+    contact_tolerance_m: 0.04
+    # Navigation stance is set by robot_front_extent + ball_radius +
+    # contact_tolerance. This gait estimate is used only to gate whether the
+    # kick sweep can reach the ball from the observed robot pose.
+    use_kick_foot_trajectory_model: true
+    kick_ball_lateral_offset_m: -0.056
+    kick_foot_contact_x_m: 0.394
+    kick_foot_contact_y_m: -0.056
+    kick_foot_backswing_x_m: 0.074
+    kick_foot_backswing_y_m: -0.056
+    # TOML cumulative lift is +0.10 m at backswing and +0.09 m at strike;
+    # with a 0.11 m ball radius these are approximate vertical center offsets.
+    kick_foot_backswing_vertical_error_m: 0.01
+    kick_foot_strike_vertical_error_m: 0.02
+    kick_contact_margin_m: 0.02
+    diagnostic_log_enabled: true
+    diagnostic_log_path: /home/lee/code/cyberdog2_pc_ws/src/src/football_navigation/test_log/football_goal_adapter.jsonl
+    diagnostic_log_period_sec: 0.10
 
 football_tracking_action_client:
   ros__parameters:
@@ -53,6 +80,7 @@ football_visualization_node:
     soccer_global_topic: /field/soccer_global
     ball_topic: /football/real_test/ball_pose
     show_ball_avoidance_zone: true
+    ball_avoidance_radius_m: 0.45
     # 状态从球后接近切换到对齐/触球时，立即删除球后点及其标签。
     use_delete_all_before_publish: true
 
@@ -66,6 +94,22 @@ football_cmd_vel_to_servo:
     max_linear_x: 0.26
     max_linear_y: 0.20
     max_angular_z: 1.0
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      multi_robot_obstacle_layer:
+        ball_topic: /football/real_test/ball_pose
+        ball_safety_radius_m: 0.45
+        ball_timeout_sec: 1.0
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      multi_robot_obstacle_layer:
+        ball_topic: /football/real_test/ball_pose
+        ball_safety_radius_m: 0.45
+        ball_timeout_sec: 1.0
 
 # 实机测试显式启用 CyberDog 全向步态采样。配置只改变允许的速度集合，
 # controller_server、FollowPath 以及 cmd_vel 接口名称保持不变。

@@ -1,0 +1,61 @@
+[0.048s] Invoking command in '/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation': AMENT_PREFIX_PATH=/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation:${CMAKE_PREFIX_PATH} LD_LIBRARY_PATH=/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib:/home/lee/code/cyberdog2_pc_ws/install/football_navigation/lib:/home/lee/code/cyberdog2_pc_ws/install/sim_base/lib:/home/lee/code/cyberdog2_pc_ws/install/ros_bridge/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_smac_planner/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_recoveries/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_planner/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_navfn_planner/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_controller/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_bt_navigator/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_behavior_tree/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_plugins/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_critics/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_core/lib:/home/lee/code/cyberdog2_pc_ws/install/protocol/lib:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_utils/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_msgs/lib:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_msgs/lib:/home/lee/code/cyberdog2_pc_ws/install/costmap_queue/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_costmap_2d/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_voxel_grid/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_lifecycle_manager/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_util/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_msgs/lib:/home/lee/code/cyberdog2_pc_ws/install/cyber_guide/lib:/home/lee/code/cyberdog2_pc_ws/install/apriltag_ros/lib:/home/lee/code/cyberdog2_pc_ws/install/apriltag_msgs/lib:/usr/lib/x86_64-linux-gnu/gazebo-11/plugins:/opt/ros/galactic/opt/yaml_cpp_vendor/lib:/opt/ros/galactic/opt/rviz_ogre_vendor/lib:/opt/ros/galactic/lib/x86_64-linux-gnu:/opt/ros/galactic/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cublas/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cuda_runtime/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cudnn/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cufft/lib:/usr/local/lib/python3.8/dist-packages/nvidia/curand/lib /usr/bin/ctest -C Release -D ExperimentalTest --no-compress-output -V --force-new-ctest-process
+[0.053s] UpdateCTestConfiguration  from :/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/CTestConfiguration.ini
+[0.053s] Parse Config file:/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/CTestConfiguration.ini
+[0.053s]    Site: lee
+[0.054s]    Build name: (empty)
+[0.054s]  Add coverage exclude regular expressions.
+[0.054s] SetCTestConfiguration:CMakeCommand:/usr/bin/cmake
+[0.054s] Create new tag: 20261108-0852 - Experimental
+[0.054s] UpdateCTestConfiguration  from :/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/CTestConfiguration.ini
+[0.054s] Parse Config file:/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/CTestConfiguration.ini
+[0.054s] Test project /home/lee/code/cyberdog2_pc_ws/src/build/football_navigation
+[0.054s] Constructing a list of tests
+[0.054s] Done constructing a list of tests
+[0.054s] Updating test list for fixtures
+[0.054s] Added 0 tests to meet fixture requirements
+[0.054s] Checking test dependency graph...
+[0.054s] Checking test dependency graph end
+[0.054s] test 1
+[0.054s]     Start 1: test_football_navigation
+[0.054s] 
+[0.055s] 1: Test command: /usr/bin/python3 "-u" "/opt/ros/galactic/share/ament_cmake_test/cmake/run_test.py" "/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/test_results/football_navigation/test_football_navigation.gtest.xml" "--package-name" "football_navigation" "--output-file" "/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/ament_cmake_gtest/test_football_navigation.txt" "--command" "/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/test_football_navigation" "--gtest_output=xml:/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/test_results/football_navigation/test_football_navigation.gtest.xml"
+[0.055s] 1: Test timeout computed to be: 60
+[0.094s] 1: -- run_test.py: invoking following command in '/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation':
+[0.094s] 1:  - /home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/test_football_navigation --gtest_output=xml:/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/test_results/football_navigation/test_football_navigation.gtest.xml
+[0.096s] 1: Running main() from /opt/ros/galactic/src/gtest_vendor/src/gtest_main.cc
+[0.096s] 1: [==========] Running 8 tests from 1 test suite.
+[0.096s] 1: [----------] Global test environment set-up.
+[0.097s] 1: [----------] 8 tests from FootballApproach
+[0.097s] 1: [ RUN      ] FootballApproach.KeepsTransitPathOutsideConfiguredBallClearance
+[0.097s] 1: [       OK ] FootballApproach.KeepsTransitPathOutsideConfiguredBallClearance (0 ms)
+[0.097s] 1: [ RUN      ] FootballApproach.FootprintRadiusContainsFrontAndSideExtents
+[0.097s] 1: [       OK ] FootballApproach.FootprintRadiusContainsFrontAndSideExtents (0 ms)
+[0.097s] 1: [ RUN      ] FootballApproach.ContactPoseLeavesBallRadiusAndMarginAheadOfRobot
+[0.097s] 1: [       OK ] FootballApproach.ContactPoseLeavesBallRadiusAndMarginAheadOfRobot (0 ms)
+[0.097s] 1: [ RUN      ] FootballApproach.KickContactPoseTargetsConfiguredGaitFootEndpoint
+[0.097s] 1: [       OK ] FootballApproach.KickContactPoseTargetsConfiguredGaitFootEndpoint (0 ms)
+[0.097s] 1: [ RUN      ] FootballApproach.FrontClearanceStanceRemainsInsideKickSweepReach
+[0.098s] 1: [       OK ] FootballApproach.FrontClearanceStanceRemainsInsideKickSweepReach (0 ms)
+[0.098s] 1: [ RUN      ] FootballApproach.KickFootDistanceRejectsBallOutsideStrikeRadius
+[0.098s] 1: [       OK ] FootballApproach.KickFootDistanceRejectsBallOutsideStrikeRadius (0 ms)
+[0.098s] 1: [ RUN      ] FootballApproach.KickTrajectoryDistanceFindsClosestPointOnSweep
+[0.098s] 1: [       OK ] FootballApproach.KickTrajectoryDistanceFindsClosestPointOnSweep (0 ms)
+[0.098s] 1: [ RUN      ] FootballApproach.RejectsContactAlignmentFromObservedMissedKickPose
+[0.098s] 1: [       OK ] FootballApproach.RejectsContactAlignmentFromObservedMissedKickPose (0 ms)
+[0.098s] 1: [----------] 8 tests from FootballApproach (0 ms total)
+[0.098s] 1: 
+[0.098s] 1: [----------] Global test environment tear-down
+[0.098s] 1: [==========] 8 tests from 1 test suite ran. (0 ms total)
+[0.098s] 1: [  PASSED  ] 8 tests.
+[0.098s] 1: -- run_test.py: return code 0
+[0.099s] 1: -- run_test.py: inject classname prefix into gtest result file '/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/test_results/football_navigation/test_football_navigation.gtest.xml'
+[0.099s] 1: -- run_test.py: verify result file '/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/test_results/football_navigation/test_football_navigation.gtest.xml'
+[0.103s] 1/1 Test #1: test_football_navigation .........   Passed    0.05 sec
+[0.103s] 
+[0.103s] 100% tests passed, 0 tests failed out of 1
+[0.103s] 
+[0.103s] Label Time Summary:
+[0.103s] gtest    =   0.05 sec*proc (1 test)
+[0.103s] 
+[0.103s] Total Test time (real) =   0.05 sec
+[0.126s] Invoked command in '/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation' returned '0': AMENT_PREFIX_PATH=/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation:${CMAKE_PREFIX_PATH} LD_LIBRARY_PATH=/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib:/home/lee/code/cyberdog2_pc_ws/install/football_navigation/lib:/home/lee/code/cyberdog2_pc_ws/install/sim_base/lib:/home/lee/code/cyberdog2_pc_ws/install/ros_bridge/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_smac_planner/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_recoveries/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_planner/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_navfn_planner/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_controller/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_bt_navigator/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_behavior_tree/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_plugins/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_critics/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_core/lib:/home/lee/code/cyberdog2_pc_ws/install/protocol/lib:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_utils/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_msgs/lib:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_msgs/lib:/home/lee/code/cyberdog2_pc_ws/install/costmap_queue/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_costmap_2d/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_voxel_grid/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_lifecycle_manager/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_util/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_msgs/lib:/home/lee/code/cyberdog2_pc_ws/install/cyber_guide/lib:/home/lee/code/cyberdog2_pc_ws/install/apriltag_ros/lib:/home/lee/code/cyberdog2_pc_ws/install/apriltag_msgs/lib:/usr/lib/x86_64-linux-gnu/gazebo-11/plugins:/opt/ros/galactic/opt/yaml_cpp_vendor/lib:/opt/ros/galactic/opt/rviz_ogre_vendor/lib:/opt/ros/galactic/lib/x86_64-linux-gnu:/opt/ros/galactic/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cublas/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cuda_runtime/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cudnn/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cufft/lib:/usr/local/lib/python3.8/dist-packages/nvidia/curand/lib /usr/bin/ctest -C Release -D ExperimentalTest --no-compress-output -V --force-new-ctest-process

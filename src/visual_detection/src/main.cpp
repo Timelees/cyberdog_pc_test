@@ -16,11 +16,11 @@ void printUsage(const char* program) {
   std::cerr
       << "Usage:\n"
       << "  " << program
-      << " --video input.mp4 [--model models/best.onnx] [--labels data.yaml]\n"
+      << " --video input.mp4 [--model models/best.onnx]\n"
       << "      [--json result.json] [--out annotated.mp4] [--conf 0.25] [--nms 0.45]\n"
       << "      [--device cuda|cpu] [--cuda-device 0]\n"
       << "  " << program
-      << " --server [--port 9090] [--model models/best.onnx] [--labels data.yaml]\n"
+      << " --server [--port 9090] [--model models/best.onnx]\n"
       << "      [--device cuda|cpu] [--cuda-device 0]\n";
 }
 
@@ -48,8 +48,6 @@ int main(int argc, char** argv) {
       const std::string arg = argv[i];
       if (arg == "--model") {
         config.model_path = requireValue(&i, argc, argv);
-      } else if (arg == "--labels") {
-        config.labels_path = requireValue(&i, argc, argv);
       } else if (arg == "--video") {
         video_path = requireValue(&i, argc, argv);
       } else if (arg == "--json") {

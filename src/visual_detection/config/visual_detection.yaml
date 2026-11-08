@@ -23,7 +23,7 @@ visual_detection:
     camera_cy: 569.824625873
     # OpenCV plumb_bob order: k1, k2, p1, p2, k3. Corrected frames
     # are used by both YOLO and apriltag_ros, keeping pixel coordinates aligned.
-    camera_distortion: [0.08043318, 0.10357797, -0.03480341, -0.00510136, 0.05769659]
+    camera_distortion: [0.0, 0.0, -0.0, -0.0, 0.0]
     # Drop stale decoded frames when inference is slower than the camera.
     max_grab_frames: 8
     # Force RTSP over TCP to avoid UDP RTP packet reordering/loss seen in HEVC logs.

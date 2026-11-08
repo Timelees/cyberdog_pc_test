@@ -1,0 +1,294 @@
+-- The C compiler identification is GNU 9.4.0
+-- The CXX compiler identification is GNU 9.4.0
+-- Check for working C compiler: /usr/bin/cc
+-- Check for working C compiler: /usr/bin/cc -- works
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Check for working CXX compiler: /usr/bin/c++
+-- Check for working CXX compiler: /usr/bin/c++ -- works
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found ament_cmake: 1.1.6 (/opt/ros/galactic/share/ament_cmake/cmake)
+-- Found PythonInterp: /usr/bin/python3 (found suitable version "3.8.10", minimum required is "3") 
+-- Using PYTHON_EXECUTABLE: /usr/bin/python3
+-- Found action_msgs: 1.0.3 (/opt/ros/galactic/share/action_msgs/cmake)
+-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+-- Found rosidl_adapter: 2.2.3 (/opt/ros/galactic/share/rosidl_adapter/cmake)
+-- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "1.1.1f")  
+-- Found FastRTPS: /opt/ros/galactic/include  
+-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+-- Found dwb_core: 1.0.8 (/home/lee/code/cyberdog2_pc_ws/install/dwb_core/share/dwb_core/cmake)
+-- Found rmw_implementation_cmake: 3.3.1 (/opt/ros/galactic/share/rmw_implementation_cmake/cmake)
+-- Found rmw_cyclonedds_cpp: 0.22.6 (/opt/ros/galactic/share/rmw_cyclonedds_cpp/cmake)
+-- Using RMW implementation 'rmw_cyclonedds_cpp' as default
+-- Looking for pthread.h
+-- Looking for pthread.h - found
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed
+-- Looking for pthread_create in pthreads
+-- Looking for pthread_create in pthreads - not found
+-- Looking for pthread_create in pthread
+-- Looking for pthread_create in pthread - found
+-- Found Threads: TRUE  
+-- Found Eigen3: TRUE (found version "3.3.7") 
+-- Found gazebo_msgs: 3.5.2 (/opt/ros/galactic/share/gazebo_msgs/cmake)
+-- Looking for ignition-msgs5 -- found version 5.10.0
+-- Searching for dependencies of ignition-msgs5
+-- Found Protobuf: /usr/lib/x86_64-linux-gnu/libprotobuf.so;-lpthread (found suitable version "3.6.1", minimum required is "3") 
+-- Looking for ignition-math6 -- found version 6.13.0
+-- Searching for dependencies of ignition-math6
+-- Checking for module 'tinyxml2'
+--   Found tinyxml2, version 6.2.0
+-- Looking for ignition-transport8 -- found version 8.3.0
+-- Searching for dependencies of ignition-transport8
+-- Config-file not installed for ZeroMQ -- checking for pkg-config
+-- Checking for module 'libzmq >= 4'
+--   Found libzmq , version 4.3.2
+-- Found ZeroMQ: TRUE (Required is at least version "4") 
+-- Checking for module 'uuid'
+--   Found uuid, version 2.34.0
+-- Found UUID: TRUE  
+-- Looking for ignition-msgs5 -- found version 5.10.0
+-- Found nav2_behavior_tree: 1.0.8 (/home/lee/code/cyberdog2_pc_ws/install/nav2_behavior_tree/share/nav2_behavior_tree/cmake)
+-- Found nav2_smac_planner: 1.0.8 (/home/lee/code/cyberdog2_pc_ws/install/nav2_smac_planner/share/nav2_smac_planner/cmake)
+-- Found ros_bridge: 0.0.0 (/home/lee/code/cyberdog2_pc_ws/install/ros_bridge/share/ros_bridge/cmake)
+-- Found ament_cmake_gtest: 1.1.6 (/opt/ros/galactic/share/ament_cmake_gtest/cmake)
+-- Found ament_cmake_pytest: 1.1.6 (/opt/ros/galactic/share/ament_cmake_pytest/cmake)
+-- Found gtest sources under '/opt/ros/galactic/src/gtest_vendor': C++ tests using 'Google Test' will be built
+-- Check if compiler accepts -pthread
+-- Check if compiler accepts -pthread - yes
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/lee/code/cyberdog2_pc_ws/src/build/football_navigation
+Scanning dependencies of target football_role_strategies
+[  4%] Building CXX object CMakeFiles/football_role_strategies.dir/src/coordination/striker_role_strategy.cpp.o
+[  4%] Building CXX object CMakeFiles/football_role_strategies.dir/src/coordination/goalkeeper_role_strategy.cpp.o
+[  4%] Building CXX object CMakeFiles/football_role_strategies.dir/src/coordination/defender_left_role_strategy.cpp.o
+[  6%] Building CXX object CMakeFiles/football_role_strategies.dir/src/coordination/defender_right_role_strategy.cpp.o
+[  7%] Building CXX object CMakeFiles/football_role_strategies.dir/src/coordination/support_role_strategy.cpp.o
+Scanning dependencies of target football_geometry_lib
+Scanning dependencies of target gtest
+Scanning dependencies of target gtest_main
+[ 11%] Building CXX object gtest/CMakeFiles/gtest.dir/src/gtest-all.cc.o
+[ 11%] Building CXX object gtest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o
+[ 12%] Building CXX object CMakeFiles/football_geometry_lib.dir/src/core/football_geometry.cpp.o
+Scanning dependencies of target football_scan_frame_relay
+Scanning dependencies of target football_keyboard_robot_controller
+Scanning dependencies of target football_gazebo_state_bridge
+Scanning dependencies of target football_servo_to_cyber_guide
+Scanning dependencies of target football_cmd_vel_to_servo
+Scanning dependencies of target football_team_simulation_input_publisher
+[ 14%] Building CXX object CMakeFiles/football_keyboard_robot_controller.dir/src/test/football_keyboard_robot_controller.cpp.o
+[ 15%] Building CXX object CMakeFiles/football_scan_frame_relay.dir/src/control/football_scan_frame_relay.cpp.o
+[ 17%] Building CXX object CMakeFiles/football_servo_to_cyber_guide.dir/src/control/football_servo_to_cyber_guide.cpp.o
+[ 19%] Building CXX object CMakeFiles/football_gazebo_state_bridge.dir/src/simulation/football_gazebo_state_bridge.cpp.o
+[ 20%] Building CXX object CMakeFiles/football_cmd_vel_to_servo.dir/src/control/football_cmd_vel_to_servo.cpp.o
+[ 22%] Building CXX object CMakeFiles/football_team_simulation_input_publisher.dir/src/simulation/football_team_simulation_input_publisher_node.cpp.o
+[ 23%] Building CXX object CMakeFiles/football_team_simulation_input_publisher.dir/src/simulation/football_team_simulation_input_publisher.cpp.o
+Scanning dependencies of target football_gazebo_marker_bridge
+[ 25%] Building CXX object CMakeFiles/football_gazebo_marker_bridge.dir/src/simulation/football_gazebo_marker_bridge.cpp.o
+[ 26%] Linking CXX shared library libfootball_role_strategies.so
+[ 26%] Built target football_role_strategies
+[ 28%] Linking CXX shared library libfootball_geometry_lib.so
+[ 30%] Linking CXX static library libgtest_main.a
+[ 30%] Built target football_geometry_lib
+[ 30%] Built target gtest_main
+Scanning dependencies of target football_simulation_input_publisher
+Scanning dependencies of target football_ball_fusion
+Scanning dependencies of target football_fake_ball_publisher
+Scanning dependencies of target football_goal_adapter
+[ 31%] Building CXX object CMakeFiles/football_simulation_input_publisher.dir/src/simulation/football_simulation_input_publisher.cpp.o
+Scanning dependencies of target football_team_role_assigner
+Scanning dependencies of target football_tracking_action_client
+[ 33%] Building CXX object CMakeFiles/football_fake_ball_publisher.dir/src/simulation/football_fake_ball_publisher.cpp.o
+[ 34%] Building CXX object CMakeFiles/football_ball_fusion.dir/src/coordination/football_ball_fusion.cpp.o
+Scanning dependencies of target football_navigation_core
+Scanning dependencies of target football_simulation_navigator
+Scanning dependencies of target football_visualization_node
+[ 36%] Building CXX object CMakeFiles/football_goal_adapter.dir/src/control/football_goal_adapter_node.cpp.o
+[ 38%] Building CXX object CMakeFiles/football_team_role_assigner.dir/src/coordination/football_team_role_assigner.cpp.o
+Scanning dependencies of target football_fake_other_robot_publisher
+[ 39%] Building CXX object CMakeFiles/football_tracking_action_client.dir/src/control/football_tracking_action_client.cpp.o
+Scanning dependencies of target football_trajectory_adapter
+[ 41%] Building CXX object CMakeFiles/football_simulation_navigator.dir/src/simulation/football_simulation_navigator.cpp.o
+[ 42%] Building CXX object CMakeFiles/football_visualization_node.dir/src/visualization/football_visualization_node.cpp.o
+[ 44%] Building CXX object CMakeFiles/football_navigation_core.dir/src/plugins/dynamic_obstacle_marker.cpp.o
+[ 46%] Building CXX object CMakeFiles/football_trajectory_adapter.dir/src/control/football_trajectory_adapter.cpp.o
+[ 47%] Building CXX object CMakeFiles/football_fake_other_robot_publisher.dir/src/simulation/football_fake_other_robot_publisher.cpp.o
+[ 49%] Building CXX object CMakeFiles/football_team_role_assigner.dir/src/coordination/football_team_role_assigner_node.cpp.o
+[ 50%] Linking CXX static library libgtest.a
+[ 50%] Built target gtest
+[ 52%] Linking CXX shared library libfootball_navigation_core.so
+[ 53%] Building CXX object CMakeFiles/football_fake_ball_publisher.dir/src/simulation/football_fake_ball_publisher_node.cpp.o
+[ 55%] Linking CXX executable football_team_simulation_input_publisher
+[ 57%] Linking CXX executable football_keyboard_robot_controller
+[ 57%] Built target football_team_simulation_input_publisher
+[ 58%] Building CXX object CMakeFiles/football_goal_adapter.dir/src/control/football_goal_adapter.cpp.o
+[ 60%] Building CXX object CMakeFiles/football_tracking_action_client.dir/src/control/football_tracking_action_client_node.cpp.o
+[ 60%] Built target football_navigation_core
+Scanning dependencies of target test_football_navigation
+[ 61%] Building CXX object CMakeFiles/test_football_navigation.dir/test/test_football_navigation.cpp.o
+[ 61%] Built target football_keyboard_robot_controller
+[ 63%] Building CXX object CMakeFiles/football_fake_other_robot_publisher.dir/src/simulation/football_fake_other_robot_publisher_node.cpp.o
+[ 65%] Linking CXX executable test_football_navigation
+[ 66%] Building CXX object CMakeFiles/football_visualization_node.dir/src/visualization/football_visualization_main.cpp.o
+[ 68%] Building CXX object CMakeFiles/football_trajectory_adapter.dir/src/control/football_trajectory_adapter_node.cpp.o
+[ 68%] Built target test_football_navigation
+[ 69%] Building CXX object CMakeFiles/football_simulation_navigator.dir/src/simulation/football_simulation_navigator_node.cpp.o
+[ 71%] Building CXX object CMakeFiles/football_simulation_input_publisher.dir/src/simulation/football_simulation_input_publisher_node.cpp.o
+Scanning dependencies of target football_multi_robot_obstacle_layer
+[ 73%] Building CXX object CMakeFiles/football_multi_robot_obstacle_layer.dir/src/plugins/multi_robot_obstacle_layer.cpp.o
+[ 74%] Linking CXX executable football_scan_frame_relay
+[ 76%] Linking CXX executable football_gazebo_state_bridge
+[ 76%] Built target football_gazebo_state_bridge
+[ 77%] Building CXX object CMakeFiles/football_ball_fusion.dir/src/coordination/football_ball_fusion_node.cpp.o
+[ 77%] Built target football_scan_frame_relay
+[ 79%] Linking CXX executable football_servo_to_cyber_guide
+[ 79%] Built target football_servo_to_cyber_guide
+[ 80%] Linking CXX executable football_gazebo_marker_bridge
+[ 82%] Linking CXX executable football_trajectory_adapter
+[ 84%] Linking CXX executable football_fake_ball_publisher
+[ 85%] Linking CXX executable football_fake_other_robot_publisher
+[ 87%] Linking CXX executable football_cmd_vel_to_servo
+[ 87%] Built target football_gazebo_marker_bridge
+[ 87%] Built target football_trajectory_adapter
+[ 87%] Built target football_fake_other_robot_publisher
+[ 88%] Linking CXX executable football_ball_fusion
+[ 88%] Built target football_cmd_vel_to_servo
+[ 88%] Built target football_fake_ball_publisher
+[ 88%] Built target football_ball_fusion
+[ 90%] Linking CXX executable football_simulation_input_publisher
+[ 92%] Linking CXX executable football_team_role_assigner
+[ 92%] Built target football_simulation_input_publisher
+[ 92%] Built target football_team_role_assigner
+[ 93%] Linking CXX executable football_simulation_navigator
+[ 93%] Built target football_simulation_navigator
+[ 95%] Linking CXX executable football_tracking_action_client
+[ 95%] Built target football_tracking_action_client
+[ 96%] Linking CXX executable football_goal_adapter
+[ 96%] Built target football_goal_adapter
+[ 98%] Linking CXX shared library libfootball_multi_robot_obstacle_layer.so
+[ 98%] Built target football_multi_robot_obstacle_layer
+[100%] Linking CXX executable football_visualization_node
+[100%] Built target football_visualization_node
+-- Install configuration: ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/football_navigation_plugins.xml
+-- Up-to-date: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/football_navigation_plugins.xml
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/football_navigation_dwb_plugins.xml
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/libfootball_geometry_lib.so
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/libfootball_geometry_lib.so" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/libfootball_navigation_core.so
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/libfootball_navigation_core.so" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/libfootball_role_strategies.so
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/libfootball_multi_robot_obstacle_layer.so
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/libfootball_multi_robot_obstacle_layer.so" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_goal_adapter
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_goal_adapter" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_cmd_vel_to_servo
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_cmd_vel_to_servo" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_servo_to_cyber_guide
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_servo_to_cyber_guide" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_scan_frame_relay
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_scan_frame_relay" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_fake_ball_publisher
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_fake_ball_publisher" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_simulation_input_publisher
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_simulation_input_publisher" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_gazebo_state_bridge
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_gazebo_state_bridge" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_gazebo_marker_bridge
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_gazebo_marker_bridge" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_simulation_navigator
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_simulation_navigator" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_fake_other_robot_publisher
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_fake_other_robot_publisher" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_keyboard_robot_controller
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_keyboard_robot_controller" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_trajectory_adapter
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_trajectory_adapter" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_tracking_action_client
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_tracking_action_client" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_team_role_assigner
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_team_role_assigner" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_team_simulation_input_publisher
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_team_simulation_input_publisher" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_ball_fusion
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_ball_fusion" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_visualization_node
+-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_visualization_node" to ""
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include/
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/simulation
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/simulation/football_simulation_input_publisher.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/simulation/football_simulation_navigator.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/simulation/football_fake_other_robot_publisher.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/simulation/football_fake_ball_publisher.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/simulation/football_team_simulation_input_publisher.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/visualization
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/visualization/football_visualization_node.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/coordination
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/coordination/striker_role_strategy.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/coordination/defender_left_role_strategy.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/coordination/support_role_strategy.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/coordination/role_strategy.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/coordination/football_team_role_assigner.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/coordination/football_ball_fusion.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/coordination/goalkeeper_role_strategy.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/coordination/defender_right_role_strategy.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/README.md
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/plugins
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/plugins/multi_robot_obstacle_layer.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/plugins/dynamic_obstacle_marker.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/core
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/core/football_geometry.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/control
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/control/football_tracking_action_client.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/control/football_trajectory_adapter.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/control/football_goal_adapter.hpp
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/launch
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/launch/football_gazebo_simulation.launch.py
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/launch/football_single_robot_simulation.launch.py
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/launch/football_robot_runtime.launch.py
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/launch/football_real_robot_test.launch.py
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/launch/football_team_simulation.launch.py
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/launch/football_real_robot.launch.py
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/rviz
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/rviz/football_single_robot_simulation.rviz
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/params/football_single_robot_simulation.yaml
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/params/football_team_simulation.yaml
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/params/football_runtime_common.yaml
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/params/football_real_robot.yaml
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/params/football_nav2_real.yaml
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/params/football_real_robot_test.yaml
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/params/football_gazebo_sim.yaml
+-- Up-to-date: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/football_navigation_plugins.xml
+-- Up-to-date: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/football_navigation_dwb_plugins.xml
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/football_build_identity.json
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_process_group_guard.py
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/environment/library_path.sh
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/environment/library_path.dsv
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/ament_index/resource_index/package_run_dependencies/football_navigation
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/ament_index/resource_index/parent_prefix_path/football_navigation
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/environment/ament_prefix_path.sh
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/environment/ament_prefix_path.dsv
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/environment/path.sh
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/environment/path.dsv
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/local_setup.bash
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/local_setup.sh
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/local_setup.zsh
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/local_setup.dsv
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/package.dsv
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/ament_index/resource_index/packages/football_navigation
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/ament_index/resource_index/nav2_costmap_2d__pluginlib__plugin/football_navigation
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/ament_index/resource_index/nav2_core__pluginlib__plugin/football_navigation
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/ament_index/resource_index/dwb_core__pluginlib__plugin/football_navigation
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/cmake/ament_cmake_export_include_directories-extras.cmake
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/cmake/ament_cmake_export_libraries-extras.cmake
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/cmake/ament_cmake_export_dependencies-extras.cmake
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/cmake/football_navigationConfig.cmake
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/cmake/football_navigationConfig-version.cmake
+-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/package.xml

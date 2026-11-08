@@ -9,7 +9,12 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
+from launch.actions import (
+    DeclareLaunchArgument,
+    IncludeLaunchDescription,
+    OpaqueFunction,
+    SetEnvironmentVariable,
+)
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -56,6 +61,7 @@ def generate_launch_description():
     default_rviz_config = os.path.join(
         share, 'rviz', 'football_single_robot_simulation.rviz')
     return LaunchDescription([
+        SetEnvironmentVariable('ROS_DOMAIN_ID', '42'),
         DeclareLaunchArgument(
             'ball_x', default_value='-2.22',
             description='Fallback only; football_real_robot_test.yaml wins.'),

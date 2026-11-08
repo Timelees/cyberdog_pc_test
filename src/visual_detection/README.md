@@ -1,13 +1,6 @@
 # visual_detection
 
-ROS 2 Galactic 视觉检测节点。模块使用 YOLOv8 ONNX Runtime 对 RTSP 网络摄像头或 ROS 图像话题进行检测，识别以下类别：
-
-- `dog1`
-- `dog2`
-- `soccer`
-- `goal`
-
-检测结果包含目标中心的图像坐标，并在检测到球门时提供以球门中心为原点的相对坐标。原有的离线视频检测、muduo TCP 服务端和客户端功能仍然保留。
+ROS 2 Galactic 视觉检测节点。模块使用 YOLOv8 ONNX Runtime 对 RTSP 网络摄像头或 ROS 图像话题进行足球 (`soccer`) 单类别检测。检测结果包含足球框中心的图像像素坐标和框底边接地点；离线视频检测、muduo TCP 服务端和客户端功能仍然保留。
 
 ## 1. 环境
 
@@ -162,15 +155,13 @@ ros2 topic echo /visual_detection/result
 
 - `frame_index`：帧序号；
 - `timestamp_sec`：时间戳；
-- `goal_origin`：球门中心的图像坐标，没有可用球门原点时为 `null`；
 - `points`：当前帧的所有检测点；
 - `class_name`：类别名称；
 - `confidence`：置信度；
 - `image_point`：目标中心的图像像素坐标；
-- `goal_relative_point`：相对球门坐标，x 向右为正、y 向上为正；
 - `predicted`：是否为足球轨迹预测点。
 
-`goal_origin` 为 `null` 的常见原因是当前帧没有检测到 `goal`，或者置信度低于阈值。即使球门漏检，当前帧检测到的足球和机器狗仍会出现在 `points` 中；此时它们的 `goal_relative_point` 不具有有效的球门参考意义。
+图像坐标原点位于左上角，x 向右、y 向下，单位为像素。
 
 ### 6.2 分类目标位置话题
 
@@ -178,9 +169,6 @@ ros2 topic echo /visual_detection/result
 
 ```text
 /visual_detection/soccer
-/visual_detection/goal
-/visual_detection/dog1
-/visual_detection/dog2
 ```
 
 消息类型均为：
@@ -202,12 +190,9 @@ header.frame_id = image
 
 ```bash
 ros2 topic echo /visual_detection/soccer
-ros2 topic echo /visual_detection/goal
-ros2 topic echo /visual_detection/dog1
-ros2 topic echo /visual_detection/dog2
 ```
 
-只有对应类别在当前帧被检测到时，分类话题才会发布消息。
+只有检测或短时轨迹预测有效时，足球话题才会发布消息。
 
 ### 6.3 Tag1 与足球全局坐标
 
@@ -222,7 +207,7 @@ ros2 topic echo /visual_detection/dog2
 - `output_axis_mapping`：全局点发布前的行优先 3×3 分量映射矩阵。当前机器人与场地坐标分量需要互换时配置为 `[0,1,0; 1,0,0; 0,0,1]`，即 `x_out=y_in, y_out=x_in, z_out=z_in`。它是坐标分量重排，不等价于 TF 刚体旋转。
 - `ground_z_m`：地面在 `tag_global` 中的 Z 值。只有 Tag0 定义的原点/轴使地面确实为 `Z=0` 时才使用默认值。
 - `use_tag_plane_homography`：默认开启。转换器用 Tag1 四角建立图像到地面的单应变换，并把足球检测框底边中心作为接地点；这比用检测框中心和单 Tag PnP 倾角推算球心平面更不易放大远距离误差。
-- `tag_calibration_samples`：固定相机初始化时平均的 Tag1 检测帧数，默认 30；初始化期间不要移动相机或 Tag1。
+- `tag_calibration_samples`：固定相机初始化时平均的 Tag1 检测帧数，默认 1，首帧有效检测即可开始转换；增加该值可平滑角点噪声，但会延长首次发布等待。初始化期间不要移动相机或 Tag1。
 
 `/visual_detection/soccer` 继续发布足球框中心；新增的 `/visual_detection/soccer_ground_contact` 发布框底边中心，并作为实时全局转换的默认输入。`/field/soccer_global` 表示足球接地点在场地平面上的位置，因此默认输出地面高度，不是球心高度。关闭 `use_tag_plane_homography` 时，应把 `soccer_pixel_topic` 改回 `/visual_detection/soccer`；旧方法使用框中心射线和 `soccer_radius_m` 求球心平面交点。
 
@@ -307,7 +292,6 @@ preview: false
 ros2 run visual_detection dog_detect \
   --video /path/to/input.mp4 \
   --model /path/to/best.onnx \
-  --labels /path/to/data.yaml \
   --device cuda \
   --json result.json \
   --out annotated.mp4
@@ -328,7 +312,6 @@ ros2 run visual_detection dog_detect \
   --server \
   --port 9090 \
   --model /path/to/best.onnx \
-  --labels /path/to/data.yaml \
   --device cuda
 ```
 
@@ -374,13 +357,6 @@ ros2 run visual_detection visual_detection_node \
   -p confidence_threshold:=0.15
 ```
 
-同时确认模型类别与 `data.yaml` 一致：
-
-```text
-0: dog1
-1: dog2
-2: soccer
-3: goal
-```
+模型固定为单类别 `soccer`，类别 id 为 `0`。
 
 如果预览窗口能显示图像但没有框，通常是模型置信度、模型类别或摄像头画面内容的问题，而不是 ROS 话题连接问题。

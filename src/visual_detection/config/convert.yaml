@@ -19,8 +19,8 @@ soccer_global_converter:
     # homography defined by Tag1 corners. This is less sensitive than deriving
     # the whole ground plane from a distant single-tag PnP pitch estimate.
     use_tag_plane_homography: true
-    # Average several fixed-camera detections before locking the mapping.
-    tag_calibration_samples: 30
+    # Initialize from the first valid fixed-camera detection for fast startup.
+    tag_calibration_samples: 1
 
     # Pose of the physical Tag1 frame in Tag0's final tag_global frame.
     # Physical Tag1 axes are +X along raw tag +X, +Y opposite raw tag +Y,
@@ -28,7 +28,7 @@ soccer_global_converter:
     # Fill x/y/z (meters) and quaternion (xyzw) from measurement.
     tag1_in_tag_global:
       x: 0.0
-      y: 0.522
+      y: 0.422
       z: 0.0
       qx: 0.0
       qy: 0.0

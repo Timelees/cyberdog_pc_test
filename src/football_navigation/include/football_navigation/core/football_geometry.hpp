@@ -101,7 +101,9 @@ struct LateralEntryConfig
 {
   double entry_lateral_m{0.7};
   double retreat_clearance_m{0.35};
-  double ball_protection_radius_m{0.28};
+  // Radius of the ball keep-out disk plus the robot's circumscribed footprint.
+  double ball_protection_radius_m{0.45};
+  double robot_footprint_radius_m{0.0};
   double opponent_endpoint_clearance_m{0.0};
   double field_min_x{-2.0};
   double field_max_x{8.0};
@@ -111,6 +113,12 @@ struct LateralEntryConfig
   double min_direction_norm{1e-4};
   int preferred_side{0};
 };
+
+double circumscribedRobotFootprintRadius(
+  double front_extent_m,
+  double half_width_m,
+  double collision_length_m,
+  double collision_width_m);
 
 int deterministicYieldSide(
   const std::string & team_id, const std::string & robot_id, double relative_y);
@@ -205,6 +213,44 @@ geometry_msgs::msg::PoseStamped computeApproachPose(
   const geometry_msgs::msg::PoseStamped & ball_pose,
   const geometry_msgs::msg::PoseStamped & kick_target_pose,
   const ApproachConfig & config);
+
+geometry_msgs::msg::PoseStamped computeContactApproachPose(
+  const geometry_msgs::msg::PoseStamped & ball_pose,
+  const geometry_msgs::msg::PoseStamped & kick_target_pose,
+  const ApproachConfig & config,
+  double robot_front_extent_m,
+  double ball_radius_m,
+  double contact_tolerance_m);
+
+geometry_msgs::msg::PoseStamped computeKickContactPose(
+  const geometry_msgs::msg::PoseStamped & ball_pose,
+  const geometry_msgs::msg::PoseStamped & kick_target_pose,
+  const ApproachConfig & config,
+  double kick_foot_x_m,
+  double kick_foot_y_m);
+
+double distanceBallToKickFoot(
+  double robot_x,
+  double robot_y,
+  double robot_yaw,
+  double ball_x,
+  double ball_y,
+  double kick_foot_x_m,
+  double kick_foot_y_m,
+  double vertical_error_m);
+
+double distanceBallToKickTrajectory(
+  double robot_x,
+  double robot_y,
+  double robot_yaw,
+  double ball_x,
+  double ball_y,
+  double kick_start_x_m,
+  double kick_start_y_m,
+  double kick_start_vertical_error_m,
+  double kick_end_x_m,
+  double kick_end_y_m,
+  double kick_end_vertical_error_m);
 
 geometry_msgs::msg::PoseStamped computeApproachPoseFromRobot(
   const geometry_msgs::msg::PoseStamped & ball_pose,

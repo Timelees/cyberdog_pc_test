@@ -161,6 +161,101 @@ geometry_msgs::msg::PoseStamped computeApproachPose(
   return approach_pose;
 }
 
+geometry_msgs::msg::PoseStamped computeContactApproachPose(
+  const geometry_msgs::msg::PoseStamped & ball_pose,
+  const geometry_msgs::msg::PoseStamped & kick_target_pose,
+  const ApproachConfig & config,
+  const double robot_front_extent_m,
+  const double ball_radius_m,
+  const double contact_tolerance_m)
+{
+  auto contact_config = config;
+  contact_config.approach_distance =
+    robot_front_extent_m + ball_radius_m + contact_tolerance_m;
+  return computeApproachPose(ball_pose, kick_target_pose, contact_config);
+}
+
+geometry_msgs::msg::PoseStamped computeKickContactPose(
+  const geometry_msgs::msg::PoseStamped & ball_pose,
+  const geometry_msgs::msg::PoseStamped & kick_target_pose,
+  const ApproachConfig & config,
+  const double kick_foot_x_m,
+  const double kick_foot_y_m)
+{
+  auto contact_config = config;
+  contact_config.approach_distance = kick_foot_x_m;
+  contact_config.kick_ball_lateral_offset_m = kick_foot_y_m;
+  return computeApproachPose(ball_pose, kick_target_pose, contact_config);
+}
+
+double distanceBallToKickFoot(
+  const double robot_x,
+  const double robot_y,
+  const double robot_yaw,
+  const double ball_x,
+  const double ball_y,
+  const double kick_foot_x_m,
+  const double kick_foot_y_m,
+  const double vertical_error_m)
+{
+  const double foot_x = robot_x + std::cos(robot_yaw) * kick_foot_x_m -
+    std::sin(robot_yaw) * kick_foot_y_m;
+  const double foot_y = robot_y + std::sin(robot_yaw) * kick_foot_x_m +
+    std::cos(robot_yaw) * kick_foot_y_m;
+  return std::sqrt(
+    std::pow(ball_x - foot_x, 2) + std::pow(ball_y - foot_y, 2) +
+    std::pow(vertical_error_m, 2));
+}
+
+double distanceBallToKickTrajectory(
+  const double robot_x,
+  const double robot_y,
+  const double robot_yaw,
+  const double ball_x,
+  const double ball_y,
+  const double kick_start_x_m,
+  const double kick_start_y_m,
+  const double kick_start_vertical_error_m,
+  const double kick_end_x_m,
+  const double kick_end_y_m,
+  const double kick_end_vertical_error_m)
+{
+  const double c = std::cos(robot_yaw);
+  const double s = std::sin(robot_yaw);
+  const double start_x = robot_x + c * kick_start_x_m - s * kick_start_y_m;
+  const double start_y = robot_y + s * kick_start_x_m + c * kick_start_y_m;
+  const double end_x = robot_x + c * kick_end_x_m - s * kick_end_y_m;
+  const double end_y = robot_y + s * kick_end_x_m + c * kick_end_y_m;
+  const double dx = end_x - start_x;
+  const double dy = end_y - start_y;
+  const double dz = kick_end_vertical_error_m - kick_start_vertical_error_m;
+  const double length_sq = dx * dx + dy * dy + dz * dz;
+  if (!std::isfinite(length_sq) || length_sq <= 1e-12) {
+    return std::numeric_limits<double>::infinity();
+  }
+  const double start_ball_x = ball_x - start_x;
+  const double start_ball_y = ball_y - start_y;
+  const double t = std::clamp(
+    (start_ball_x * dx + start_ball_y * dy -
+    kick_start_vertical_error_m * dz) / length_sq,
+    0.0, 1.0);
+  return std::sqrt(
+    std::pow(start_ball_x - t * dx, 2) +
+    std::pow(start_ball_y - t * dy, 2) +
+    std::pow(kick_start_vertical_error_m + t * dz, 2));
+}
+
+double circumscribedRobotFootprintRadius(
+  const double front_extent_m,
+  const double half_width_m,
+  const double collision_length_m,
+  const double collision_width_m)
+{
+  return std::hypot(
+    std::max(front_extent_m, collision_length_m * 0.5),
+    std::max(half_width_m, collision_width_m * 0.5));
+}
+
 BallContactMetrics computeBallContactMetrics(
   const double robot_x,
   const double robot_y,
@@ -366,7 +461,8 @@ ApproachPlan computeApproachPoseAvoidingBlocker(
   if (endpoint_clear(behind_x, behind_y) &&
     distancePointToSegment(
       ball_x, ball_y, robot_x, robot_y, behind_x, behind_y) >=
-    lateral_config.ball_protection_radius_m)
+    lateral_config.ball_protection_radius_m +
+    lateral_config.robot_footprint_radius_m)
   {
     return ApproachPlan{behind, true, false};
   }
@@ -403,7 +499,8 @@ ApproachPlan computeApproachPoseAvoidingBlocker(
       candidate.y <= lateral_config.field_max_y - lateral_config.boundary_margin_m;
     const bool protects_ball = distancePointToSegment(
       ball_x, ball_y, robot_x, robot_y, candidate.x, candidate.y) >=
-      lateral_config.ball_protection_radius_m;
+      lateral_config.ball_protection_radius_m +
+      lateral_config.robot_footprint_radius_m;
     const bool path_clear = !isOpponentBlockingPathToPoint(
       robot_x, robot_y, candidate.x, candidate.y, opponents, block_radius_m);
     // A staging point only needs to be reachable now. Requiring the next leg

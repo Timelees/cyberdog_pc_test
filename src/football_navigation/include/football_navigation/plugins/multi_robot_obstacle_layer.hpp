@@ -13,6 +13,7 @@
 #include "geometry_msgs/msg/point.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "std_msgs/msg/string.hpp"
 #include "nav2_costmap_2d/costmap_layer.hpp"
 #include "rclcpp/rclcpp.hpp"
 
@@ -60,6 +61,8 @@ private:
   void robotOdomCallback(
     const std::string & robot_namespace, std::size_t source_index,
     const nav_msgs::msg::Odometry::SharedPtr msg);
+  void ballPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+  void controlStateCallback(const std_msgs::msg::String::SharedPtr msg);
   bool validPose(const geometry_msgs::msg::Pose & pose) const;
   bool stampAcceptable(const rclcpp::Time & stamp) const;
   bool makeObstacleFromPose(
@@ -98,6 +101,17 @@ private:
   double max_message_age_{0.50};
   double future_tolerance_{0.08};
   double transform_tolerance_sec_{0.25};
+  double ball_safety_radius_m_{0.45};
+  double ball_timeout_sec_{1.0};
+  std::string ball_topic_{"/football/ball_pose"};
+  std::string control_state_topic_{"football/state"};
+  std::string control_state_;
+  bool ball_valid_{false};
+  DynamicObstacle ball_obstacle_;
+  DynamicObstacle ball_obstacle_to_mark_;
+  DynamicObstacle previous_ball_obstacle_;
+  bool have_ball_obstacle_to_mark_{false};
+  bool had_previous_ball_obstacle_{false};
 
   bool enable_prediction_{true};
   double prediction_horizon_sec_{0.90};
@@ -127,8 +141,11 @@ private:
   std::vector<ObstacleTrack> obstacle_tracks_;
   std::vector<DynamicObstacle> obstacles_to_mark_;
   std::vector<DynamicObstacle> previous_obstacles_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr ball_sub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr control_state_sub_;
   rclcpp::Time last_pose_array_stamp_;
   rclcpp::Time last_data_received_time_;
+  rclcpp::Time last_ball_received_time_;
   rclcpp::Time last_master_grid_diagnostics_time_;
   unsigned long long update_bounds_calls_{0};
   unsigned long long update_costs_calls_{0};

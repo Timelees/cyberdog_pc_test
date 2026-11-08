@@ -21,7 +21,7 @@
     .summary-item { color: #5d6b76; font-size: 13px; }
     .summary-item strong { color: #26343e; font-size: 16px; margin-right: 4px; }
     .table-wrap { overflow-x: auto; background: white; border: 1px solid #dce2e7; border-radius: 5px; }
-    table { width: 100%; border-collapse: collapse; min-width: 1120px; table-layout: fixed; }
+    table { width: 100%; border-collapse: collapse; min-width: 1250px; table-layout: fixed; }
     th, td { padding: 10px 9px; border-bottom: 1px solid #e8ecef; text-align: center; }
     th { background: #f8fafb; color: #62717b; font-size: 12px; font-weight: 650; white-space: nowrap; }
     td { font-size: 13px; }
@@ -31,9 +31,9 @@
     .robot-name { font-weight: 650; color: #24333c; }
     .cell { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 30px; }
     .dot { width: 9px; height: 9px; flex: 0 0 9px; border-radius: 50%; background: #a8b2b9; }
-    .dot.healthy, .dot.active { background: #198754; box-shadow: 0 0 0 3px #e5f4ec; }
-    .dot.stale, .dot.error, .dot.unavailable, .dot.finalized { background: #c63e45; box-shadow: 0 0 0 3px #fae9e9; }
-    .dot.unknown, .dot.waiting, .dot.unconfigured, .dot.inactive, .dot.activating, .dot.configuring { background: #c38b23; box-shadow: 0 0 0 3px #fbf2df; }
+    .dot.healthy, .dot.active, .dot.normal { background: #198754; box-shadow: 0 0 0 3px #e5f4ec; }
+    .dot.stale, .dot.error, .dot.unavailable, .dot.finalized, .dot.shutdown, .dot.estop, .dot.edamp, .dot.over_heat, .dot.ori_err, .dot.footpos_err, .dot.stand_stuck, .dot.motor_over_heat, .dot.motor_over_curr, .dot.motor_err { background: #c63e45; box-shadow: 0 0 0 3px #fae9e9; }
+    .dot.unknown, .dot.waiting, .dot.online, .dot.unconfigured, .dot.inactive, .dot.activating, .dot.configuring, .dot.protected, .dot.low_power, .dot.ota, .dot.transitioning, .dot.lifted, .dot.ban_trans, .dot.low_bat, .dot.charging { background: #c38b23; box-shadow: 0 0 0 3px #fbf2df; }
     .state { color: #36444d; white-space: nowrap; }
     .metric { color: #74828c; font-size: 11px; white-space: nowrap; }
     .lifecycle { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding-left: 6px; }
@@ -77,10 +77,11 @@
     <span class="summary-item"><strong id="healthyCount">0</strong>正常机器人</span>
     <span class="summary-item"><strong id="topicCount">0 / 40</strong>话题正常</span>
     <span class="summary-item"><strong id="lifecycleCount">0 / 20</strong>生命周期节点 active</span>
+    <span class="summary-item"><strong id="motionCount">0 / 10</strong>Motion Manager 正常</span>
   </section>
   <div class="table-wrap"><table>
     <thead><tr>
-      <th>机器人</th><th>相机生命周期<br>camera/camera</th><th>VINS 生命周期<br>vinslocalization</th><th>视觉里程计<br>odom_slam</th><th>Tag 检测<br>apriltag/detections</th><th>全局里程计<br>odom_global</th><th>统一全局坐标<br>global_vio/odom</th><th>操作</th>
+      <th>机器人</th><th>Motion Manager</th><th>相机生命周期<br>camera/camera</th><th>VINS 生命周期<br>vinslocalization</th><th>视觉里程计<br>odom_slam</th><th>Tag 检测<br>apriltag/detections</th><th>全局里程计<br>odom_global</th><th>统一全局坐标<br>global_vio/odom</th><th>操作</th>
     </tr></thead>
     <tbody id="robotRows"></tbody>
   </table></div>
@@ -91,6 +92,7 @@
 const topicNames = ['odom_slam', 'apriltag', 'odom_global', 'global_vio'];
 const topicLabels = {healthy:'正常', stale:'正常', waiting:'正常', unknown:'未发现'};
 const lifeLabels = {active:'ACTIVE', inactive:'INACTIVE', unconfigured:'UNCONFIGURED', unavailable:'服务不可用', error:'错误', finalized:'FINALIZED', activating:'ACTIVATING', configuring:'CONFIGURING'};
+const motionLabels = {active:'ACTIVE', online:'在线', protected:'低电量保护', low_power:'低功耗', ota:'OTA', shutdown:'关机', unavailable:'服务不可用', error:'错误', unknown:'未知'};
 const robotActions = new Map();
 const operationLogs = [];
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
@@ -112,20 +114,32 @@ function lifeCell(entry, display) {
   const label = lifeLabels[state] || state.toUpperCase();
   return `<div class="lifecycle"><div class="life-line"><i class="dot ${safeClass(state)}"></i><span>${display}</span><span>${label}</span></div></div>`;
 }
+function motionCell(entry) {
+  const state = entry?.state || 'unknown';
+  const label = motionLabels[state] || state;
+  const detail = entry?.detail || '等待状态';
+  const switchState = entry?.switch_state || 'unknown';
+  const motion = entry?.motion_id == null ? '动作未知' : `动作 ${entry.motion_id}`;
+  const progress = entry?.progress > 0 ? ` · ${entry.progress}%` : '';
+  const title = `${detail}；${entry?.switch_detail || '等待运动状态'}`;
+  return `<div class="lifecycle" title="${escapeHtml(title)}"><div class="life-line"><i class="dot ${safeClass(state)}"></i><span>${label}</span></div><div class="life-line"><i class="dot ${safeClass(switchState)}"></i><span>${motion} · ${escapeHtml(entry?.switch_detail || '等待运动状态')}${progress}</span></div></div>`;
+}
 let latestData = {robots:{}};
 let latestRobots = {};
 function render(data) {
   latestData = data;
   const robots = data.robots || {};
   latestRobots = robots;
-  let topicsOk = 0, lifecycleOk = 0, healthyRobots = 0;
+  let topicsOk = 0, lifecycleOk = 0, motionOk = 0, healthyRobots = 0;
   const names = Object.keys(robots);
   document.getElementById('robotRows').innerHTML = names.map(name => {
-    const robot = robots[name], topics = robot.topics || {}, lifecycle = robot.lifecycle || {};
+    const robot = robots[name], topics = robot.topics || {}, lifecycle = robot.lifecycle || {}, motion = robot.motion_manager || {};
     const healthy = topicNames.filter(key => topics[key]?.state === 'healthy').length;
     const active = ['camera','vinslocalization'].filter(key => lifecycle[key]?.state === 'active').length;
     topicsOk += healthy; lifecycleOk += active;
-    if (healthy === topicNames.length && active === 2) healthyRobots++;
+    const motionHealthy = motion.node_available === true && motion.switch_state === 'normal';
+    if (motionHealthy) motionOk++;
+    if (healthy === topicNames.length && active === 2 && motionHealthy) healthyRobots++;
     const bothActive = lifecycle.camera?.state === 'active' && lifecycle.vinslocalization?.state === 'active';
     const action = robotActions.get(name) || {running: false, pending: false, closing: false, message: '', kind: ''};
     if (bothActive && action.pending) {
@@ -139,11 +153,12 @@ function render(data) {
     const activateDisabled = activating || action.closing;
     const statusClass = action.kind ? `action-status ${action.kind}` : 'action-status';
     const standDisabled = action.running || action.pending;
-    return `<tr><td><span class="robot-name">${name}</span></td><td>${lifeCell(lifecycle.camera, "camera/camera")}</td><td>${lifeCell(lifecycle.vinslocalization, "vinslocalization")}</td>${topicNames.map(key => `<td>${topicCell(topics[key], key)}</td>`).join("")}<td><button class="row-action" data-action="activate" data-robot="${name}" ${activateDisabled ? 'disabled' : ''}>${activateLabel}</button><button class="row-action stand-action" data-action="stand" data-robot="${name}" ${standDisabled ? 'disabled' : ''}>${action.motion === 'stand' ? '执行中...' : '站立'}</button><button class="row-action down-action" data-action="down" data-robot="${name}" ${standDisabled ? 'disabled' : ''}>${action.motion === 'down' ? '执行中...' : '趴下'}</button><button class="row-action stop-action" data-action="deactivate" data-robot="${name}" ${action.running ? 'disabled' : ''}>${action.closing ? '执行中...' : '关闭节点'}</button></td></tr>`;
+    return `<tr><td><span class="robot-name">${name}</span></td><td>${motionCell(motion)}</td><td>${lifeCell(lifecycle.camera, "camera/camera")}</td><td>${lifeCell(lifecycle.vinslocalization, "vinslocalization")}</td>${topicNames.map(key => `<td>${topicCell(topics[key], key)}</td>`).join("")}<td><button class="row-action" data-action="activate" data-robot="${name}" ${activateDisabled ? 'disabled' : ''}>${activateLabel}</button><button class="row-action stand-action" data-action="stand" data-robot="${name}" ${standDisabled ? 'disabled' : ''}>${action.motion === 'stand' ? '执行中...' : '站立'}</button><button class="row-action down-action" data-action="down" data-robot="${name}" ${standDisabled ? 'disabled' : ''}>${action.motion === 'down' ? '执行中...' : '趴下'}</button><button class="row-action stop-action" data-action="deactivate" data-robot="${name}" ${action.running ? 'disabled' : ''}>${action.closing ? '执行中...' : '关闭节点'}</button></td></tr>`;
   }).join('');
   document.getElementById('healthyCount').textContent = `${healthyRobots} / ${names.length}`;
   document.getElementById('topicCount').textContent = `${topicsOk} / ${names.length * topicNames.length}`;
   document.getElementById('lifecycleCount').textContent = `${lifecycleOk} / ${names.length * 2}`;
+  document.getElementById('motionCount').textContent = `${motionOk} / ${names.length}`;
   const stamp = data.updated_at ? new Date(data.updated_at).toLocaleTimeString() : '--';
   document.getElementById('updatedAt').textContent = stamp;
   document.getElementById('footerUpdated').textContent = stamp;

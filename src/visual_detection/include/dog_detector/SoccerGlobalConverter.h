@@ -34,7 +34,7 @@ class SoccerGlobalConverter final : public rclcpp::Node {
   std::array<double, 9> output_axis_mapping_{{1.0, 0.0, 0.0,
                                              0.0, 1.0, 0.0,
                                              0.0, 0.0, 1.0}};
-  int tag_calibration_samples_{30};
+  int tag_calibration_samples_{1};
   bool calibration_valid_{false};
   tf2::Transform global_T_tag_;
   std::optional<tf2::Transform> global_T_camera_;

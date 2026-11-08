@@ -116,7 +116,7 @@ ros2 run football_navigation football_keyboard_robot_controller
 状态说明：`[x]` 表示已有自动化/闭环覆盖；`[ ]` 表示仍需现场证据。
 
 - [ ] 单机接近与踢球闭环：从起点规划到足球后方，稳定对准后执行一次右前腿踢球动作。
-  - 验收：出现 `NAV_TRANSIT`/`BALL_APPROACH`、`ALIGN_TO_GOAL`、`KICK_PREPARING`、`KICKING`、`KICK_COMPLETE`；motion_manager 仅接收一条踢球队列，踢球过程中导航控制保持无效。异常或超时进入 `KICK_FAILED` 并停止导航，不自动重试踢球。
+  - 验收：出现 `NAV_TRANSIT`/`BALL_APPROACH`、`ALIGN_TO_GOAL`、`KICK_APPROACH`/`CONTACT_ALIGN`、`KICK_PREPARING`、`KICKING`、`KICK_COMPLETE`；motion_manager 仅接收一条踢球队列，踢球过程中导航控制保持无效。异常或超时进入 `KICK_FAILED` 并停止导航，不自动重试踢球。
   - 仿真假球固定不动，仅用于导航与动作服务流程验证；真实足球运动需在 Gazebo 刚体接触或实机中验证。
 
 - [ ] 多机环境下，单机静态接近路径避障测试（轻量仿真规划器）。
@@ -148,6 +148,12 @@ ros2 run football_navigation football_keyboard_robot_controller
 
 
 ## 实机路径规划测试入口
+
+GoalAdapter 的实机测试配置根据 gait 88 TOML 的累计足端增量和 FR hip 横向坐标，将踢球目标设为足端扫掠终点约 `(0.394, -0.056) m`，并仅在估算扫掠段进入足球球心半径 `0.09 m`（球半径 `0.11 m` 减 `0.02 m` 模型余量）时触发踢球。对机器人基座与足球的相对位姿仍使用 odom 和机身 yaw 变换计算，CONTACT_ALIGN 不再以机身前缘近似代替足端可达性。JSONL 按 `0.10 s` 记录球/机器人相对位姿、足端扫掠距离/端点、各项放行标志、速度指令及数据时效，并追加踢球生命周期事件，包括 112/111 等待、队列发送/响应、motion_id/进度、姿态/足端/电机错误和失败原因。
+
+实机测试将 `behind_capture_tolerance_m` 单独设为 `0.20 m`，处理球后点附近约 `0.16-0.18 m` 的实测到位偏差，让机器人可先锁定站位并原地对准。触球位置门限为 `0.09 m`，略高于 Nav2 的 `0.08 m` XY goal tolerance；航向门限为 `0.12 rad`，略高于 Nav2 的 `0.10 rad` yaw tolerance，避免控制器已判定到位但 GoalAdapter 永远等待更严门限。放行仍须同时满足足端扫掠 `0.09 m` 门槛及其他球后/前向条件。gait 88 的监控超时为 `20 s`，覆盖 TOML 各阶段约 4760 个运控循环的名义执行时间。踢球生命周期事件同时记录触发时球位、动作期球位及位移，便于确认实际冲量和偏转方向。
+
+这仍是静态轨迹模型，不等于实机必然接触：`TransBody` 的支撑脚补偿、实时站立关节角、控制器限幅和地面/球体接触误差需要实机或含真实运控的仿真核验。若 CONTACT_ALIGN 到达足端距离门槛却未触球，应依据新增的足端扫掠距离、motion 状态和错误字段定位差异，不应继续放宽门槛。
 
 在暂时没有足球感知时，使用单机测试入口。它只发布静态球、射门目标、`cyberdog_1` striker 和 `PLAY` 状态，不发布或覆盖实时 `/global_vio/cyberdog_1/odom`：
 

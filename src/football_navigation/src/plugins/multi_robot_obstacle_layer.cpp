@@ -963,6 +963,10 @@ namespace football_navigation
     declareParameter("max_message_age", rclcpp::ParameterValue(0.50));
     declareParameter("future_tolerance", rclcpp::ParameterValue(0.08));
     declareParameter("transform_tolerance_sec", rclcpp::ParameterValue(0.25));
+    declareParameter("ball_safety_radius_m", rclcpp::ParameterValue(0.45));
+    declareParameter("ball_timeout_sec", rclcpp::ParameterValue(1.0));
+    declareParameter("ball_topic", rclcpp::ParameterValue(std::string("/football/ball_pose")));
+    declareParameter("control_state_topic", rclcpp::ParameterValue(std::string("football/state")));
     declareParameter("enable_prediction", rclcpp::ParameterValue(true));
     declareParameter("prediction_horizon_sec", rclcpp::ParameterValue(0.90));
     declareParameter("max_prediction_distance_m", rclcpp::ParameterValue(0.40));
@@ -1002,6 +1006,10 @@ namespace football_navigation
     node->get_parameter(name_ + ".max_message_age", max_message_age_);
     node->get_parameter(name_ + ".future_tolerance", future_tolerance_);
     node->get_parameter(name_ + ".transform_tolerance_sec", transform_tolerance_sec_);
+    node->get_parameter(name_ + ".ball_safety_radius_m", ball_safety_radius_m_);
+    node->get_parameter(name_ + ".ball_timeout_sec", ball_timeout_sec_);
+    node->get_parameter(name_ + ".ball_topic", ball_topic_);
+    node->get_parameter(name_ + ".control_state_topic", control_state_topic_);
     node->get_parameter(name_ + ".enable_prediction", enable_prediction_);
     node->get_parameter(name_ + ".prediction_horizon_sec", prediction_horizon_sec_);
     node->get_parameter(name_ + ".max_prediction_distance_m", max_prediction_distance_m_);
@@ -1056,6 +1064,12 @@ namespace football_navigation
     }
 
     matchSize();
+    ball_sub_ = rclcpp_node_->create_subscription<geometry_msgs::msg::PoseStamped>(
+      ball_topic_, rclcpp::SensorDataQoS().keep_last(5),
+      std::bind(&MultiRobotObstacleLayer::ballPoseCallback, this, std::placeholders::_1));
+    control_state_sub_ = rclcpp_node_->create_subscription<std_msgs::msg::String>(
+      control_state_topic_, rclcpp::QoS(1).reliable().transient_local(),
+      std::bind(&MultiRobotObstacleLayer::controlStateCallback, this, std::placeholders::_1));
     have_received_data_ = minimum_obstacle_count_ == 0;
     current_ = have_received_data_;
     if (have_received_data_)
@@ -1098,12 +1112,43 @@ namespace football_navigation
     current_ = false;
   }
 
+  void MultiRobotObstacleLayer::ballPoseCallback(
+      const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+  {
+    if (!msg || !validPose(msg->pose)) {
+      return;
+    }
+    DynamicObstacle obstacle;
+    const rclcpp::Time stamp(msg->header.stamp, clock_->get_clock_type());
+    if (!makeObstacleFromPose(msg->pose, msg->header.frame_id, stamp, obstacle)) {
+      return;
+    }
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    obstacle.radius = ball_safety_radius_m_ +
+      0.5 * std::sqrt(2.0) * getResolution();
+    ball_obstacle_ = obstacle;
+    ball_valid_ = true;
+    last_ball_received_time_ = clock_->now();
+  }
+
+  void MultiRobotObstacleLayer::controlStateCallback(
+      const std_msgs::msg::String::SharedPtr msg)
+  {
+    if (!msg) {
+      return;
+    }
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    control_state_ = msg->data;
+  }
+
   void MultiRobotObstacleLayer::reset()
   {
     std::lock_guard<std::mutex> lock(data_mutex_);
     obstacle_tracks_.clear();
     obstacles_to_mark_.clear();
     previous_obstacles_.clear();
+    had_previous_ball_obstacle_ = false;
+    have_ball_obstacle_to_mark_ = false;
     last_pose_array_stamp_ = rclcpp::Time(0, 0, clock_->get_clock_type());
     last_data_received_time_ = last_pose_array_stamp_;
     have_received_data_ = minimum_obstacle_count_ == 0;
@@ -1400,11 +1445,16 @@ namespace football_navigation
     {
       touchObstacleBounds(obstacle, min_x, min_y, max_x, max_y);
     }
+    if (had_previous_ball_obstacle_) {
+      touchObstacleBounds(previous_ball_obstacle_, min_x, min_y, max_x, max_y);
+    }
 
     obstacles_to_mark_.clear();
+    have_ball_obstacle_to_mark_ = false;
     if (!enabled_)
     {
       previous_obstacles_.clear();
+      had_previous_ball_obstacle_ = false;
       current_ = true;
       last_update_bounds_ms_ = std::chrono::duration<double, std::milli>(
           std::chrono::steady_clock::now() - started).count();
@@ -1440,6 +1490,16 @@ namespace football_navigation
         }
         appendPredictedSweep(track, current_time, obstacles_to_mark_);
       }
+
+      const bool contact_phase = control_state_ == "KICK_APPROACH" ||
+        control_state_ == "CONTACT_ALIGN" ||
+        control_state_ == "KICK_PREPARING" || control_state_ == "KICKING" ||
+        control_state_ == "KICK_COMPLETE";
+      if (ball_valid_ && !contact_phase && last_ball_received_time_.nanoseconds() > 0 &&
+          (current_time - last_ball_received_time_).seconds() <= ball_timeout_sec_) {
+        ball_obstacle_to_mark_ = ball_obstacle_;
+        have_ball_obstacle_to_mark_ = true;
+      }
     }
 
     for (const auto &obstacle : obstacles_to_mark_)
@@ -1447,6 +1507,11 @@ namespace football_navigation
       touchObstacleBounds(obstacle, min_x, min_y, max_x, max_y);
     }
     previous_obstacles_ = obstacles_to_mark_;
+    had_previous_ball_obstacle_ = have_ball_obstacle_to_mark_;
+    if (had_previous_ball_obstacle_) {
+      previous_ball_obstacle_ = ball_obstacle_to_mark_;
+      touchObstacleBounds(previous_ball_obstacle_, min_x, min_y, max_x, max_y);
+    }
     current_ = data_fresh;
     last_update_bounds_ms_ = std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now() - started).count();
@@ -1538,6 +1603,19 @@ namespace football_navigation
           master_grid.worldToMap(obstacle.x, obstacle.y, mx, my))
       {
         sample_obstacle = &obstacle;
+        sample_mx = mx;
+        sample_my = my;
+        sample_cost = master_grid.getCost(mx, my);
+      }
+    }
+    if (have_ball_obstacle_to_mark_) {
+      total_marked += markCircularObstacle(
+        master_grid, ball_obstacle_to_mark_, mark_cost_, use_maximum_);
+      unsigned int mx = 0;
+      unsigned int my = 0;
+      if (!sample_obstacle && master_grid.worldToMap(
+          ball_obstacle_to_mark_.x, ball_obstacle_to_mark_.y, mx, my)) {
+        sample_obstacle = &ball_obstacle_to_mark_;
         sample_mx = mx;
         sample_my = my;
         sample_cost = master_grid.getCost(mx, my);

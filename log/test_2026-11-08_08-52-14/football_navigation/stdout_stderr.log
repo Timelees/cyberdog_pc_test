@@ -1,0 +1,59 @@
+UpdateCTestConfiguration  from :/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/CTestConfiguration.ini
+Parse Config file:/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/CTestConfiguration.ini
+   Site: lee
+   Build name: (empty)
+ Add coverage exclude regular expressions.
+SetCTestConfiguration:CMakeCommand:/usr/bin/cmake
+Create new tag: 20261108-0852 - Experimental
+UpdateCTestConfiguration  from :/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/CTestConfiguration.ini
+Parse Config file:/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/CTestConfiguration.ini
+Test project /home/lee/code/cyberdog2_pc_ws/src/build/football_navigation
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 1
+    Start 1: test_football_navigation
+
+1: Test command: /usr/bin/python3 "-u" "/opt/ros/galactic/share/ament_cmake_test/cmake/run_test.py" "/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/test_results/football_navigation/test_football_navigation.gtest.xml" "--package-name" "football_navigation" "--output-file" "/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/ament_cmake_gtest/test_football_navigation.txt" "--command" "/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/test_football_navigation" "--gtest_output=xml:/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/test_results/football_navigation/test_football_navigation.gtest.xml"
+1: Test timeout computed to be: 60
+1: -- run_test.py: invoking following command in '/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation':
+1:  - /home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/test_football_navigation --gtest_output=xml:/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/test_results/football_navigation/test_football_navigation.gtest.xml
+1: Running main() from /opt/ros/galactic/src/gtest_vendor/src/gtest_main.cc
+1: [==========] Running 8 tests from 1 test suite.
+1: [----------] Global test environment set-up.
+1: [----------] 8 tests from FootballApproach
+1: [ RUN      ] FootballApproach.KeepsTransitPathOutsideConfiguredBallClearance
+1: [       OK ] FootballApproach.KeepsTransitPathOutsideConfiguredBallClearance (0 ms)
+1: [ RUN      ] FootballApproach.FootprintRadiusContainsFrontAndSideExtents
+1: [       OK ] FootballApproach.FootprintRadiusContainsFrontAndSideExtents (0 ms)
+1: [ RUN      ] FootballApproach.ContactPoseLeavesBallRadiusAndMarginAheadOfRobot
+1: [       OK ] FootballApproach.ContactPoseLeavesBallRadiusAndMarginAheadOfRobot (0 ms)
+1: [ RUN      ] FootballApproach.KickContactPoseTargetsConfiguredGaitFootEndpoint
+1: [       OK ] FootballApproach.KickContactPoseTargetsConfiguredGaitFootEndpoint (0 ms)
+1: [ RUN      ] FootballApproach.FrontClearanceStanceRemainsInsideKickSweepReach
+1: [       OK ] FootballApproach.FrontClearanceStanceRemainsInsideKickSweepReach (0 ms)
+1: [ RUN      ] FootballApproach.KickFootDistanceRejectsBallOutsideStrikeRadius
+1: [       OK ] FootballApproach.KickFootDistanceRejectsBallOutsideStrikeRadius (0 ms)
+1: [ RUN      ] FootballApproach.KickTrajectoryDistanceFindsClosestPointOnSweep
+1: [       OK ] FootballApproach.KickTrajectoryDistanceFindsClosestPointOnSweep (0 ms)
+1: [ RUN      ] FootballApproach.RejectsContactAlignmentFromObservedMissedKickPose
+1: [       OK ] FootballApproach.RejectsContactAlignmentFromObservedMissedKickPose (0 ms)
+1: [----------] 8 tests from FootballApproach (0 ms total)
+1: 
+1: [----------] Global test environment tear-down
+1: [==========] 8 tests from 1 test suite ran. (0 ms total)
+1: [  PASSED  ] 8 tests.
+1: -- run_test.py: return code 0
+1: -- run_test.py: inject classname prefix into gtest result file '/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/test_results/football_navigation/test_football_navigation.gtest.xml'
+1: -- run_test.py: verify result file '/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation/test_results/football_navigation/test_football_navigation.gtest.xml'
+1/1 Test #1: test_football_navigation .........   Passed    0.05 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+gtest    =   0.05 sec*proc (1 test)
+
+Total Test time (real) =   0.05 sec

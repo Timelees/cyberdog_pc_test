@@ -18,6 +18,7 @@ from lifecycle_msgs.msg import Transition
 from lifecycle_msgs.srv import ChangeState, GetState
 from std_srvs.srv import SetBool
 from nav_msgs.msg import Odometry
+from protocol.msg import MotionStatus, StateSwitchStatus
 from protocol.srv import MotionResultCmd
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
@@ -29,6 +30,25 @@ import uvicorn
 STATUS_KEYS = ("odom_slam", "apriltag", "odom_global", "global_vio")
 LIFECYCLE_NODES = ("camera", "vinslocalization")
 LIFECYCLE_PATHS = {"camera": "camera/camera", "vinslocalization": "vinslocalization"}
+MOTION_MANAGER_STATES = {
+    -2: ("error", "机器人状态机错误"),
+    -1: ("unknown", "机器人状态未知"),
+    0: ("active", "Active"),
+    1: ("protected", "低电量保护"),
+    2: ("low_power", "低功耗"),
+    3: ("ota", "OTA"),
+    4: ("shutdown", "关机"),
+}
+MOTION_SWITCH_STATES = {
+    0: ("normal", "正常"), 1: ("transitioning", "切换中"),
+    2: ("estop", "急停"), 3: ("edamp", "阻尼保护"),
+    4: ("lifted", "被抱起"), 5: ("ban_trans", "禁止切换"),
+    6: ("over_heat", "过热"), 7: ("low_bat", "低电量"),
+    8: ("ori_err", "姿态错误"), 9: ("footpos_err", "足端位置错误"),
+    10: ("stand_stuck", "站立受阻"), 11: ("motor_over_heat", "电机过热"),
+    12: ("motor_over_curr", "电机过流"), 13: ("motor_err", "电机错误"),
+    14: ("charging", "充电中"),
+}
 
 
 def utc_now():
@@ -76,6 +96,13 @@ class RobotStatusMonitor(Node):
                            for key in STATUS_KEYS},
                 "lifecycle": {name: {"state": "unknown", "detail": "waiting"}
                               for name in LIFECYCLE_NODES},
+                "motion_manager": {
+                    "state": "unknown", "detail": "等待状态消息",
+                    "node_available": False, "service_available": False,
+                    "motion_id": None, "switch_state": "unknown",
+                    "switch_detail": "等待运动状态", "progress": None,
+                    "last_seen": None,
+                },
             }
             self._subscribe(namespace, "odom_slam", Odometry,
                             f"/{namespace}/odom_slam")
@@ -85,6 +112,8 @@ class RobotStatusMonitor(Node):
                             f"/{namespace}/odom_global")
             self._subscribe(namespace, "global_vio", Odometry,
                             f"/global_vio/{namespace}/odom")
+            self._subscribe_motion_manager(namespace)
+            self._subscribe_motion_status(namespace)
             for node_name in LIFECYCLE_NODES:
                 base = f"/{namespace}/{LIFECYCLE_PATHS[node_name]}"
                 self.lifecycle_clients[(namespace, node_name)] = (
@@ -102,6 +131,45 @@ class RobotStatusMonitor(Node):
         self.get_logger().info(
             f"Monitoring {len(self.robots)} robots; dashboard http://{self.bind_host}:{self.bind_port}"
         )
+
+    def _subscribe_motion_manager(self, namespace):
+        def callback(message):
+            now = time.monotonic()
+            state, detail = MOTION_MANAGER_STATES.get(
+                message.state, ("unknown", f"未知状态码 {message.state}")
+            )
+            if message.code:
+                detail = f"{detail} (code={message.code})"
+            with self.lock:
+                self.robots[namespace]["motion_manager"].update(
+                    state=state, detail=detail, last_seen=utc_now(),
+                    _last_monotonic=now,
+                )
+
+        self._subscriptions.append(self.create_subscription(
+            StateSwitchStatus, f"/{namespace}/state_switch_status", callback,
+            QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE),
+        ))
+
+    def _subscribe_motion_status(self, namespace):
+        def callback(message):
+            switch_state, switch_detail = MOTION_SWITCH_STATES.get(
+                message.switch_status,
+                ("unknown", f"未知运动状态码 {message.switch_status}"),
+            )
+            with self.lock:
+                self.robots[namespace]["motion_manager"].update(
+                    motion_id=message.motion_id,
+                    switch_state=switch_state,
+                    switch_detail=switch_detail,
+                    progress=message.order_process_bar,
+                    last_seen=utc_now(),
+                )
+
+        self._subscriptions.append(self.create_subscription(
+            MotionStatus, f"/{namespace}/motion_status", callback,
+            QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE),
+        ))
 
     def _subscribe(self, namespace, key, message_type, topic):
         # Measure the rate from wall-clock receive events. This matches
@@ -198,8 +266,27 @@ class RobotStatusMonitor(Node):
     def _publish_status(self):
         now = time.monotonic()
         with self.lock:
+            discovered_nodes = set(self.get_node_names_and_namespaces())
             for namespace, robot in self.robots.items():
                 topics = robot["topics"]
+                motion_manager = robot["motion_manager"]
+                node_available = ("motion_manager", f"/{namespace}") in discovered_nodes
+                service_available = self.motion_result_clients[
+                    namespace].service_is_ready()
+                motion_manager["node_available"] = node_available
+                motion_manager["service_available"] = service_available
+                last_motion_state = motion_manager.get("_last_monotonic")
+                if not node_available:
+                    motion_manager.update(
+                        state="unavailable", detail="motion_manager 节点不可用",
+                        motion_id=None, switch_state="unknown",
+                        switch_detail="等待运动状态", progress=None,
+                    )
+                    motion_manager.pop("_last_monotonic", None)
+                elif last_motion_state is None:
+                    motion_manager.update(
+                        state="online", detail="节点在线，等待系统状态消息"
+                    )
                 topic_names = {
                     "odom_slam": f"/{namespace}/odom_slam",
                     "apriltag": f"/{namespace}/apriltag/detections",
@@ -239,6 +326,10 @@ class RobotStatusMonitor(Node):
                         for key, entry in robot["topics"].items()
                     },
                     "lifecycle": robot["lifecycle"],
+                    "motion_manager": {
+                        key: value for key, value in robot["motion_manager"].items()
+                        if not key.startswith("_")
+                    },
                 }
             payload = {"updated_at": utc_now(), "robots": public_robots}
             self._published_json = json.dumps(payload)

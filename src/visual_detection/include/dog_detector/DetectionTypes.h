@@ -21,7 +21,7 @@ struct Detection {
   }
 };
 
-// 对外输出的点坐标。image_point 是图像坐标，goal_relative_point 是以球门为原点的坐标。
+// 对外输出的点坐标，坐标以图像像素表示。
 struct DetectionPoint {
   int class_id = -1;
   std::string class_name;
@@ -31,7 +31,6 @@ struct DetectionPoint {
   // detection box, which is a better approximation of the contact point than
   // projecting the box center through an assumed ball-center height.
   std::optional<cv::Point2f> ground_contact_point;
-  cv::Point2f goal_relative_point;
   // true 表示 soccer 当前帧被遮挡或未检出，坐标来自轨迹预测。
   bool predicted = false;
 };
@@ -42,8 +41,6 @@ struct FrameResult {
   double timestamp_sec = 0.0;
   std::vector<Detection> detections;
   std::vector<DetectionPoint> points;
-  // goal_origin 是检测到的 goal 中心；未检测到 goal 时可能沿用上一帧。
-  std::optional<cv::Point2f> goal_origin;
   // 当前帧最可信的 soccer 点，可能是真实检测，也可能是预测结果。
   std::optional<DetectionPoint> soccer;
 };

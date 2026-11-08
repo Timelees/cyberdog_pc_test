@@ -7,10 +7,8 @@
 #include <array>
 #include <cctype>
 #include <cmath>
-#include <limits>
 #include <stdexcept>
 #include <string>
-#include <unordered_map>
 #include <utility>
 
 namespace dog_detector {
@@ -35,10 +33,6 @@ YoloV8Detector::YoloV8Detector(YoloV8Config config)
     : config_(std::move(config)),
       env_(ORT_LOGGING_LEVEL_WARNING, "dog_detector"),
       session_options_() {
-  if (config_.class_names.empty()) {
-    throw std::runtime_error("YoloV8Detector requires at least one class name");
-  }
-
   // ORT 图优化会融合部分算子，CPU/CUDA 都能受益。
   session_options_.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
   config_.device = normalizedDevice(config_.device);
@@ -150,20 +144,16 @@ std::vector<Detection> YoloV8Detector::postprocess(const float* output,
     throw std::runtime_error("unsupported YOLO output shape; expected [1, C, N] or [1, N, C]");
   }
 
-  const int class_count = static_cast<int>(config_.class_names.size());
   const int64_t dim1 = shape[1];
   const int64_t dim2 = shape[2];
-  // 兼容 [1, C, N] 和 [1, N, C] 两类导出布局。
-  const bool channels_first = (dim1 == class_count + 4 || dim1 == class_count + 5 ||
-                               (dim1 < dim2 && dim1 <= 256));
+  // This model has one soccer class: [1, 5, N] or [1, N, 5].
+  const bool channels_first = dim1 == 5 || (dim1 < dim2 && dim1 <= 256);
   const int64_t prediction_count = channels_first ? dim2 : dim1;
   const int64_t attribute_count = channels_first ? dim1 : dim2;
-  if (attribute_count < 4 + class_count) {
-    throw std::runtime_error("YOLO output has fewer attributes than expected classes");
+  if (attribute_count != 5) {
+    throw std::runtime_error("unsupported single-class YOLO output; expected 5 attributes");
   }
 
-  const bool has_objectness = (attribute_count >= 5 + class_count);
-  const int class_offset = has_objectness ? 5 : 4;
   // 不同输出布局只在取值函数里区分，后续逻辑保持一致。
   auto value_at = [&](int64_t prediction, int64_t attribute) -> float {
     return channels_first ? output[attribute * prediction_count + prediction]
@@ -172,22 +162,8 @@ std::vector<Detection> YoloV8Detector::postprocess(const float* output,
 
   std::vector<cv::Rect> boxes;
   std::vector<float> scores;
-  std::vector<int> class_ids;
-
   for (int64_t i = 0; i < prediction_count; ++i) {
-    // 对每个候选框选择分数最高的类别。
-    int best_class = -1;
-    float best_score = -std::numeric_limits<float>::infinity();
-    for (int c = 0; c < class_count; ++c) {
-      const float score = value_at(i, class_offset + c);
-      if (score > best_score) {
-        best_score = score;
-        best_class = c;
-      }
-    }
-
-    const float objectness = has_objectness ? value_at(i, 4) : 1.0F;
-    const float confidence = objectness * best_score;
+    const float confidence = value_at(i, 4);
     if (confidence < config_.confidence_threshold) {
       continue;
     }
@@ -215,38 +191,18 @@ std::vector<Detection> YoloV8Detector::postprocess(const float* output,
 
     boxes.emplace_back(x, y, width, height);
     scores.push_back(confidence);
-    class_ids.push_back(best_class);
   }
 
   std::vector<Detection> detections;
-  for (int class_id = 0; class_id < class_count; ++class_id) {
-    // 按类别分别做 NMS，避免不同类别之间互相抑制。
-    std::vector<cv::Rect> class_boxes;
-    std::vector<float> class_scores;
-    std::vector<int> original_indices;
-    for (size_t i = 0; i < class_ids.size(); ++i) {
-      if (class_ids[i] == class_id) {
-        class_boxes.push_back(boxes[i]);
-        class_scores.push_back(scores[i]);
-        original_indices.push_back(static_cast<int>(i));
-      }
-    }
-
-    std::vector<int> kept;
-    cv::dnn::NMSBoxes(class_boxes,
-                      class_scores,
-                      config_.confidence_threshold,
-                      config_.nms_threshold,
-                      kept);
-    for (int kept_index : kept) {
-      const int source_index = original_indices[kept_index];
-      Detection detection;
-      detection.class_id = class_id;
-      detection.class_name = config_.class_names[class_id];
-      detection.confidence = scores[source_index];
-      detection.box = cv::Rect2f(boxes[source_index]);
-      detections.push_back(std::move(detection));
-    }
+  std::vector<int> kept;
+  cv::dnn::NMSBoxes(boxes, scores, config_.confidence_threshold, config_.nms_threshold, kept);
+  for (int source_index : kept) {
+    Detection detection;
+    detection.class_id = 0;
+    detection.class_name = "soccer";
+    detection.confidence = scores[source_index];
+    detection.box = cv::Rect2f(boxes[source_index]);
+    detections.push_back(std::move(detection));
   }
 
   std::sort(detections.begin(), detections.end(), [](const Detection& a, const Detection& b) {

@@ -15,7 +15,7 @@ struct SoccerTrackerConfig {
   int max_missing_frames = 15;
 };
 
-// 带时间戳的点，point 使用 goal_relative 坐标系。
+// 带时间戳的图像像素点。
 struct TimedPoint {
   int frame_index = 0;
   double timestamp_sec = 0.0;

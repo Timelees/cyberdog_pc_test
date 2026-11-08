@@ -1,0 +1,857 @@
+[0.000000] (-) TimerEvent: {}
+[0.000096] (-) JobUnselected: {'identifier': 'apriltag_msgs'}
+[0.000212] (-) JobUnselected: {'identifier': 'apriltag_ros'}
+[0.000248] (-) JobUnselected: {'identifier': 'costmap_queue'}
+[0.000264] (-) JobUnselected: {'identifier': 'cyber_guide'}
+[0.000275] (-) JobUnselected: {'identifier': 'cyberdog_description'}
+[0.000284] (-) JobUnselected: {'identifier': 'cyberdog_example'}
+[0.000291] (-) JobUnselected: {'identifier': 'cyberdog_gazebo'}
+[0.000299] (-) JobUnselected: {'identifier': 'cyberdog_locomotion'}
+[0.000311] (-) JobUnselected: {'identifier': 'cyberdog_msg'}
+[0.000587] (-) JobUnselected: {'identifier': 'cyberdog_simulator'}
+[0.000594] (-) JobUnselected: {'identifier': 'cyberdog_visual'}
+[0.000601] (-) JobUnselected: {'identifier': 'dwb_core'}
+[0.000779] (-) JobUnselected: {'identifier': 'dwb_critics'}
+[0.000801] (-) JobUnselected: {'identifier': 'dwb_msgs'}
+[0.000817] (-) JobUnselected: {'identifier': 'dwb_plugins'}
+[0.000831] (-) JobUnselected: {'identifier': 'elec_skin'}
+[0.000846] (-) JobUnselected: {'identifier': 'keyboard_input'}
+[0.000860] (-) JobUnselected: {'identifier': 'lcm'}
+[0.000874] (-) JobUnselected: {'identifier': 'motion_action'}
+[0.000888] (-) JobUnselected: {'identifier': 'motion_bridge'}
+[0.000902] (-) JobUnselected: {'identifier': 'motion_manager'}
+[0.000917] (-) JobUnselected: {'identifier': 'motion_utils'}
+[0.000931] (-) JobUnselected: {'identifier': 'mutil_robot_odom'}
+[0.000946] (-) JobUnselected: {'identifier': 'nav2_amcl'}
+[0.000960] (-) JobUnselected: {'identifier': 'nav2_behavior_tree'}
+[0.000973] (-) JobUnselected: {'identifier': 'nav2_bringup'}
+[0.000991] (-) JobUnselected: {'identifier': 'nav2_bt_navigator'}
+[0.001024] (-) JobUnselected: {'identifier': 'nav2_common'}
+[0.001039] (-) JobUnselected: {'identifier': 'nav2_controller'}
+[0.001046] (-) JobUnselected: {'identifier': 'nav2_core'}
+[0.001053] (-) JobUnselected: {'identifier': 'nav2_costmap_2d'}
+[0.001065] (-) JobUnselected: {'identifier': 'nav2_dwb_controller'}
+[0.001076] (-) JobUnselected: {'identifier': 'nav2_lifecycle_manager'}
+[0.001084] (-) JobUnselected: {'identifier': 'nav2_map_server'}
+[0.001090] (-) JobUnselected: {'identifier': 'nav2_msgs'}
+[0.001098] (-) JobUnselected: {'identifier': 'nav2_navfn_planner'}
+[0.001131] (-) JobUnselected: {'identifier': 'nav2_planner'}
+[0.001145] (-) JobUnselected: {'identifier': 'nav2_recoveries'}
+[0.001160] (-) JobUnselected: {'identifier': 'nav2_regulated_pure_pursuit_controller'}
+[0.001171] (-) JobUnselected: {'identifier': 'nav2_rotation_shim_controller'}
+[0.001180] (-) JobUnselected: {'identifier': 'nav2_smac_planner'}
+[0.001187] (-) JobUnselected: {'identifier': 'nav2_theta_star_planner'}
+[0.001196] (-) JobUnselected: {'identifier': 'nav2_util'}
+[0.001204] (-) JobUnselected: {'identifier': 'nav2_voxel_grid'}
+[0.001210] (-) JobUnselected: {'identifier': 'nav2_waypoint_follower'}
+[0.001224] (-) JobUnselected: {'identifier': 'nav_2d_msgs'}
+[0.001236] (-) JobUnselected: {'identifier': 'nav_2d_utils'}
+[0.001250] (-) JobUnselected: {'identifier': 'navigation2'}
+[0.001277] (-) JobUnselected: {'identifier': 'protocol'}
+[0.001290] (-) JobUnselected: {'identifier': 'robot_status_web'}
+[0.001298] (-) JobUnselected: {'identifier': 'ros_bridge'}
+[0.001304] (-) JobUnselected: {'identifier': 'sim_base'}
+[0.001314] (-) JobUnselected: {'identifier': 'skin_manager'}
+[0.001325] (-) JobUnselected: {'identifier': 'topic_visualization'}
+[0.001333] (-) JobUnselected: {'identifier': 'visual_detection'}
+[0.001341] (football_navigation) JobQueued: {'identifier': 'football_navigation', 'dependencies': OrderedDict([('mutil_robot_odom', '/home/lee/code/cyberdog2_pc_ws/src/install/mutil_robot_odom'), ('nav2_common', '/home/lee/code/cyberdog2_pc_ws/src/install/nav2_common'), ('nav_2d_msgs', '/home/lee/code/cyberdog2_pc_ws/src/install/nav_2d_msgs'), ('protocol', '/home/lee/code/cyberdog2_pc_ws/src/install/protocol'), ('ros_bridge', '/home/lee/code/cyberdog2_pc_ws/src/install/ros_bridge'), ('topic_visualization', '/home/lee/code/cyberdog2_pc_ws/src/install/topic_visualization'), ('cyber_guide', '/home/lee/code/cyberdog2_pc_ws/src/install/cyber_guide'), ('dwb_msgs', '/home/lee/code/cyberdog2_pc_ws/src/install/dwb_msgs'), ('nav2_msgs', '/home/lee/code/cyberdog2_pc_ws/src/install/nav2_msgs'), ('nav2_voxel_grid', '/home/lee/code/cyberdog2_pc_ws/src/install/nav2_voxel_grid'), ('sim_base', '/home/lee/code/cyberdog2_pc_ws/src/install/sim_base'), ('nav2_util', '/home/lee/code/cyberdog2_pc_ws/src/install/nav2_util'), ('nav2_costmap_2d', '/home/lee/code/cyberdog2_pc_ws/src/install/nav2_costmap_2d'), ('nav_2d_utils', '/home/lee/code/cyberdog2_pc_ws/src/install/nav_2d_utils'), ('nav2_core', '/home/lee/code/cyberdog2_pc_ws/src/install/nav2_core'), ('dwb_core', '/home/lee/code/cyberdog2_pc_ws/src/install/dwb_core'), ('nav2_behavior_tree', '/home/lee/code/cyberdog2_pc_ws/src/install/nav2_behavior_tree'), ('nav2_smac_planner', '/home/lee/code/cyberdog2_pc_ws/src/install/nav2_smac_planner')])}
+[0.001385] (football_navigation) JobStarted: {'identifier': 'football_navigation'}
+[0.014540] (football_navigation) JobProgress: {'identifier': 'football_navigation', 'progress': 'cmake'}
+[0.014654] (football_navigation) Command: {'cmd': ['/usr/bin/cmake', '/home/lee/code/cyberdog2_pc_ws/src/src/football_navigation', '-DCMAKE_INSTALL_PREFIX=/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation'], 'cwd': '/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation', 'env': OrderedDict([('HOSTNAME', 'lee'), ('SHLVL', '0'), ('LD_LIBRARY_PATH', '/home/lee/code/cyberdog2_pc_ws/install/football_navigation/lib:/home/lee/code/cyberdog2_pc_ws/install/sim_base/lib:/home/lee/code/cyberdog2_pc_ws/install/ros_bridge/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_smac_planner/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_recoveries/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_planner/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_navfn_planner/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_controller/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_bt_navigator/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_behavior_tree/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_plugins/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_critics/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_core/lib:/home/lee/code/cyberdog2_pc_ws/install/protocol/lib:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_utils/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_msgs/lib:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_msgs/lib:/home/lee/code/cyberdog2_pc_ws/install/costmap_queue/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_costmap_2d/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_voxel_grid/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_lifecycle_manager/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_util/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_msgs/lib:/home/lee/code/cyberdog2_pc_ws/install/cyber_guide/lib:/home/lee/code/cyberdog2_pc_ws/install/apriltag_ros/lib:/home/lee/code/cyberdog2_pc_ws/install/apriltag_msgs/lib:/usr/lib/x86_64-linux-gnu/gazebo-11/plugins:/opt/ros/galactic/opt/yaml_cpp_vendor/lib:/opt/ros/galactic/opt/rviz_ogre_vendor/lib:/opt/ros/galactic/lib/x86_64-linux-gnu:/opt/ros/galactic/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cublas/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cuda_runtime/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cudnn/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cufft/lib:/usr/local/lib/python3.8/dist-packages/nvidia/curand/lib:'), ('HOME', '/root'), ('OLDPWD', '/home/lee'), ('ROS_PYTHON_VERSION', '3'), ('COLCON_PREFIX_PATH', '/home/lee/code/cyberdog2_pc_ws/install'), ('ROS_DISTRO', 'galactic'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('NVIDIA_DRIVER_CAPABILITIES', 'compute,utility,graphics,display'), ('ROS_LOCALHOST_ONLY', '0'), ('QT_X11_NO_MITSHM', '1'), ('PATH', '/opt/ros/galactic/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'), ('DISPLAY', ':0'), ('LANG', 'C.UTF-8'), ('XAUTHORITY', '/tmp/host.Xauthority'), ('AMENT_PREFIX_PATH', '/home/lee/code/cyberdog2_pc_ws/install/visual_detection:/home/lee/code/cyberdog2_pc_ws/install/football_navigation:/home/lee/code/cyberdog2_pc_ws/install/topic_visualization:/home/lee/code/cyberdog2_pc_ws/install/sim_base:/home/lee/code/cyberdog2_pc_ws/install/ros_bridge:/home/lee/code/cyberdog2_pc_ws/install/robot_status_web:/home/lee/code/cyberdog2_pc_ws/install/nav2_smac_planner:/home/lee/code/cyberdog2_pc_ws/install/nav2_recoveries:/home/lee/code/cyberdog2_pc_ws/install/nav2_planner:/home/lee/code/cyberdog2_pc_ws/install/nav2_navfn_planner:/home/lee/code/cyberdog2_pc_ws/install/nav2_controller:/home/lee/code/cyberdog2_pc_ws/install/nav2_bt_navigator:/home/lee/code/cyberdog2_pc_ws/install/nav2_behavior_tree:/home/lee/code/cyberdog2_pc_ws/install/dwb_plugins:/home/lee/code/cyberdog2_pc_ws/install/dwb_critics:/home/lee/code/cyberdog2_pc_ws/install/dwb_core:/home/lee/code/cyberdog2_pc_ws/install/nav2_core:/home/lee/code/cyberdog2_pc_ws/install/keyboard_input:/home/lee/code/cyberdog2_pc_ws/install/emergency_stop:/home/lee/code/cyberdog2_pc_ws/install/protocol:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_utils:/home/lee/code/cyberdog2_pc_ws/install/dwb_msgs:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_msgs:/home/lee/code/cyberdog2_pc_ws/install/costmap_queue:/home/lee/code/cyberdog2_pc_ws/install/nav2_costmap_2d:/home/lee/code/cyberdog2_pc_ws/install/nav2_voxel_grid:/home/lee/code/cyberdog2_pc_ws/install/nav2_lifecycle_manager:/home/lee/code/cyberdog2_pc_ws/install/nav2_util:/home/lee/code/cyberdog2_pc_ws/install/nav2_msgs:/home/lee/code/cyberdog2_pc_ws/install/nav2_common:/home/lee/code/cyberdog2_pc_ws/install/mutil_robot_odom:/home/lee/code/cyberdog2_pc_ws/install/mutil_odom_shared:/home/lee/code/cyberdog2_pc_ws/install/global_alignment_node:/home/lee/code/cyberdog2_pc_ws/install/cyber_guide:/home/lee/code/cyberdog2_pc_ws/install/apriltag_ros:/home/lee/code/cyberdog2_pc_ws/install/apriltag_msgs:/opt/ros/galactic'), ('PWD', '/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation'), ('LC_ALL', 'C.UTF-8'), ('PYTHONPATH', '/home/lee/code/cyberdog2_pc_ws/install/ros_bridge/lib/python3.8/site-packages:/home/lee/code/cyberdog2_pc_ws/install/protocol/lib/python3.8/site-packages:/home/lee/code/cyberdog2_pc_ws/install/dwb_msgs/lib/python3.8/site-packages:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_msgs/lib/python3.8/site-packages:/home/lee/code/cyberdog2_pc_ws/install/nav2_msgs/lib/python3.8/site-packages:/home/lee/code/cyberdog2_pc_ws/install/nav2_common/lib/python3.8/site-packages:/home/lee/code/cyberdog2_pc_ws/install/apriltag_msgs/lib/python3.8/site-packages:/opt/ros/galactic/lib/python3.8/site-packages'), ('NVIDIA_VISIBLE_DEVICES', 'all'), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/home/lee/code/cyberdog2_pc_ws/install/visual_detection:/home/lee/code/cyberdog2_pc_ws/install/football_navigation:/home/lee/code/cyberdog2_pc_ws/install/topic_visualization:/home/lee/code/cyberdog2_pc_ws/install/sim_base:/home/lee/code/cyberdog2_pc_ws/install/ros_bridge:/home/lee/code/cyberdog2_pc_ws/install/robot_status_web:/home/lee/code/cyberdog2_pc_ws/install/nav2_smac_planner:/home/lee/code/cyberdog2_pc_ws/install/nav2_recoveries:/home/lee/code/cyberdog2_pc_ws/install/nav2_planner:/home/lee/code/cyberdog2_pc_ws/install/nav2_navfn_planner:/home/lee/code/cyberdog2_pc_ws/install/nav2_controller:/home/lee/code/cyberdog2_pc_ws/install/nav2_bt_navigator:/home/lee/code/cyberdog2_pc_ws/install/nav2_behavior_tree:/home/lee/code/cyberdog2_pc_ws/install/dwb_plugins:/home/lee/code/cyberdog2_pc_ws/install/dwb_critics:/home/lee/code/cyberdog2_pc_ws/install/dwb_core:/home/lee/code/cyberdog2_pc_ws/install/nav2_core:/home/lee/code/cyberdog2_pc_ws/install/keyboard_input:/home/lee/code/cyberdog2_pc_ws/install/emergency_stop:/home/lee/code/cyberdog2_pc_ws/install/protocol:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_utils:/home/lee/code/cyberdog2_pc_ws/install/dwb_msgs:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_msgs:/home/lee/code/cyberdog2_pc_ws/install/costmap_queue:/home/lee/code/cyberdog2_pc_ws/install/nav2_costmap_2d:/home/lee/code/cyberdog2_pc_ws/install/nav2_voxel_grid:/home/lee/code/cyberdog2_pc_ws/install/nav2_lifecycle_manager:/home/lee/code/cyberdog2_pc_ws/install/nav2_util:/home/lee/code/cyberdog2_pc_ws/install/nav2_msgs:/home/lee/code/cyberdog2_pc_ws/install/nav2_common:/home/lee/code/cyberdog2_pc_ws/install/mutil_robot_odom:/home/lee/code/cyberdog2_pc_ws/install/mutil_odom_shared:/home/lee/code/cyberdog2_pc_ws/install/global_alignment_node:/home/lee/code/cyberdog2_pc_ws/install/cyber_guide:/home/lee/code/cyberdog2_pc_ws/install/apriltag_ros:/home/lee/code/cyberdog2_pc_ws/install/apriltag_msgs:/opt/ros/galactic')]), 'shell': False}
+[0.099702] (-) TimerEvent: {}
+[0.122644] (football_navigation) StdoutLine: {'line': b'-- The C compiler identification is GNU 9.4.0\n'}
+[0.198822] (football_navigation) StdoutLine: {'line': b'-- The CXX compiler identification is GNU 9.4.0\n'}
+[0.199821] (-) TimerEvent: {}
+[0.205850] (football_navigation) StdoutLine: {'line': b'-- Check for working C compiler: /usr/bin/cc\n'}
+[0.256080] (football_navigation) StdoutLine: {'line': b'-- Check for working C compiler: /usr/bin/cc -- works\n'}
+[0.259868] (football_navigation) StdoutLine: {'line': b'-- Detecting C compiler ABI info\n'}
+[0.299919] (-) TimerEvent: {}
+[0.310547] (football_navigation) StdoutLine: {'line': b'-- Detecting C compiler ABI info - done\n'}
+[0.319059] (football_navigation) StdoutLine: {'line': b'-- Detecting C compile features\n'}
+[0.319387] (football_navigation) StdoutLine: {'line': b'-- Detecting C compile features - done\n'}
+[0.321682] (football_navigation) StdoutLine: {'line': b'-- Check for working CXX compiler: /usr/bin/c++\n'}
+[0.379924] (football_navigation) StdoutLine: {'line': b'-- Check for working CXX compiler: /usr/bin/c++ -- works\n'}
+[0.380651] (football_navigation) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info\n'}
+[0.400015] (-) TimerEvent: {}
+[0.440593] (football_navigation) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info - done\n'}
+[0.447795] (football_navigation) StdoutLine: {'line': b'-- Detecting CXX compile features\n'}
+[0.447998] (football_navigation) StdoutLine: {'line': b'-- Detecting CXX compile features - done\n'}
+[0.453427] (football_navigation) StdoutLine: {'line': b'-- Found ament_cmake: 1.1.6 (/opt/ros/galactic/share/ament_cmake/cmake)\n'}
+[0.484188] (football_navigation) StdoutLine: {'line': b'-- Found PythonInterp: /usr/bin/python3 (found suitable version "3.8.10", minimum required is "3") \n'}
+[0.484346] (football_navigation) StdoutLine: {'line': b'-- Using PYTHON_EXECUTABLE: /usr/bin/python3\n'}
+[0.500496] (-) TimerEvent: {}
+[0.580540] (football_navigation) StdoutLine: {'line': b'-- Found action_msgs: 1.0.3 (/opt/ros/galactic/share/action_msgs/cmake)\n'}
+[0.600614] (-) TimerEvent: {}
+[0.618755] (football_navigation) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c\n'}
+[0.633905] (football_navigation) StdoutLine: {'line': b'-- Found rosidl_adapter: 2.2.3 (/opt/ros/galactic/share/rosidl_adapter/cmake)\n'}
+[0.700736] (-) TimerEvent: {}
+[0.719016] (football_navigation) StdoutLine: {'line': b'-- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "1.1.1f")  \n'}
+[0.744899] (football_navigation) StdoutLine: {'line': b'-- Found FastRTPS: /opt/ros/galactic/include  \n'}
+[0.800834] (-) TimerEvent: {}
+[0.823233] (football_navigation) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp\n'}
+[0.881375] (football_navigation) StdoutLine: {'line': b'-- Found dwb_core: 1.0.8 (/home/lee/code/cyberdog2_pc_ws/install/dwb_core/share/dwb_core/cmake)\n'}
+[0.900930] (-) TimerEvent: {}
+[0.948631] (football_navigation) StdoutLine: {'line': b'-- Found rmw_implementation_cmake: 3.3.1 (/opt/ros/galactic/share/rmw_implementation_cmake/cmake)\n'}
+[0.958265] (football_navigation) StdoutLine: {'line': b'-- Found rmw_cyclonedds_cpp: 0.22.6 (/opt/ros/galactic/share/rmw_cyclonedds_cpp/cmake)\n'}
+[0.983167] (football_navigation) StdoutLine: {'line': b"-- Using RMW implementation 'rmw_cyclonedds_cpp' as default\n"}
+[0.984666] (football_navigation) StdoutLine: {'line': b'-- Looking for pthread.h\n'}
+[1.001031] (-) TimerEvent: {}
+[1.043072] (football_navigation) StdoutLine: {'line': b'-- Looking for pthread.h - found\n'}
+[1.043232] (football_navigation) StdoutLine: {'line': b'-- Performing Test CMAKE_HAVE_LIBC_PTHREAD\n'}
+[1.097703] (football_navigation) StdoutLine: {'line': b'-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed\n'}
+[1.097956] (football_navigation) StdoutLine: {'line': b'-- Looking for pthread_create in pthreads\n'}
+[1.101117] (-) TimerEvent: {}
+[1.147157] (football_navigation) StdoutLine: {'line': b'-- Looking for pthread_create in pthreads - not found\n'}
+[1.147331] (football_navigation) StdoutLine: {'line': b'-- Looking for pthread_create in pthread\n'}
+[1.199764] (football_navigation) StdoutLine: {'line': b'-- Looking for pthread_create in pthread - found\n'}
+[1.200911] (football_navigation) StdoutLine: {'line': b'-- Found Threads: TRUE  \n'}
+[1.201192] (-) TimerEvent: {}
+[1.301339] (-) TimerEvent: {}
+[1.401519] (-) TimerEvent: {}
+[1.501828] (-) TimerEvent: {}
+[1.602128] (-) TimerEvent: {}
+[1.702391] (-) TimerEvent: {}
+[1.802579] (-) TimerEvent: {}
+[1.902793] (-) TimerEvent: {}
+[2.002968] (-) TimerEvent: {}
+[2.103264] (-) TimerEvent: {}
+[2.203519] (-) TimerEvent: {}
+[2.230333] (football_navigation) StdoutLine: {'line': b'-- Found Eigen3: TRUE (found version "3.3.7") \n'}
+[2.303622] (-) TimerEvent: {}
+[2.403791] (-) TimerEvent: {}
+[2.503999] (-) TimerEvent: {}
+[2.604207] (-) TimerEvent: {}
+[2.704367] (-) TimerEvent: {}
+[2.804534] (-) TimerEvent: {}
+[2.904740] (-) TimerEvent: {}
+[3.004945] (-) TimerEvent: {}
+[3.105144] (-) TimerEvent: {}
+[3.205380] (-) TimerEvent: {}
+[3.305540] (-) TimerEvent: {}
+[3.405727] (-) TimerEvent: {}
+[3.505887] (-) TimerEvent: {}
+[3.606166] (-) TimerEvent: {}
+[3.706323] (-) TimerEvent: {}
+[3.806574] (-) TimerEvent: {}
+[3.906841] (-) TimerEvent: {}
+[4.007097] (-) TimerEvent: {}
+[4.107368] (-) TimerEvent: {}
+[4.199885] (football_navigation) StdoutLine: {'line': b'-- Found gazebo_msgs: 3.5.2 (/opt/ros/galactic/share/gazebo_msgs/cmake)\n'}
+[4.207489] (-) TimerEvent: {}
+[4.307678] (-) TimerEvent: {}
+[4.350320] (football_navigation) StdoutLine: {'line': b'-- Looking for ignition-msgs5 -- found version 5.10.0\n'}
+[4.359259] (football_navigation) StdoutLine: {'line': b'-- Searching for dependencies of ignition-msgs5\n'}
+[4.407766] (-) TimerEvent: {}
+[4.450900] (football_navigation) StdoutLine: {'line': b'-- Found Protobuf: /usr/lib/x86_64-linux-gnu/libprotobuf.so;-lpthread (found suitable version "3.6.1", minimum required is "3") \n'}
+[4.454985] (football_navigation) StdoutLine: {'line': b'-- Looking for ignition-math6 -- found version 6.13.0\n'}
+[4.456411] (football_navigation) StdoutLine: {'line': b'-- Searching for dependencies of ignition-math6\n'}
+[4.460839] (football_navigation) StdoutLine: {'line': b"-- Checking for module 'tinyxml2'\n"}
+[4.476731] (football_navigation) StdoutLine: {'line': b'--   Found tinyxml2, version 6.2.0\n'}
+[4.507856] (-) TimerEvent: {}
+[4.514637] (football_navigation) StdoutLine: {'line': b'-- Looking for ignition-transport8 -- found version 8.3.0\n'}
+[4.514867] (football_navigation) StdoutLine: {'line': b'-- Searching for dependencies of ignition-transport8\n'}
+[4.543425] (football_navigation) StdoutLine: {'line': b'-- Config-file not installed for ZeroMQ -- checking for pkg-config\n'}
+[4.546853] (football_navigation) StdoutLine: {'line': b"-- Checking for module 'libzmq >= 4'\n"}
+[4.562138] (football_navigation) StdoutLine: {'line': b'--   Found libzmq , version 4.3.2\n'}
+[4.595667] (football_navigation) StdoutLine: {'line': b'-- Found ZeroMQ: TRUE (Required is at least version "4") \n'}
+[4.602841] (football_navigation) StdoutLine: {'line': b"-- Checking for module 'uuid'\n"}
+[4.608013] (-) TimerEvent: {}
+[4.617565] (football_navigation) StdoutLine: {'line': b'--   Found uuid, version 2.34.0\n'}
+[4.647120] (football_navigation) StdoutLine: {'line': b'-- Found UUID: TRUE  \n'}
+[4.647366] (football_navigation) StdoutLine: {'line': b'-- Looking for ignition-msgs5 -- found version 5.10.0\n'}
+[4.649722] (football_navigation) StdoutLine: {'line': b'-- Found nav2_behavior_tree: 1.0.8 (/home/lee/code/cyberdog2_pc_ws/install/nav2_behavior_tree/share/nav2_behavior_tree/cmake)\n'}
+[4.708156] (-) TimerEvent: {}
+[4.808269] (-) TimerEvent: {}
+[4.908532] (-) TimerEvent: {}
+[5.008720] (-) TimerEvent: {}
+[5.108977] (-) TimerEvent: {}
+[5.209184] (-) TimerEvent: {}
+[5.278321] (football_navigation) StdoutLine: {'line': b'-- Found nav2_smac_planner: 1.0.8 (/home/lee/code/cyberdog2_pc_ws/install/nav2_smac_planner/share/nav2_smac_planner/cmake)\n'}
+[5.309390] (-) TimerEvent: {}
+[5.409642] (-) TimerEvent: {}
+[5.509898] (-) TimerEvent: {}
+[5.610056] (-) TimerEvent: {}
+[5.710350] (-) TimerEvent: {}
+[5.810511] (-) TimerEvent: {}
+[5.910760] (-) TimerEvent: {}
+[6.011055] (-) TimerEvent: {}
+[6.111343] (-) TimerEvent: {}
+[6.154765] (football_navigation) StdoutLine: {'line': b'-- Found ros_bridge: 0.0.0 (/home/lee/code/cyberdog2_pc_ws/install/ros_bridge/share/ros_bridge/cmake)\n'}
+[6.211486] (-) TimerEvent: {}
+[6.311780] (-) TimerEvent: {}
+[6.411936] (-) TimerEvent: {}
+[6.512190] (-) TimerEvent: {}
+[6.612336] (-) TimerEvent: {}
+[6.712624] (-) TimerEvent: {}
+[6.812933] (-) TimerEvent: {}
+[6.913230] (-) TimerEvent: {}
+[7.013492] (-) TimerEvent: {}
+[7.113751] (-) TimerEvent: {}
+[7.214035] (-) TimerEvent: {}
+[7.314290] (-) TimerEvent: {}
+[7.414476] (-) TimerEvent: {}
+[7.514664] (-) TimerEvent: {}
+[7.614850] (-) TimerEvent: {}
+[7.715095] (-) TimerEvent: {}
+[7.815355] (-) TimerEvent: {}
+[7.915518] (-) TimerEvent: {}
+[8.015704] (-) TimerEvent: {}
+[8.115959] (-) TimerEvent: {}
+[8.216171] (-) TimerEvent: {}
+[8.316393] (-) TimerEvent: {}
+[8.416553] (-) TimerEvent: {}
+[8.516739] (-) TimerEvent: {}
+[8.616996] (-) TimerEvent: {}
+[8.717281] (-) TimerEvent: {}
+[8.817575] (-) TimerEvent: {}
+[8.917829] (-) TimerEvent: {}
+[9.018009] (-) TimerEvent: {}
+[9.118267] (-) TimerEvent: {}
+[9.218512] (-) TimerEvent: {}
+[9.318777] (-) TimerEvent: {}
+[9.419015] (-) TimerEvent: {}
+[9.519279] (-) TimerEvent: {}
+[9.619493] (-) TimerEvent: {}
+[9.719783] (-) TimerEvent: {}
+[9.820016] (-) TimerEvent: {}
+[9.920212] (-) TimerEvent: {}
+[10.020378] (-) TimerEvent: {}
+[10.120547] (-) TimerEvent: {}
+[10.220750] (-) TimerEvent: {}
+[10.321046] (-) TimerEvent: {}
+[10.421300] (-) TimerEvent: {}
+[10.521583] (-) TimerEvent: {}
+[10.621753] (-) TimerEvent: {}
+[10.722016] (-) TimerEvent: {}
+[10.822319] (-) TimerEvent: {}
+[10.922516] (-) TimerEvent: {}
+[11.022802] (-) TimerEvent: {}
+[11.123048] (-) TimerEvent: {}
+[11.223283] (-) TimerEvent: {}
+[11.323536] (-) TimerEvent: {}
+[11.423826] (-) TimerEvent: {}
+[11.524082] (-) TimerEvent: {}
+[11.624276] (-) TimerEvent: {}
+[11.724436] (-) TimerEvent: {}
+[11.824712] (-) TimerEvent: {}
+[11.925006] (-) TimerEvent: {}
+[12.025272] (-) TimerEvent: {}
+[12.125455] (-) TimerEvent: {}
+[12.225663] (-) TimerEvent: {}
+[12.325929] (-) TimerEvent: {}
+[12.426087] (-) TimerEvent: {}
+[12.526369] (-) TimerEvent: {}
+[12.626523] (-) TimerEvent: {}
+[12.726705] (-) TimerEvent: {}
+[12.826932] (-) TimerEvent: {}
+[12.927139] (-) TimerEvent: {}
+[13.027451] (-) TimerEvent: {}
+[13.127752] (-) TimerEvent: {}
+[13.228015] (-) TimerEvent: {}
+[13.328284] (-) TimerEvent: {}
+[13.428433] (-) TimerEvent: {}
+[13.528599] (-) TimerEvent: {}
+[13.628776] (-) TimerEvent: {}
+[13.729066] (-) TimerEvent: {}
+[13.743977] (football_navigation) StdoutLine: {'line': b'-- Found ament_cmake_gtest: 1.1.6 (/opt/ros/galactic/share/ament_cmake_gtest/cmake)\n'}
+[13.748959] (football_navigation) StdoutLine: {'line': b'-- Found ament_cmake_pytest: 1.1.6 (/opt/ros/galactic/share/ament_cmake_pytest/cmake)\n'}
+[13.752773] (football_navigation) StdoutLine: {'line': b"-- Found gtest sources under '/opt/ros/galactic/src/gtest_vendor': C++ tests using 'Google Test' will be built\n"}
+[13.755685] (football_navigation) StdoutLine: {'line': b'-- Check if compiler accepts -pthread\n'}
+[13.808382] (football_navigation) StdoutLine: {'line': b'-- Check if compiler accepts -pthread - yes\n'}
+[13.829264] (-) TimerEvent: {}
+[13.929530] (-) TimerEvent: {}
+[14.029814] (-) TimerEvent: {}
+[14.130093] (-) TimerEvent: {}
+[14.230320] (-) TimerEvent: {}
+[14.330595] (-) TimerEvent: {}
+[14.430832] (-) TimerEvent: {}
+[14.531048] (-) TimerEvent: {}
+[14.631265] (-) TimerEvent: {}
+[14.731461] (-) TimerEvent: {}
+[14.831754] (-) TimerEvent: {}
+[14.931929] (-) TimerEvent: {}
+[15.032343] (-) TimerEvent: {}
+[15.132494] (-) TimerEvent: {}
+[15.232640] (-) TimerEvent: {}
+[15.332825] (-) TimerEvent: {}
+[15.433078] (-) TimerEvent: {}
+[15.533350] (-) TimerEvent: {}
+[15.633622] (-) TimerEvent: {}
+[15.733825] (-) TimerEvent: {}
+[15.834107] (-) TimerEvent: {}
+[15.934290] (-) TimerEvent: {}
+[16.034556] (-) TimerEvent: {}
+[16.134740] (-) TimerEvent: {}
+[16.235000] (-) TimerEvent: {}
+[16.335252] (-) TimerEvent: {}
+[16.435425] (-) TimerEvent: {}
+[16.535621] (-) TimerEvent: {}
+[16.635875] (-) TimerEvent: {}
+[16.736128] (-) TimerEvent: {}
+[16.836428] (-) TimerEvent: {}
+[16.936616] (-) TimerEvent: {}
+[17.036810] (-) TimerEvent: {}
+[17.137069] (-) TimerEvent: {}
+[17.237228] (-) TimerEvent: {}
+[17.337430] (-) TimerEvent: {}
+[17.437609] (-) TimerEvent: {}
+[17.537870] (-) TimerEvent: {}
+[17.638126] (-) TimerEvent: {}
+[17.738286] (-) TimerEvent: {}
+[17.838479] (-) TimerEvent: {}
+[17.938773] (-) TimerEvent: {}
+[18.039083] (-) TimerEvent: {}
+[18.139357] (-) TimerEvent: {}
+[18.239616] (-) TimerEvent: {}
+[18.339815] (-) TimerEvent: {}
+[18.440092] (-) TimerEvent: {}
+[18.540349] (-) TimerEvent: {}
+[18.640497] (-) TimerEvent: {}
+[18.740667] (-) TimerEvent: {}
+[18.840863] (-) TimerEvent: {}
+[18.941089] (-) TimerEvent: {}
+[19.041283] (-) TimerEvent: {}
+[19.141544] (-) TimerEvent: {}
+[19.241697] (-) TimerEvent: {}
+[19.341943] (-) TimerEvent: {}
+[19.442235] (-) TimerEvent: {}
+[19.542421] (-) TimerEvent: {}
+[19.642634] (-) TimerEvent: {}
+[19.742915] (-) TimerEvent: {}
+[19.843181] (-) TimerEvent: {}
+[19.943460] (-) TimerEvent: {}
+[20.043688] (-) TimerEvent: {}
+[20.143897] (-) TimerEvent: {}
+[20.244156] (-) TimerEvent: {}
+[20.344423] (-) TimerEvent: {}
+[20.444684] (-) TimerEvent: {}
+[20.544863] (-) TimerEvent: {}
+[20.645033] (-) TimerEvent: {}
+[20.745261] (-) TimerEvent: {}
+[20.845534] (-) TimerEvent: {}
+[20.912789] (football_navigation) StdoutLine: {'line': b'-- Configuring done\n'}
+[20.945765] (-) TimerEvent: {}
+[21.046018] (-) TimerEvent: {}
+[21.146312] (-) TimerEvent: {}
+[21.246605] (-) TimerEvent: {}
+[21.279003] (football_navigation) StdoutLine: {'line': b'-- Generating done\n'}
+[21.281445] (football_navigation) StdoutLine: {'line': b'-- Build files have been written to: /home/lee/code/cyberdog2_pc_ws/src/build/football_navigation\n'}
+[21.290023] (football_navigation) CommandEnded: {'returncode': 0}
+[21.291783] (football_navigation) JobProgress: {'identifier': 'football_navigation', 'progress': 'build'}
+[21.291920] (football_navigation) Command: {'cmd': ['/usr/bin/cmake', '--build', '/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation', '--', '-j20', '-l20'], 'cwd': '/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation', 'env': OrderedDict([('HOSTNAME', 'lee'), ('SHLVL', '0'), ('LD_LIBRARY_PATH', '/home/lee/code/cyberdog2_pc_ws/install/football_navigation/lib:/home/lee/code/cyberdog2_pc_ws/install/sim_base/lib:/home/lee/code/cyberdog2_pc_ws/install/ros_bridge/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_smac_planner/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_recoveries/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_planner/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_navfn_planner/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_controller/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_bt_navigator/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_behavior_tree/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_plugins/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_critics/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_core/lib:/home/lee/code/cyberdog2_pc_ws/install/protocol/lib:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_utils/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_msgs/lib:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_msgs/lib:/home/lee/code/cyberdog2_pc_ws/install/costmap_queue/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_costmap_2d/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_voxel_grid/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_lifecycle_manager/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_util/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_msgs/lib:/home/lee/code/cyberdog2_pc_ws/install/cyber_guide/lib:/home/lee/code/cyberdog2_pc_ws/install/apriltag_ros/lib:/home/lee/code/cyberdog2_pc_ws/install/apriltag_msgs/lib:/usr/lib/x86_64-linux-gnu/gazebo-11/plugins:/opt/ros/galactic/opt/yaml_cpp_vendor/lib:/opt/ros/galactic/opt/rviz_ogre_vendor/lib:/opt/ros/galactic/lib/x86_64-linux-gnu:/opt/ros/galactic/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cublas/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cuda_runtime/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cudnn/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cufft/lib:/usr/local/lib/python3.8/dist-packages/nvidia/curand/lib:'), ('HOME', '/root'), ('OLDPWD', '/home/lee'), ('ROS_PYTHON_VERSION', '3'), ('COLCON_PREFIX_PATH', '/home/lee/code/cyberdog2_pc_ws/install'), ('ROS_DISTRO', 'galactic'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('NVIDIA_DRIVER_CAPABILITIES', 'compute,utility,graphics,display'), ('ROS_LOCALHOST_ONLY', '0'), ('QT_X11_NO_MITSHM', '1'), ('PATH', '/opt/ros/galactic/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'), ('DISPLAY', ':0'), ('LANG', 'C.UTF-8'), ('XAUTHORITY', '/tmp/host.Xauthority'), ('AMENT_PREFIX_PATH', '/home/lee/code/cyberdog2_pc_ws/install/visual_detection:/home/lee/code/cyberdog2_pc_ws/install/football_navigation:/home/lee/code/cyberdog2_pc_ws/install/topic_visualization:/home/lee/code/cyberdog2_pc_ws/install/sim_base:/home/lee/code/cyberdog2_pc_ws/install/ros_bridge:/home/lee/code/cyberdog2_pc_ws/install/robot_status_web:/home/lee/code/cyberdog2_pc_ws/install/nav2_smac_planner:/home/lee/code/cyberdog2_pc_ws/install/nav2_recoveries:/home/lee/code/cyberdog2_pc_ws/install/nav2_planner:/home/lee/code/cyberdog2_pc_ws/install/nav2_navfn_planner:/home/lee/code/cyberdog2_pc_ws/install/nav2_controller:/home/lee/code/cyberdog2_pc_ws/install/nav2_bt_navigator:/home/lee/code/cyberdog2_pc_ws/install/nav2_behavior_tree:/home/lee/code/cyberdog2_pc_ws/install/dwb_plugins:/home/lee/code/cyberdog2_pc_ws/install/dwb_critics:/home/lee/code/cyberdog2_pc_ws/install/dwb_core:/home/lee/code/cyberdog2_pc_ws/install/nav2_core:/home/lee/code/cyberdog2_pc_ws/install/keyboard_input:/home/lee/code/cyberdog2_pc_ws/install/emergency_stop:/home/lee/code/cyberdog2_pc_ws/install/protocol:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_utils:/home/lee/code/cyberdog2_pc_ws/install/dwb_msgs:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_msgs:/home/lee/code/cyberdog2_pc_ws/install/costmap_queue:/home/lee/code/cyberdog2_pc_ws/install/nav2_costmap_2d:/home/lee/code/cyberdog2_pc_ws/install/nav2_voxel_grid:/home/lee/code/cyberdog2_pc_ws/install/nav2_lifecycle_manager:/home/lee/code/cyberdog2_pc_ws/install/nav2_util:/home/lee/code/cyberdog2_pc_ws/install/nav2_msgs:/home/lee/code/cyberdog2_pc_ws/install/nav2_common:/home/lee/code/cyberdog2_pc_ws/install/mutil_robot_odom:/home/lee/code/cyberdog2_pc_ws/install/mutil_odom_shared:/home/lee/code/cyberdog2_pc_ws/install/global_alignment_node:/home/lee/code/cyberdog2_pc_ws/install/cyber_guide:/home/lee/code/cyberdog2_pc_ws/install/apriltag_ros:/home/lee/code/cyberdog2_pc_ws/install/apriltag_msgs:/opt/ros/galactic'), ('PWD', '/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation'), ('LC_ALL', 'C.UTF-8'), ('PYTHONPATH', '/home/lee/code/cyberdog2_pc_ws/install/ros_bridge/lib/python3.8/site-packages:/home/lee/code/cyberdog2_pc_ws/install/protocol/lib/python3.8/site-packages:/home/lee/code/cyberdog2_pc_ws/install/dwb_msgs/lib/python3.8/site-packages:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_msgs/lib/python3.8/site-packages:/home/lee/code/cyberdog2_pc_ws/install/nav2_msgs/lib/python3.8/site-packages:/home/lee/code/cyberdog2_pc_ws/install/nav2_common/lib/python3.8/site-packages:/home/lee/code/cyberdog2_pc_ws/install/apriltag_msgs/lib/python3.8/site-packages:/opt/ros/galactic/lib/python3.8/site-packages'), ('NVIDIA_VISIBLE_DEVICES', 'all'), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/home/lee/code/cyberdog2_pc_ws/install/visual_detection:/home/lee/code/cyberdog2_pc_ws/install/football_navigation:/home/lee/code/cyberdog2_pc_ws/install/topic_visualization:/home/lee/code/cyberdog2_pc_ws/install/sim_base:/home/lee/code/cyberdog2_pc_ws/install/ros_bridge:/home/lee/code/cyberdog2_pc_ws/install/robot_status_web:/home/lee/code/cyberdog2_pc_ws/install/nav2_smac_planner:/home/lee/code/cyberdog2_pc_ws/install/nav2_recoveries:/home/lee/code/cyberdog2_pc_ws/install/nav2_planner:/home/lee/code/cyberdog2_pc_ws/install/nav2_navfn_planner:/home/lee/code/cyberdog2_pc_ws/install/nav2_controller:/home/lee/code/cyberdog2_pc_ws/install/nav2_bt_navigator:/home/lee/code/cyberdog2_pc_ws/install/nav2_behavior_tree:/home/lee/code/cyberdog2_pc_ws/install/dwb_plugins:/home/lee/code/cyberdog2_pc_ws/install/dwb_critics:/home/lee/code/cyberdog2_pc_ws/install/dwb_core:/home/lee/code/cyberdog2_pc_ws/install/nav2_core:/home/lee/code/cyberdog2_pc_ws/install/keyboard_input:/home/lee/code/cyberdog2_pc_ws/install/emergency_stop:/home/lee/code/cyberdog2_pc_ws/install/protocol:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_utils:/home/lee/code/cyberdog2_pc_ws/install/dwb_msgs:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_msgs:/home/lee/code/cyberdog2_pc_ws/install/costmap_queue:/home/lee/code/cyberdog2_pc_ws/install/nav2_costmap_2d:/home/lee/code/cyberdog2_pc_ws/install/nav2_voxel_grid:/home/lee/code/cyberdog2_pc_ws/install/nav2_lifecycle_manager:/home/lee/code/cyberdog2_pc_ws/install/nav2_util:/home/lee/code/cyberdog2_pc_ws/install/nav2_msgs:/home/lee/code/cyberdog2_pc_ws/install/nav2_common:/home/lee/code/cyberdog2_pc_ws/install/mutil_robot_odom:/home/lee/code/cyberdog2_pc_ws/install/mutil_odom_shared:/home/lee/code/cyberdog2_pc_ws/install/global_alignment_node:/home/lee/code/cyberdog2_pc_ws/install/cyber_guide:/home/lee/code/cyberdog2_pc_ws/install/apriltag_ros:/home/lee/code/cyberdog2_pc_ws/install/apriltag_msgs:/opt/ros/galactic')]), 'shell': False}
+[21.343437] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_role_strategies\n'}
+[21.346687] (-) TimerEvent: {}
+[21.353203] (football_navigation) StdoutLine: {'line': b'[  4%] Building CXX object CMakeFiles/football_role_strategies.dir/src/coordination/striker_role_strategy.cpp.o\n'}
+[21.353391] (football_navigation) StdoutLine: {'line': b'[  4%] Building CXX object CMakeFiles/football_role_strategies.dir/src/coordination/goalkeeper_role_strategy.cpp.o\n'}
+[21.353496] (football_navigation) StdoutLine: {'line': b'[  4%] Building CXX object CMakeFiles/football_role_strategies.dir/src/coordination/defender_left_role_strategy.cpp.o\n'}
+[21.353797] (football_navigation) StdoutLine: {'line': b'[  6%] Building CXX object CMakeFiles/football_role_strategies.dir/src/coordination/defender_right_role_strategy.cpp.o\n'}
+[21.354384] (football_navigation) StdoutLine: {'line': b'[  7%] Building CXX object CMakeFiles/football_role_strategies.dir/src/coordination/support_role_strategy.cpp.o\n'}
+[21.355195] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_geometry_lib\n'}
+[21.357135] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target gtest\n'}
+[21.357293] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target gtest_main\n'}
+[21.368043] (football_navigation) StdoutLine: {'line': b'[ 11%] Building CXX object gtest/CMakeFiles/gtest.dir/src/gtest-all.cc.o\n'}
+[21.368346] (football_navigation) StdoutLine: {'line': b'[ 11%] Building CXX object gtest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.o\n'}
+[21.371211] (football_navigation) StdoutLine: {'line': b'[ 12%] Building CXX object CMakeFiles/football_geometry_lib.dir/src/core/football_geometry.cpp.o\n'}
+[21.446793] (-) TimerEvent: {}
+[21.451482] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_scan_frame_relay\n'}
+[21.451686] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_keyboard_robot_controller\n'}
+[21.453786] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_gazebo_state_bridge\n'}
+[21.454458] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_servo_to_cyber_guide\n'}
+[21.454599] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_cmd_vel_to_servo\n'}
+[21.456856] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_team_simulation_input_publisher\n'}
+[21.476397] (football_navigation) StdoutLine: {'line': b'[ 14%] Building CXX object CMakeFiles/football_keyboard_robot_controller.dir/src/test/football_keyboard_robot_controller.cpp.o\n'}
+[21.478167] (football_navigation) StdoutLine: {'line': b'[ 15%] Building CXX object CMakeFiles/football_scan_frame_relay.dir/src/control/football_scan_frame_relay.cpp.o\n'}
+[21.478456] (football_navigation) StdoutLine: {'line': b'[ 17%] Building CXX object CMakeFiles/football_servo_to_cyber_guide.dir/src/control/football_servo_to_cyber_guide.cpp.o\n'}
+[21.479008] (football_navigation) StdoutLine: {'line': b'[ 19%] Building CXX object CMakeFiles/football_gazebo_state_bridge.dir/src/simulation/football_gazebo_state_bridge.cpp.o\n'}
+[21.479510] (football_navigation) StdoutLine: {'line': b'[ 20%] Building CXX object CMakeFiles/football_cmd_vel_to_servo.dir/src/control/football_cmd_vel_to_servo.cpp.o\n'}
+[21.480702] (football_navigation) StdoutLine: {'line': b'[ 22%] Building CXX object CMakeFiles/football_team_simulation_input_publisher.dir/src/simulation/football_team_simulation_input_publisher_node.cpp.o\n'}
+[21.487080] (football_navigation) StdoutLine: {'line': b'[ 23%] Building CXX object CMakeFiles/football_team_simulation_input_publisher.dir/src/simulation/football_team_simulation_input_publisher.cpp.o\n'}
+[21.516635] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_gazebo_marker_bridge\n'}
+[21.546900] (-) TimerEvent: {}
+[21.548095] (football_navigation) StdoutLine: {'line': b'[ 25%] Building CXX object CMakeFiles/football_gazebo_marker_bridge.dir/src/simulation/football_gazebo_marker_bridge.cpp.o\n'}
+[21.647001] (-) TimerEvent: {}
+[21.747202] (-) TimerEvent: {}
+[21.793387] (football_navigation) StdoutLine: {'line': b'[ 26%] Linking CXX shared library libfootball_role_strategies.so\n'}
+[21.847323] (-) TimerEvent: {}
+[21.895951] (football_navigation) StdoutLine: {'line': b'[ 26%] Built target football_role_strategies\n'}
+[21.947424] (-) TimerEvent: {}
+[22.047625] (-) TimerEvent: {}
+[22.063754] (football_navigation) StdoutLine: {'line': b'[ 28%] Linking CXX shared library libfootball_geometry_lib.so\n'}
+[22.147741] (-) TimerEvent: {}
+[22.149868] (football_navigation) StdoutLine: {'line': b'[ 30%] Linking CXX static library libgtest_main.a\n'}
+[22.174527] (football_navigation) StdoutLine: {'line': b'[ 30%] Built target football_geometry_lib\n'}
+[22.189200] (football_navigation) StdoutLine: {'line': b'[ 30%] Built target gtest_main\n'}
+[22.228636] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_simulation_input_publisher\n'}
+[22.232418] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_ball_fusion\n'}
+[22.238439] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_fake_ball_publisher\n'}
+[22.247845] (-) TimerEvent: {}
+[22.250891] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_goal_adapter\n'}
+[22.256028] (football_navigation) StdoutLine: {'line': b'[ 31%] Building CXX object CMakeFiles/football_simulation_input_publisher.dir/src/simulation/football_simulation_input_publisher.cpp.o\n'}
+[22.259842] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_team_role_assigner\n'}
+[22.264493] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_tracking_action_client\n'}
+[22.266984] (football_navigation) StdoutLine: {'line': b'[ 33%] Building CXX object CMakeFiles/football_fake_ball_publisher.dir/src/simulation/football_fake_ball_publisher.cpp.o\n'}
+[22.269902] (football_navigation) StdoutLine: {'line': b'[ 34%] Building CXX object CMakeFiles/football_ball_fusion.dir/src/coordination/football_ball_fusion.cpp.o\n'}
+[22.279046] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_navigation_core\n'}
+[22.287258] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_simulation_navigator\n'}
+[22.290852] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_visualization_node\n'}
+[22.292467] (football_navigation) StdoutLine: {'line': b'[ 36%] Building CXX object CMakeFiles/football_goal_adapter.dir/src/control/football_goal_adapter_node.cpp.o\n'}
+[22.295583] (football_navigation) StdoutLine: {'line': b'[ 38%] Building CXX object CMakeFiles/football_team_role_assigner.dir/src/coordination/football_team_role_assigner.cpp.o\n'}
+[22.306442] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_fake_other_robot_publisher\n'}
+[22.312548] (football_navigation) StdoutLine: {'line': b'[ 39%] Building CXX object CMakeFiles/football_tracking_action_client.dir/src/control/football_tracking_action_client.cpp.o\n'}
+[22.314481] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_trajectory_adapter\n'}
+[22.317431] (football_navigation) StdoutLine: {'line': b'[ 41%] Building CXX object CMakeFiles/football_simulation_navigator.dir/src/simulation/football_simulation_navigator.cpp.o\n'}
+[22.318245] (football_navigation) StdoutLine: {'line': b'[ 42%] Building CXX object CMakeFiles/football_visualization_node.dir/src/visualization/football_visualization_node.cpp.o\n'}
+[22.334367] (football_navigation) StdoutLine: {'line': b'[ 44%] Building CXX object CMakeFiles/football_navigation_core.dir/src/plugins/dynamic_obstacle_marker.cpp.o\n'}
+[22.347965] (-) TimerEvent: {}
+[22.367437] (football_navigation) StdoutLine: {'line': b'[ 46%] Building CXX object CMakeFiles/football_trajectory_adapter.dir/src/control/football_trajectory_adapter.cpp.o\n'}
+[22.376025] (football_navigation) StdoutLine: {'line': b'[ 47%] Building CXX object CMakeFiles/football_fake_other_robot_publisher.dir/src/simulation/football_fake_other_robot_publisher.cpp.o\n'}
+[22.448090] (-) TimerEvent: {}
+[22.548295] (-) TimerEvent: {}
+[22.648511] (-) TimerEvent: {}
+[22.748741] (-) TimerEvent: {}
+[22.848978] (-) TimerEvent: {}
+[22.949213] (-) TimerEvent: {}
+[23.049455] (-) TimerEvent: {}
+[23.149703] (-) TimerEvent: {}
+[23.249965] (-) TimerEvent: {}
+[23.350876] (-) TimerEvent: {}
+[23.451104] (-) TimerEvent: {}
+[23.551319] (-) TimerEvent: {}
+[23.651566] (-) TimerEvent: {}
+[23.751810] (-) TimerEvent: {}
+[23.852053] (-) TimerEvent: {}
+[23.952321] (-) TimerEvent: {}
+[24.052543] (-) TimerEvent: {}
+[24.152778] (-) TimerEvent: {}
+[24.253014] (-) TimerEvent: {}
+[24.353253] (-) TimerEvent: {}
+[24.453500] (-) TimerEvent: {}
+[24.553742] (-) TimerEvent: {}
+[24.653977] (-) TimerEvent: {}
+[24.754219] (-) TimerEvent: {}
+[24.854487] (-) TimerEvent: {}
+[24.954738] (-) TimerEvent: {}
+[25.054965] (-) TimerEvent: {}
+[25.155201] (-) TimerEvent: {}
+[25.177688] (football_navigation) StdoutLine: {'line': b'[ 49%] Building CXX object CMakeFiles/football_team_role_assigner.dir/src/coordination/football_team_role_assigner_node.cpp.o\n'}
+[25.257570] (-) TimerEvent: {}
+[25.357783] (-) TimerEvent: {}
+[25.457996] (-) TimerEvent: {}
+[25.560406] (-) TimerEvent: {}
+[25.660619] (-) TimerEvent: {}
+[25.674141] (football_navigation) StdoutLine: {'line': b'[ 50%] Linking CXX static library libgtest.a\n'}
+[25.760735] (-) TimerEvent: {}
+[25.789829] (football_navigation) StdoutLine: {'line': b'[ 50%] Built target gtest\n'}
+[25.817835] (football_navigation) StdoutLine: {'line': b'[ 52%] Linking CXX shared library libfootball_navigation_core.so\n'}
+[25.860844] (-) TimerEvent: {}
+[25.864313] (football_navigation) StdoutLine: {'line': b'[ 53%] Building CXX object CMakeFiles/football_fake_ball_publisher.dir/src/simulation/football_fake_ball_publisher_node.cpp.o\n'}
+[25.960953] (-) TimerEvent: {}
+[25.987991] (football_navigation) StdoutLine: {'line': b'[ 55%] Linking CXX executable football_team_simulation_input_publisher\n'}
+[26.061064] (-) TimerEvent: {}
+[26.161315] (-) TimerEvent: {}
+[26.261602] (-) TimerEvent: {}
+[26.361954] (-) TimerEvent: {}
+[26.371607] (football_navigation) StdoutLine: {'line': b'[ 57%] Linking CXX executable football_keyboard_robot_controller\n'}
+[26.442640] (football_navigation) StdoutLine: {'line': b'[ 57%] Built target football_team_simulation_input_publisher\n'}
+[26.462310] (-) TimerEvent: {}
+[26.465304] (football_navigation) StdoutLine: {'line': b'[ 58%] Building CXX object CMakeFiles/football_goal_adapter.dir/src/control/football_goal_adapter.cpp.o\n'}
+[26.480476] (football_navigation) StdoutLine: {'line': b'[ 60%] Building CXX object CMakeFiles/football_tracking_action_client.dir/src/control/football_tracking_action_client_node.cpp.o\n'}
+[26.530243] (football_navigation) StdoutLine: {'line': b'[ 60%] Built target football_navigation_core\n'}
+[26.563920] (-) TimerEvent: {}
+[26.591997] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target test_football_navigation\n'}
+[26.628183] (football_navigation) StdoutLine: {'line': b'[ 61%] Building CXX object CMakeFiles/test_football_navigation.dir/test/test_football_navigation.cpp.o\n'}
+[26.636291] (football_navigation) StdoutLine: {'line': b'[ 61%] Built target football_keyboard_robot_controller\n'}
+[26.651846] (football_navigation) StdoutLine: {'line': b'[ 63%] Building CXX object CMakeFiles/football_fake_other_robot_publisher.dir/src/simulation/football_fake_other_robot_publisher_node.cpp.o\n'}
+[26.664045] (-) TimerEvent: {}
+[26.764287] (-) TimerEvent: {}
+[26.864521] (-) TimerEvent: {}
+[26.964751] (-) TimerEvent: {}
+[27.064978] (-) TimerEvent: {}
+[27.165197] (-) TimerEvent: {}
+[27.265441] (-) TimerEvent: {}
+[27.365861] (-) TimerEvent: {}
+[27.466076] (-) TimerEvent: {}
+[27.566296] (-) TimerEvent: {}
+[27.666526] (-) TimerEvent: {}
+[27.766767] (-) TimerEvent: {}
+[27.867005] (-) TimerEvent: {}
+[27.967244] (-) TimerEvent: {}
+[28.067684] (-) TimerEvent: {}
+[28.167909] (-) TimerEvent: {}
+[28.268146] (-) TimerEvent: {}
+[28.368496] (-) TimerEvent: {}
+[28.468719] (-) TimerEvent: {}
+[28.568952] (-) TimerEvent: {}
+[28.669186] (-) TimerEvent: {}
+[28.769405] (-) TimerEvent: {}
+[28.869634] (-) TimerEvent: {}
+[28.969874] (-) TimerEvent: {}
+[29.070108] (-) TimerEvent: {}
+[29.117237] (football_navigation) StdoutLine: {'line': b'[ 65%] Linking CXX executable test_football_navigation\n'}
+[29.126500] (football_navigation) StdoutLine: {'line': b'[ 66%] Building CXX object CMakeFiles/football_visualization_node.dir/src/visualization/football_visualization_main.cpp.o\n'}
+[29.170231] (-) TimerEvent: {}
+[29.270556] (-) TimerEvent: {}
+[29.370782] (-) TimerEvent: {}
+[29.470986] (-) TimerEvent: {}
+[29.571238] (-) TimerEvent: {}
+[29.671463] (-) TimerEvent: {}
+[29.771706] (-) TimerEvent: {}
+[29.872004] (-) TimerEvent: {}
+[29.893297] (football_navigation) StdoutLine: {'line': b'[ 68%] Building CXX object CMakeFiles/football_trajectory_adapter.dir/src/control/football_trajectory_adapter_node.cpp.o\n'}
+[29.972124] (-) TimerEvent: {}
+[30.072425] (-) TimerEvent: {}
+[30.161823] (football_navigation) StdoutLine: {'line': b'[ 68%] Built target test_football_navigation\n'}
+[30.172535] (-) TimerEvent: {}
+[30.182738] (football_navigation) StdoutLine: {'line': b'[ 69%] Building CXX object CMakeFiles/football_simulation_navigator.dir/src/simulation/football_simulation_navigator_node.cpp.o\n'}
+[30.272645] (-) TimerEvent: {}
+[30.373238] (-) TimerEvent: {}
+[30.473456] (-) TimerEvent: {}
+[30.573698] (-) TimerEvent: {}
+[30.666916] (football_navigation) StdoutLine: {'line': b'[ 71%] Building CXX object CMakeFiles/football_simulation_input_publisher.dir/src/simulation/football_simulation_input_publisher_node.cpp.o\n'}
+[30.673832] (-) TimerEvent: {}
+[30.774072] (-) TimerEvent: {}
+[30.838038] (football_navigation) StdoutLine: {'line': b'Scanning dependencies of target football_multi_robot_obstacle_layer\n'}
+[30.874203] (-) TimerEvent: {}
+[30.974475] (-) TimerEvent: {}
+[31.035451] (football_navigation) StdoutLine: {'line': b'[ 73%] Building CXX object CMakeFiles/football_multi_robot_obstacle_layer.dir/src/plugins/multi_robot_obstacle_layer.cpp.o\n'}
+[31.076725] (-) TimerEvent: {}
+[31.176953] (-) TimerEvent: {}
+[31.277185] (-) TimerEvent: {}
+[31.377441] (-) TimerEvent: {}
+[31.477771] (-) TimerEvent: {}
+[31.578001] (-) TimerEvent: {}
+[31.678231] (-) TimerEvent: {}
+[31.778474] (-) TimerEvent: {}
+[31.878698] (-) TimerEvent: {}
+[31.978913] (-) TimerEvent: {}
+[32.042866] (football_navigation) StdoutLine: {'line': b'[ 74%] Linking CXX executable football_scan_frame_relay\n'}
+[32.079024] (-) TimerEvent: {}
+[32.166223] (football_navigation) StdoutLine: {'line': b'[ 76%] Linking CXX executable football_gazebo_state_bridge\n'}
+[32.179147] (-) TimerEvent: {}
+[32.282791] (-) TimerEvent: {}
+[32.383023] (-) TimerEvent: {}
+[32.483330] (-) TimerEvent: {}
+[32.585294] (-) TimerEvent: {}
+[32.685618] (-) TimerEvent: {}
+[32.785952] (-) TimerEvent: {}
+[32.898494] (-) TimerEvent: {}
+[32.931630] (football_navigation) StdoutLine: {'line': b'[ 76%] Built target football_gazebo_state_bridge\n'}
+[32.948118] (football_navigation) StdoutLine: {'line': b'[ 77%] Building CXX object CMakeFiles/football_ball_fusion.dir/src/coordination/football_ball_fusion_node.cpp.o\n'}
+[32.981996] (football_navigation) StdoutLine: {'line': b'[ 77%] Built target football_scan_frame_relay\n'}
+[32.998620] (-) TimerEvent: {}
+[33.098918] (-) TimerEvent: {}
+[33.199185] (-) TimerEvent: {}
+[33.299383] (-) TimerEvent: {}
+[33.399592] (-) TimerEvent: {}
+[33.499840] (-) TimerEvent: {}
+[33.600074] (-) TimerEvent: {}
+[33.700305] (-) TimerEvent: {}
+[33.800517] (-) TimerEvent: {}
+[33.900721] (-) TimerEvent: {}
+[33.905237] (football_navigation) StdoutLine: {'line': b'[ 79%] Linking CXX executable football_servo_to_cyber_guide\n'}
+[34.000837] (-) TimerEvent: {}
+[34.108731] (-) TimerEvent: {}
+[34.208963] (-) TimerEvent: {}
+[34.309517] (-) TimerEvent: {}
+[34.409721] (-) TimerEvent: {}
+[34.509933] (-) TimerEvent: {}
+[34.602196] (football_navigation) StdoutLine: {'line': b'[ 79%] Built target football_servo_to_cyber_guide\n'}
+[34.610041] (-) TimerEvent: {}
+[34.710251] (-) TimerEvent: {}
+[34.810561] (-) TimerEvent: {}
+[34.920391] (-) TimerEvent: {}
+[35.020594] (-) TimerEvent: {}
+[35.120789] (-) TimerEvent: {}
+[35.220982] (-) TimerEvent: {}
+[35.321357] (-) TimerEvent: {}
+[35.421687] (-) TimerEvent: {}
+[35.522064] (-) TimerEvent: {}
+[35.622384] (-) TimerEvent: {}
+[35.722586] (-) TimerEvent: {}
+[35.822832] (-) TimerEvent: {}
+[35.923037] (-) TimerEvent: {}
+[36.023244] (-) TimerEvent: {}
+[36.123447] (-) TimerEvent: {}
+[36.223673] (-) TimerEvent: {}
+[36.323868] (-) TimerEvent: {}
+[36.405943] (football_navigation) StdoutLine: {'line': b'[ 80%] Linking CXX executable football_gazebo_marker_bridge\n'}
+[36.423969] (-) TimerEvent: {}
+[36.524152] (-) TimerEvent: {}
+[36.624361] (-) TimerEvent: {}
+[36.631987] (football_navigation) StdoutLine: {'line': b'[ 82%] Linking CXX executable football_trajectory_adapter\n'}
+[36.724479] (-) TimerEvent: {}
+[36.824697] (-) TimerEvent: {}
+[36.924939] (-) TimerEvent: {}
+[37.018434] (football_navigation) StdoutLine: {'line': b'[ 84%] Linking CXX executable football_fake_ball_publisher\n'}
+[37.024006] (football_navigation) StdoutLine: {'line': b'[ 85%] Linking CXX executable football_fake_other_robot_publisher\n'}
+[37.025036] (-) TimerEvent: {}
+[37.125249] (-) TimerEvent: {}
+[37.144974] (football_navigation) StdoutLine: {'line': b'[ 87%] Linking CXX executable football_cmd_vel_to_servo\n'}
+[37.192548] (football_navigation) StdoutLine: {'line': b'[ 87%] Built target football_gazebo_marker_bridge\n'}
+[37.225381] (-) TimerEvent: {}
+[37.325628] (-) TimerEvent: {}
+[37.425862] (-) TimerEvent: {}
+[37.430414] (football_navigation) StdoutLine: {'line': b'[ 87%] Built target football_trajectory_adapter\n'}
+[37.526004] (-) TimerEvent: {}
+[37.626217] (-) TimerEvent: {}
+[37.726455] (-) TimerEvent: {}
+[37.826681] (-) TimerEvent: {}
+[37.880400] (football_navigation) StdoutLine: {'line': b'[ 87%] Built target football_fake_other_robot_publisher\n'}
+[37.926775] (-) TimerEvent: {}
+[37.929622] (football_navigation) StdoutLine: {'line': b'[ 88%] Linking CXX executable football_ball_fusion\n'}
+[37.947820] (football_navigation) StdoutLine: {'line': b'[ 88%] Built target football_cmd_vel_to_servo\n'}
+[37.948635] (football_navigation) StdoutLine: {'line': b'[ 88%] Built target football_fake_ball_publisher\n'}
+[38.026885] (-) TimerEvent: {}
+[38.127097] (-) TimerEvent: {}
+[38.227326] (-) TimerEvent: {}
+[38.327513] (-) TimerEvent: {}
+[38.399392] (football_navigation) StdoutLine: {'line': b'[ 88%] Built target football_ball_fusion\n'}
+[38.427618] (-) TimerEvent: {}
+[38.527835] (-) TimerEvent: {}
+[38.628059] (-) TimerEvent: {}
+[38.728247] (-) TimerEvent: {}
+[38.828443] (-) TimerEvent: {}
+[38.928643] (-) TimerEvent: {}
+[39.028822] (-) TimerEvent: {}
+[39.122814] (football_navigation) StdoutLine: {'line': b'[ 90%] Linking CXX executable football_simulation_input_publisher\n'}
+[39.128953] (-) TimerEvent: {}
+[39.204201] (football_navigation) StdoutLine: {'line': b'[ 92%] Linking CXX executable football_team_role_assigner\n'}
+[39.229060] (-) TimerEvent: {}
+[39.329284] (-) TimerEvent: {}
+[39.429600] (-) TimerEvent: {}
+[39.529907] (-) TimerEvent: {}
+[39.601046] (football_navigation) StdoutLine: {'line': b'[ 92%] Built target football_simulation_input_publisher\n'}
+[39.630025] (-) TimerEvent: {}
+[39.730233] (-) TimerEvent: {}
+[39.830527] (-) TimerEvent: {}
+[39.917687] (football_navigation) StdoutLine: {'line': b'[ 92%] Built target football_team_role_assigner\n'}
+[39.930658] (-) TimerEvent: {}
+[40.030868] (-) TimerEvent: {}
+[40.131077] (-) TimerEvent: {}
+[40.231257] (-) TimerEvent: {}
+[40.331443] (-) TimerEvent: {}
+[40.431667] (-) TimerEvent: {}
+[40.531859] (-) TimerEvent: {}
+[40.632043] (-) TimerEvent: {}
+[40.732235] (-) TimerEvent: {}
+[40.832424] (-) TimerEvent: {}
+[40.932604] (-) TimerEvent: {}
+[41.032817] (-) TimerEvent: {}
+[41.132991] (-) TimerEvent: {}
+[41.233153] (-) TimerEvent: {}
+[41.256991] (football_navigation) StdoutLine: {'line': b'[ 93%] Linking CXX executable football_simulation_navigator\n'}
+[41.333250] (-) TimerEvent: {}
+[41.433462] (-) TimerEvent: {}
+[41.533801] (-) TimerEvent: {}
+[41.634012] (-) TimerEvent: {}
+[41.734192] (-) TimerEvent: {}
+[41.818647] (football_navigation) StdoutLine: {'line': b'[ 93%] Built target football_simulation_navigator\n'}
+[41.834291] (-) TimerEvent: {}
+[41.888362] (football_navigation) StdoutLine: {'line': b'[ 95%] Linking CXX executable football_tracking_action_client\n'}
+[41.934392] (-) TimerEvent: {}
+[42.034570] (-) TimerEvent: {}
+[42.134803] (-) TimerEvent: {}
+[42.234987] (-) TimerEvent: {}
+[42.335260] (-) TimerEvent: {}
+[42.435529] (-) TimerEvent: {}
+[42.464402] (football_navigation) StdoutLine: {'line': b'[ 95%] Built target football_tracking_action_client\n'}
+[42.535705] (-) TimerEvent: {}
+[42.635974] (-) TimerEvent: {}
+[42.736131] (-) TimerEvent: {}
+[42.836395] (-) TimerEvent: {}
+[42.936570] (-) TimerEvent: {}
+[43.036757] (-) TimerEvent: {}
+[43.136953] (-) TimerEvent: {}
+[43.237258] (-) TimerEvent: {}
+[43.337477] (-) TimerEvent: {}
+[43.437679] (-) TimerEvent: {}
+[43.537955] (-) TimerEvent: {}
+[43.638264] (-) TimerEvent: {}
+[43.738440] (-) TimerEvent: {}
+[43.838738] (-) TimerEvent: {}
+[43.938906] (-) TimerEvent: {}
+[44.039113] (-) TimerEvent: {}
+[44.139279] (-) TimerEvent: {}
+[44.239482] (-) TimerEvent: {}
+[44.339715] (-) TimerEvent: {}
+[44.439885] (-) TimerEvent: {}
+[44.540074] (-) TimerEvent: {}
+[44.640395] (-) TimerEvent: {}
+[44.740601] (-) TimerEvent: {}
+[44.840802] (-) TimerEvent: {}
+[44.941023] (-) TimerEvent: {}
+[45.006433] (football_navigation) StdoutLine: {'line': b'[ 96%] Linking CXX executable football_goal_adapter\n'}
+[45.041209] (-) TimerEvent: {}
+[45.141472] (-) TimerEvent: {}
+[45.241689] (-) TimerEvent: {}
+[45.341877] (-) TimerEvent: {}
+[45.442094] (-) TimerEvent: {}
+[45.543190] (-) TimerEvent: {}
+[45.634820] (football_navigation) StdoutLine: {'line': b'[ 96%] Built target football_goal_adapter\n'}
+[45.643322] (-) TimerEvent: {}
+[45.743597] (-) TimerEvent: {}
+[45.843861] (-) TimerEvent: {}
+[45.879255] (football_navigation) StdoutLine: {'line': b'[ 98%] Linking CXX shared library libfootball_multi_robot_obstacle_layer.so\n'}
+[45.944059] (-) TimerEvent: {}
+[46.044376] (-) TimerEvent: {}
+[46.144555] (-) TimerEvent: {}
+[46.244775] (-) TimerEvent: {}
+[46.344999] (-) TimerEvent: {}
+[46.445289] (-) TimerEvent: {}
+[46.545560] (-) TimerEvent: {}
+[46.645853] (-) TimerEvent: {}
+[46.746123] (-) TimerEvent: {}
+[46.846433] (-) TimerEvent: {}
+[46.926141] (football_navigation) StdoutLine: {'line': b'[ 98%] Built target football_multi_robot_obstacle_layer\n'}
+[46.946658] (-) TimerEvent: {}
+[47.046851] (-) TimerEvent: {}
+[47.147148] (-) TimerEvent: {}
+[47.247468] (-) TimerEvent: {}
+[47.347740] (-) TimerEvent: {}
+[47.448019] (-) TimerEvent: {}
+[47.548178] (-) TimerEvent: {}
+[47.648521] (-) TimerEvent: {}
+[47.748746] (-) TimerEvent: {}
+[47.848972] (-) TimerEvent: {}
+[47.949258] (-) TimerEvent: {}
+[48.049460] (-) TimerEvent: {}
+[48.122950] (football_navigation) StdoutLine: {'line': b'[100%] Linking CXX executable football_visualization_node\n'}
+[48.149654] (-) TimerEvent: {}
+[48.249890] (-) TimerEvent: {}
+[48.350175] (-) TimerEvent: {}
+[48.450429] (-) TimerEvent: {}
+[48.550739] (-) TimerEvent: {}
+[48.651034] (-) TimerEvent: {}
+[48.751231] (-) TimerEvent: {}
+[48.851410] (-) TimerEvent: {}
+[48.907373] (football_navigation) StdoutLine: {'line': b'[100%] Built target football_visualization_node\n'}
+[48.955629] (-) TimerEvent: {}
+[48.990854] (football_navigation) CommandEnded: {'returncode': 0}
+[49.059200] (-) TimerEvent: {}
+[49.153405] (football_navigation) JobProgress: {'identifier': 'football_navigation', 'progress': 'install'}
+[49.159302] (-) TimerEvent: {}
+[49.204559] (football_navigation) Command: {'cmd': ['/usr/bin/cmake', '--install', '/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation'], 'cwd': '/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation', 'env': OrderedDict([('HOSTNAME', 'lee'), ('SHLVL', '0'), ('LD_LIBRARY_PATH', '/home/lee/code/cyberdog2_pc_ws/install/football_navigation/lib:/home/lee/code/cyberdog2_pc_ws/install/sim_base/lib:/home/lee/code/cyberdog2_pc_ws/install/ros_bridge/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_smac_planner/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_recoveries/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_planner/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_navfn_planner/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_controller/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_bt_navigator/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_behavior_tree/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_plugins/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_critics/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_core/lib:/home/lee/code/cyberdog2_pc_ws/install/protocol/lib:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_utils/lib:/home/lee/code/cyberdog2_pc_ws/install/dwb_msgs/lib:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_msgs/lib:/home/lee/code/cyberdog2_pc_ws/install/costmap_queue/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_costmap_2d/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_voxel_grid/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_lifecycle_manager/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_util/lib:/home/lee/code/cyberdog2_pc_ws/install/nav2_msgs/lib:/home/lee/code/cyberdog2_pc_ws/install/cyber_guide/lib:/home/lee/code/cyberdog2_pc_ws/install/apriltag_ros/lib:/home/lee/code/cyberdog2_pc_ws/install/apriltag_msgs/lib:/usr/lib/x86_64-linux-gnu/gazebo-11/plugins:/opt/ros/galactic/opt/yaml_cpp_vendor/lib:/opt/ros/galactic/opt/rviz_ogre_vendor/lib:/opt/ros/galactic/lib/x86_64-linux-gnu:/opt/ros/galactic/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cublas/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cuda_runtime/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cudnn/lib:/usr/local/lib/python3.8/dist-packages/nvidia/cufft/lib:/usr/local/lib/python3.8/dist-packages/nvidia/curand/lib:'), ('HOME', '/root'), ('OLDPWD', '/home/lee'), ('ROS_PYTHON_VERSION', '3'), ('COLCON_PREFIX_PATH', '/home/lee/code/cyberdog2_pc_ws/install'), ('ROS_DISTRO', 'galactic'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('NVIDIA_DRIVER_CAPABILITIES', 'compute,utility,graphics,display'), ('ROS_LOCALHOST_ONLY', '0'), ('QT_X11_NO_MITSHM', '1'), ('PATH', '/opt/ros/galactic/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'), ('DISPLAY', ':0'), ('LANG', 'C.UTF-8'), ('XAUTHORITY', '/tmp/host.Xauthority'), ('AMENT_PREFIX_PATH', '/home/lee/code/cyberdog2_pc_ws/install/visual_detection:/home/lee/code/cyberdog2_pc_ws/install/football_navigation:/home/lee/code/cyberdog2_pc_ws/install/topic_visualization:/home/lee/code/cyberdog2_pc_ws/install/sim_base:/home/lee/code/cyberdog2_pc_ws/install/ros_bridge:/home/lee/code/cyberdog2_pc_ws/install/robot_status_web:/home/lee/code/cyberdog2_pc_ws/install/nav2_smac_planner:/home/lee/code/cyberdog2_pc_ws/install/nav2_recoveries:/home/lee/code/cyberdog2_pc_ws/install/nav2_planner:/home/lee/code/cyberdog2_pc_ws/install/nav2_navfn_planner:/home/lee/code/cyberdog2_pc_ws/install/nav2_controller:/home/lee/code/cyberdog2_pc_ws/install/nav2_bt_navigator:/home/lee/code/cyberdog2_pc_ws/install/nav2_behavior_tree:/home/lee/code/cyberdog2_pc_ws/install/dwb_plugins:/home/lee/code/cyberdog2_pc_ws/install/dwb_critics:/home/lee/code/cyberdog2_pc_ws/install/dwb_core:/home/lee/code/cyberdog2_pc_ws/install/nav2_core:/home/lee/code/cyberdog2_pc_ws/install/keyboard_input:/home/lee/code/cyberdog2_pc_ws/install/emergency_stop:/home/lee/code/cyberdog2_pc_ws/install/protocol:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_utils:/home/lee/code/cyberdog2_pc_ws/install/dwb_msgs:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_msgs:/home/lee/code/cyberdog2_pc_ws/install/costmap_queue:/home/lee/code/cyberdog2_pc_ws/install/nav2_costmap_2d:/home/lee/code/cyberdog2_pc_ws/install/nav2_voxel_grid:/home/lee/code/cyberdog2_pc_ws/install/nav2_lifecycle_manager:/home/lee/code/cyberdog2_pc_ws/install/nav2_util:/home/lee/code/cyberdog2_pc_ws/install/nav2_msgs:/home/lee/code/cyberdog2_pc_ws/install/nav2_common:/home/lee/code/cyberdog2_pc_ws/install/mutil_robot_odom:/home/lee/code/cyberdog2_pc_ws/install/mutil_odom_shared:/home/lee/code/cyberdog2_pc_ws/install/global_alignment_node:/home/lee/code/cyberdog2_pc_ws/install/cyber_guide:/home/lee/code/cyberdog2_pc_ws/install/apriltag_ros:/home/lee/code/cyberdog2_pc_ws/install/apriltag_msgs:/opt/ros/galactic'), ('PWD', '/home/lee/code/cyberdog2_pc_ws/src/build/football_navigation'), ('LC_ALL', 'C.UTF-8'), ('PYTHONPATH', '/home/lee/code/cyberdog2_pc_ws/install/ros_bridge/lib/python3.8/site-packages:/home/lee/code/cyberdog2_pc_ws/install/protocol/lib/python3.8/site-packages:/home/lee/code/cyberdog2_pc_ws/install/dwb_msgs/lib/python3.8/site-packages:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_msgs/lib/python3.8/site-packages:/home/lee/code/cyberdog2_pc_ws/install/nav2_msgs/lib/python3.8/site-packages:/home/lee/code/cyberdog2_pc_ws/install/nav2_common/lib/python3.8/site-packages:/home/lee/code/cyberdog2_pc_ws/install/apriltag_msgs/lib/python3.8/site-packages:/opt/ros/galactic/lib/python3.8/site-packages'), ('NVIDIA_VISIBLE_DEVICES', 'all'), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/home/lee/code/cyberdog2_pc_ws/install/visual_detection:/home/lee/code/cyberdog2_pc_ws/install/football_navigation:/home/lee/code/cyberdog2_pc_ws/install/topic_visualization:/home/lee/code/cyberdog2_pc_ws/install/sim_base:/home/lee/code/cyberdog2_pc_ws/install/ros_bridge:/home/lee/code/cyberdog2_pc_ws/install/robot_status_web:/home/lee/code/cyberdog2_pc_ws/install/nav2_smac_planner:/home/lee/code/cyberdog2_pc_ws/install/nav2_recoveries:/home/lee/code/cyberdog2_pc_ws/install/nav2_planner:/home/lee/code/cyberdog2_pc_ws/install/nav2_navfn_planner:/home/lee/code/cyberdog2_pc_ws/install/nav2_controller:/home/lee/code/cyberdog2_pc_ws/install/nav2_bt_navigator:/home/lee/code/cyberdog2_pc_ws/install/nav2_behavior_tree:/home/lee/code/cyberdog2_pc_ws/install/dwb_plugins:/home/lee/code/cyberdog2_pc_ws/install/dwb_critics:/home/lee/code/cyberdog2_pc_ws/install/dwb_core:/home/lee/code/cyberdog2_pc_ws/install/nav2_core:/home/lee/code/cyberdog2_pc_ws/install/keyboard_input:/home/lee/code/cyberdog2_pc_ws/install/emergency_stop:/home/lee/code/cyberdog2_pc_ws/install/protocol:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_utils:/home/lee/code/cyberdog2_pc_ws/install/dwb_msgs:/home/lee/code/cyberdog2_pc_ws/install/nav_2d_msgs:/home/lee/code/cyberdog2_pc_ws/install/costmap_queue:/home/lee/code/cyberdog2_pc_ws/install/nav2_costmap_2d:/home/lee/code/cyberdog2_pc_ws/install/nav2_voxel_grid:/home/lee/code/cyberdog2_pc_ws/install/nav2_lifecycle_manager:/home/lee/code/cyberdog2_pc_ws/install/nav2_util:/home/lee/code/cyberdog2_pc_ws/install/nav2_msgs:/home/lee/code/cyberdog2_pc_ws/install/nav2_common:/home/lee/code/cyberdog2_pc_ws/install/mutil_robot_odom:/home/lee/code/cyberdog2_pc_ws/install/mutil_odom_shared:/home/lee/code/cyberdog2_pc_ws/install/global_alignment_node:/home/lee/code/cyberdog2_pc_ws/install/cyber_guide:/home/lee/code/cyberdog2_pc_ws/install/apriltag_ros:/home/lee/code/cyberdog2_pc_ws/install/apriltag_msgs:/opt/ros/galactic')]), 'shell': False}
+[49.214369] (football_navigation) StdoutLine: {'line': b'-- Install configuration: ""\n'}
+[49.214790] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/football_navigation_plugins.xml\n'}
+[49.215418] (football_navigation) StdoutLine: {'line': b'-- Up-to-date: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/football_navigation_plugins.xml\n'}
+[49.215553] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/football_navigation_dwb_plugins.xml\n'}
+[49.216075] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/libfootball_geometry_lib.so\n'}
+[49.216874] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/libfootball_geometry_lib.so" to ""\n'}
+[49.217047] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/libfootball_navigation_core.so\n'}
+[49.217776] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/libfootball_navigation_core.so" to ""\n'}
+[49.217995] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/libfootball_role_strategies.so\n'}
+[49.218075] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/libfootball_multi_robot_obstacle_layer.so\n'}
+[49.227847] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/libfootball_multi_robot_obstacle_layer.so" to ""\n'}
+[49.228013] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_goal_adapter\n'}
+[49.234839] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_goal_adapter" to ""\n'}
+[49.234996] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_cmd_vel_to_servo\n'}
+[49.238861] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_cmd_vel_to_servo" to ""\n'}
+[49.239017] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_servo_to_cyber_guide\n'}
+[49.241403] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_servo_to_cyber_guide" to ""\n'}
+[49.241719] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_scan_frame_relay\n'}
+[49.245739] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_scan_frame_relay" to ""\n'}
+[49.245880] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_fake_ball_publisher\n'}
+[49.249413] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_fake_ball_publisher" to ""\n'}
+[49.249542] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_simulation_input_publisher\n'}
+[49.254174] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_simulation_input_publisher" to ""\n'}
+[49.254335] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_gazebo_state_bridge\n'}
+[49.258944] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_gazebo_state_bridge" to ""\n'}
+[49.259075] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_gazebo_marker_bridge\n'}
+[49.259356] (-) TimerEvent: {}
+[49.261801] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_gazebo_marker_bridge" to ""\n'}
+[49.261946] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_simulation_navigator\n'}
+[49.267611] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_simulation_navigator" to ""\n'}
+[49.267763] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_fake_other_robot_publisher\n'}
+[49.271393] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_fake_other_robot_publisher" to ""\n'}
+[49.271538] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_keyboard_robot_controller\n'}
+[49.275650] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_keyboard_robot_controller" to ""\n'}
+[49.275793] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_trajectory_adapter\n'}
+[49.279834] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_trajectory_adapter" to ""\n'}
+[49.279977] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_tracking_action_client\n'}
+[49.286449] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_tracking_action_client" to ""\n'}
+[49.286617] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_team_role_assigner\n'}
+[49.291078] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_team_role_assigner" to ""\n'}
+[49.291233] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_team_simulation_input_publisher\n'}
+[49.293694] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_team_simulation_input_publisher" to ""\n'}
+[49.293835] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_ball_fusion\n'}
+[49.300799] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_ball_fusion" to ""\n'}
+[49.300961] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_visualization_node\n'}
+[49.310621] (football_navigation) StdoutLine: {'line': b'-- Set runtime path of "/home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_visualization_node" to ""\n'}
+[49.310959] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include/\n'}
+[49.311041] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation\n'}
+[49.311224] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/simulation\n'}
+[49.311307] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/simulation/football_simulation_input_publisher.hpp\n'}
+[49.311471] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/simulation/football_simulation_navigator.hpp\n'}
+[49.311541] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/simulation/football_fake_other_robot_publisher.hpp\n'}
+[49.311611] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/simulation/football_fake_ball_publisher.hpp\n'}
+[49.311681] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/simulation/football_team_simulation_input_publisher.hpp\n'}
+[49.311762] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/visualization\n'}
+[49.311835] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/visualization/football_visualization_node.hpp\n'}
+[49.312422] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/coordination\n'}
+[49.312518] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/coordination/striker_role_strategy.hpp\n'}
+[49.312775] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/coordination/defender_left_role_strategy.hpp\n'}
+[49.312960] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/coordination/support_role_strategy.hpp\n'}
+[49.313180] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/coordination/role_strategy.hpp\n'}
+[49.313435] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/coordination/football_team_role_assigner.hpp\n'}
+[49.313794] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/coordination/football_ball_fusion.hpp\n'}
+[49.313939] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/coordination/goalkeeper_role_strategy.hpp\n'}
+[49.314064] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/coordination/defender_right_role_strategy.hpp\n'}
+[49.314236] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/README.md\n'}
+[49.314582] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/plugins\n'}
+[49.314839] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/plugins/multi_robot_obstacle_layer.hpp\n'}
+[49.315060] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/plugins/dynamic_obstacle_marker.hpp\n'}
+[49.315240] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/core\n'}
+[49.315331] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/core/football_geometry.hpp\n'}
+[49.315405] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/control\n'}
+[49.315641] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/control/football_tracking_action_client.hpp\n'}
+[49.315730] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/control/football_trajectory_adapter.hpp\n'}
+[49.315809] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/include//football_navigation/control/football_goal_adapter.hpp\n'}
+[49.316055] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/launch\n'}
+[49.316376] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/launch/football_gazebo_simulation.launch.py\n'}
+[49.316883] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/launch/football_single_robot_simulation.launch.py\n'}
+[49.317229] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/launch/football_robot_runtime.launch.py\n'}
+[49.317568] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/launch/football_real_robot_test.launch.py\n'}
+[49.317854] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/launch/football_team_simulation.launch.py\n'}
+[49.318139] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/launch/football_real_robot.launch.py\n'}
+[49.318572] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/rviz\n'}
+[49.318838] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/rviz/football_single_robot_simulation.rviz\n'}
+[49.319590] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/params/football_single_robot_simulation.yaml\n'}
+[49.320124] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/params/football_team_simulation.yaml\n'}
+[49.320465] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/params/football_runtime_common.yaml\n'}
+[49.320908] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/params/football_real_robot.yaml\n'}
+[49.321209] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/params/football_nav2_real.yaml\n'}
+[49.321576] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/params/football_real_robot_test.yaml\n'}
+[49.321889] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/params/football_gazebo_sim.yaml\n'}
+[49.322451] (football_navigation) StdoutLine: {'line': b'-- Up-to-date: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/football_navigation_plugins.xml\n'}
+[49.322485] (football_navigation) StdoutLine: {'line': b'-- Up-to-date: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/football_navigation_dwb_plugins.xml\n'}
+[49.322521] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/football_build_identity.json\n'}
+[49.323041] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/lib/football_navigation/football_process_group_guard.py\n'}
+[49.326638] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/environment/library_path.sh\n'}
+[49.326997] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/environment/library_path.dsv\n'}
+[49.327394] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/ament_index/resource_index/package_run_dependencies/football_navigation\n'}
+[49.327750] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/ament_index/resource_index/parent_prefix_path/football_navigation\n'}
+[49.331809] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/environment/ament_prefix_path.sh\n'}
+[49.332077] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/environment/ament_prefix_path.dsv\n'}
+[49.332633] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/environment/path.sh\n'}
+[49.333040] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/environment/path.dsv\n'}
+[49.333145] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/local_setup.bash\n'}
+[49.333292] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/local_setup.sh\n'}
+[49.333466] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/local_setup.zsh\n'}
+[49.333680] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/local_setup.dsv\n'}
+[49.333873] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/package.dsv\n'}
+[49.334121] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/ament_index/resource_index/packages/football_navigation\n'}
+[49.334256] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/ament_index/resource_index/nav2_costmap_2d__pluginlib__plugin/football_navigation\n'}
+[49.334489] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/ament_index/resource_index/nav2_core__pluginlib__plugin/football_navigation\n'}
+[49.334771] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/ament_index/resource_index/dwb_core__pluginlib__plugin/football_navigation\n'}
+[49.335022] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/cmake/ament_cmake_export_include_directories-extras.cmake\n'}
+[49.335244] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/cmake/ament_cmake_export_libraries-extras.cmake\n'}
+[49.335490] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/cmake/ament_cmake_export_dependencies-extras.cmake\n'}
+[49.335717] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/cmake/football_navigationConfig.cmake\n'}
+[49.335979] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/cmake/football_navigationConfig-version.cmake\n'}
+[49.336133] (football_navigation) StdoutLine: {'line': b'-- Installing: /home/lee/code/cyberdog2_pc_ws/src/install/football_navigation/share/football_navigation/package.xml\n'}
+[49.342855] (football_navigation) CommandEnded: {'returncode': 0}
+[49.365754] (-) TimerEvent: {}
+[49.475430] (-) TimerEvent: {}
+[49.576179] (-) TimerEvent: {}
+[49.661866] (football_navigation) JobEnded: {'identifier': 'football_navigation', 'rc': 0}
+[49.675895] (-) EventReactorShutdown: {}

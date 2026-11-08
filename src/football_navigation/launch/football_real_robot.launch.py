@@ -86,6 +86,7 @@ def launch_nav2(context):
         'robot_namespaces_csv': LaunchConfiguration(
             'robot_namespaces_csv').perform(context),
         'robot_odom_topic_template': odom_template,
+        'control_state_topic': '/{}/football/state'.format(robot_namespace),
         'minimum_obstacle_count': LaunchConfiguration(
             'minimum_obstacle_count').perform(context),
         'topic': LaunchConfiguration('scan_topic').perform(context),

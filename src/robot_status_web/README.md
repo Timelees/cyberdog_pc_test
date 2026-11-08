@@ -1,6 +1,6 @@
 # robot_status_web
 
-ROS 2 multi-CyberDog health dashboard. The node subscribes to each robot's odometry, camera, AprilTag and global-VIO topics, polls lifecycle state,
+ROS 2 multi-CyberDog health dashboard. The node subscribes to each robot's odometry, camera, AprilTag, global-VIO and motion-manager state topics, polls lifecycle state,
 and exposes a FastAPI/WebSocket dashboard.
 
 ## 部署（PC 端）
@@ -31,6 +31,12 @@ ROBOT_STATUS_CONFIG=/path/to/robot_status_web.yaml bash src/env/start_robot_stat
 ```
 
 默认监听 0.0.0.0:8080，访问 http://0.0.0.0:8080/。网页可访问但状态为 unknown 时，检查 DDS 发现、命名空间和实际话题名称。
+
+Motion Manager 状态读取 `/{namespace}/state_switch_status` 和
+`/{namespace}/motion_status`，显示系统状态、当前 motion ID、切换状态及动作进度；
+同时通过 ROS 图发现确认节点仍在线。状态切换消息是事件流，
+收到后会保留最近状态；节点消失时立即显示为不可用。若页面启动后尚未发生状态切换，
+则显示“在线 / 等待状态消息”。
 
 The dashboard only changes lifecycle state when the operator presses
 “配置并激活” or “激活全部节点”. Topic health is based on message receipt

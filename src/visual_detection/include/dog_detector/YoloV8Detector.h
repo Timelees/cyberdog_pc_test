@@ -14,7 +14,6 @@ namespace dog_detector {
 // YOLOv8 ONNX 推理配置。默认使用 CUDA，可通过 --device cpu 切换。
 struct YoloV8Config {
   std::string model_path = "models/best.onnx";
-  std::vector<std::string> class_names;
   int input_width = 640;
   int input_height = 640;
   float confidence_threshold = 0.25F;
@@ -32,7 +31,6 @@ class YoloV8Detector {
 
   // 输入 BGR 图像帧，输出原图坐标系中的检测框。
   std::vector<Detection> detect(const cv::Mat& frame);
-  const std::vector<std::string>& classNames() const { return config_.class_names; }
 
  private:
   // letterbox 信息用于把模型输入坐标还原回原图坐标。

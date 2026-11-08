@@ -13,7 +13,6 @@ namespace dog_detector {
 // 视频检测管线配置，贯穿模型加载、后处理阈值、输出文件和 tracker 参数。
 struct VideoPipelineConfig {
   std::string model_path = "models/best.onnx";
-  std::string labels_path = "data.yaml";
   std::string output_json_path;
   std::string output_video_path;
   float confidence_threshold = 0.25F;
@@ -23,7 +22,7 @@ struct VideoPipelineConfig {
   SoccerTrackerConfig tracker;
 };
 
-// 负责读取视频、调用 YOLO 检测、转换 goal 坐标、预测 soccer 并写出结果。
+// 负责读取视频、调用 YOLO 检测、预测 soccer 并写出结果。
 class VideoDetectionPipeline {
  public:
   // 服务端通过回调拿到每一帧结果，从而做到边检测边发送。
@@ -40,23 +39,17 @@ class VideoDetectionPipeline {
   void drawPreview(cv::Mat* frame, const FrameResult& result) const;
 
  private:
-  // 在一组检测框中选出某个类别置信度最高的框。
-  std::optional<Detection> bestDetectionByName(const std::vector<Detection>& detections,
-                                               const std::string& class_name) const;
-  // 处理单帧：检测、选 goal 原点、转点坐标、更新 soccer tracker。
+  // 处理单帧足球检测，并更新图像坐标系中的 soccer tracker。
   FrameResult processFrame(const cv::Mat& frame, int frame_index, double timestamp_sec);
   // 可选输出标注视频时使用，把框、点和预测结果画到帧上。
   void drawFrame(cv::Mat* frame, const FrameResult& result) const;
   // 将完整视频结果写成 JSON 文件。
   void writeJson(const VideoResult& result) const;
-  // 根据类别名查找 class_id，用于预测点没有原始检测框时补齐类别信息。
-  int classIdByName(const std::string& class_name) const;
 
   VideoPipelineConfig config_;
   YoloV8Detector detector_;
   SoccerTracker soccer_tracker_;
   std::optional<cv::Point2f> last_soccer_contact_offset_;
-  std::optional<cv::Point2f> last_goal_origin_;
 };
 
 }  // namespace dog_detector

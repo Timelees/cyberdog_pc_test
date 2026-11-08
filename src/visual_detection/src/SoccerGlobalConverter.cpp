@@ -45,7 +45,7 @@ SoccerGlobalConverter::SoccerGlobalConverter() : Node("soccer_global_converter")
   use_tag_plane_homography_ =
       declare_parameter<bool>("use_tag_plane_homography", true);
   tag_calibration_samples_ = static_cast<int>(
-      std::max<int64_t>(1, declare_parameter<int64_t>("tag_calibration_samples", 30)));
+      std::max<int64_t>(1, declare_parameter<int64_t>("tag_calibration_samples", 1)));
   const auto axis_mapping = declare_parameter<std::vector<double>>(
       "output_axis_mapping", {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0});
   if (axis_mapping.size() != output_axis_mapping_.size()) {

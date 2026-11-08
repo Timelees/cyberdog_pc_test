@@ -99,7 +99,6 @@ class VisualDetectionNode : public rclcpp::Node {
     const auto defaults = loadParameterDefaults(share + "/config/visual_detection.yaml");
     VideoPipelineConfig config;
     config.model_path = declare_parameter<std::string>("model_path", share + "/models/best.onnx");
-    config.labels_path = declare_parameter<std::string>("labels_path", share + "/data.yaml");
     config.device = declare_parameter<std::string>("device", yamlValue(defaults, "device", "cuda"));
     config.cuda_device_id = std::stoi(yamlValue(defaults, "cuda_device_id", "0"));
     config.cuda_device_id = declare_parameter<int>("cuda_device_id", config.cuda_device_id);
@@ -136,9 +135,6 @@ class VisualDetectionNode : public rclcpp::Node {
     soccer_ground_contact_publisher_ =
         create_publisher<geometry_msgs::msg::PointStamped>(
             "/visual_detection/soccer_ground_contact", 10);
-    goal_publisher_ = create_publisher<geometry_msgs::msg::PointStamped>("/visual_detection/goal", 10);
-    dog1_publisher_ = create_publisher<geometry_msgs::msg::PointStamped>("/visual_detection/dog1", 10);
-    dog2_publisher_ = create_publisher<geometry_msgs::msg::PointStamped>("/visual_detection/dog2", 10);
 
     if (!video_stream_.empty()) {
       openStream();
@@ -262,21 +258,6 @@ class VisualDetectionNode : public rclcpp::Node {
 
 
   void publishObjectPoints(const FrameResult& result, double timestamp) {
-    for (const auto& point : result.points) {
-      // Soccer is published once below from the tracker's selected result.
-      // This avoids publishing several detections with an identical timestamp.
-      if (point.class_name == "soccer") continue;
-      auto message = geometry_msgs::msg::PointStamped();
-      message.header.stamp = rclcpp::Time(static_cast<int64_t>(timestamp * 1e9));
-      message.header.frame_id = "image";
-      message.point.x = point.image_point.x;
-      message.point.y = point.image_point.y;
-      message.point.z = point.confidence;
-      if (point.class_name == "goal") goal_publisher_->publish(message);
-      else if (point.class_name == "dog1") dog1_publisher_->publish(message);
-      else if (point.class_name == "dog2") dog2_publisher_->publish(message);
-    }
-
     // Publish the best real detection, or the tracker's short prediction during
     // brief detector misses. This keeps the downstream global position stream
     // continuous without extrapolating indefinitely.
@@ -346,9 +327,6 @@ class VisualDetectionNode : public rclcpp::Node {
   rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr soccer_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr
       soccer_ground_contact_publisher_;
-  rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr goal_publisher_;
-  rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr dog1_publisher_;
-  rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr dog2_publisher_;
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_subscription_;
   rclcpp::TimerBase::SharedPtr stream_timer_;
   cv::VideoCapture capture_;

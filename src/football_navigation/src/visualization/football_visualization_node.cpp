@@ -1522,6 +1522,8 @@ void FootballVisualizationNode::publishMarkers()
       control_state_ == "NAV_TRANSIT" ||
       control_state_ == "OBSTACLE_APPROACH" ||
       control_state_ == "BALL_APPROACH" ||
+      control_state_ == "KICK_APPROACH" ||
+      control_state_ == "CONTACT_ALIGN" ||
       control_state_ == "APPROACH_BEHIND_BALL";
     if (approaching_ball && have_approach_ && fresh(approach_time_, stamp)) {
       appendPoseMarker(

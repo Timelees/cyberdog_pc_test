@@ -1,6 +1,5 @@
 #include "dog_detector/VideoDetectionPipeline.h"
 
-#include "dog_detector/DataConfig.h"
 #include "dog_detector/ResultJson.h"
 
 #include <opencv2/imgproc.hpp>
@@ -20,13 +19,7 @@ cv::Scalar colorForClass(const std::string& name, bool predicted) {
   if (predicted) {
     return {0, 255, 255};
   }
-  if (name == "goal") {
-    return {60, 180, 75};
-  }
-  if (name == "soccer") {
-    return {0, 165, 255};
-  }
-  return {220, 90, 60};
+  return {0, 165, 255};
 }
 
 // OpenCV 绘制 API 多数使用整数坐标，这里集中做四舍五入。
@@ -46,9 +39,7 @@ cv::Rect roundedRect(const cv::Rect2f& rect) {
 
 VideoDetectionPipeline::VideoDetectionPipeline(VideoPipelineConfig config)
     : config_(std::move(config)),
-      // 标签从 data.yaml 读取，确保模型类别和输出 JSON 中的名称一致。
       detector_(YoloV8Config{config_.model_path,
-                             loadClassNames(config_.labels_path),
                              640,
                              640,
                              config_.confidence_threshold,
@@ -122,21 +113,6 @@ void VideoDetectionPipeline::drawPreview(cv::Mat* frame, const FrameResult& resu
   drawFrame(frame, result);
 }
 
-std::optional<Detection> VideoDetectionPipeline::bestDetectionByName(
-    const std::vector<Detection>& detections,
-    const std::string& class_name) const {
-  std::optional<Detection> best;
-  for (const auto& detection : detections) {
-    if (detection.class_name != class_name) {
-      continue;
-    }
-    if (!best.has_value() || detection.confidence > best->confidence) {
-      best = detection;
-    }
-  }
-  return best;
-}
-
 FrameResult VideoDetectionPipeline::processFrame(const cv::Mat& frame,
                                                  int frame_index,
                                                  double timestamp_sec) {
@@ -145,18 +121,10 @@ FrameResult VideoDetectionPipeline::processFrame(const cv::Mat& frame,
   result.timestamp_sec = timestamp_sec;
   result.detections = detector_.detect(frame);
 
-  // goal 是坐标原点。当前帧未检测到 goal 时沿用上一帧，减少短暂漏检造成的坐标跳变。
-  const auto goal = bestDetectionByName(result.detections, "goal");
-  if (goal.has_value()) {
-    last_goal_origin_ = goal->center();
-  }
-  result.goal_origin = last_goal_origin_;
-
   std::optional<TimedPoint> observed_soccer;
   std::optional<DetectionPoint> best_soccer_point;
 
   for (const auto& detection : result.detections) {
-    // 每个检测框都输出图像坐标；goal-relative 坐标仅在球门原点可用时计算。
     const auto point = detection.center();
     DetectionPoint detection_point;
     detection_point.class_id = detection.class_id;
@@ -170,10 +138,6 @@ FrameResult VideoDetectionPipeline::processFrame(const cv::Mat& frame,
       last_soccer_contact_offset_ =
           *detection_point.ground_contact_point - detection_point.image_point;
     }
-    if (result.goal_origin.has_value()) {
-      const auto origin = *result.goal_origin;
-      detection_point.goal_relative_point = {point.x - origin.x, origin.y - point.y};
-    }
     result.points.push_back(detection_point);
 
     if (detection.class_name == "soccer" &&
@@ -185,7 +149,7 @@ FrameResult VideoDetectionPipeline::processFrame(const cv::Mat& frame,
 
   if (best_soccer_point.has_value()) {
     // tracker 的历史只记录真实检测到的 soccer，不把预测结果继续喂回去。
-    observed_soccer = TimedPoint{frame_index, timestamp_sec, best_soccer_point->goal_relative_point};
+    observed_soccer = TimedPoint{frame_index, timestamp_sec, best_soccer_point->image_point};
   }
 
   // soccer 漏检时根据最近真实点的速度做短时间预测。
@@ -195,16 +159,11 @@ FrameResult VideoDetectionPipeline::processFrame(const cv::Mat& frame,
     if (best_soccer_point.has_value() && !track.predicted) {
       soccer_point = *best_soccer_point;
     } else {
-      soccer_point.class_id = classIdByName("soccer");
+      soccer_point.class_id = 0;
       soccer_point.class_name = "soccer";
       soccer_point.confidence = 0.0F;
-      soccer_point.goal_relative_point = track.point;
+      soccer_point.image_point = track.point;
       soccer_point.predicted = true;
-      if (result.goal_origin.has_value()) {
-        // 预测点本身在 goal_relative 坐标系中，绘制时再转换回图像坐标。
-        const auto origin = *result.goal_origin;
-        soccer_point.image_point = {origin.x + track.point.x, origin.y - track.point.y};
-      }
       if (last_soccer_contact_offset_.has_value()) {
         soccer_point.ground_contact_point =
             soccer_point.image_point + *last_soccer_contact_offset_;
@@ -234,12 +193,6 @@ void VideoDetectionPipeline::drawFrame(cv::Mat* frame, const FrameResult& result
                 cv::LINE_AA);
   }
 
-  if (result.goal_origin.has_value()) {
-    // 用十字标出当前使用的 goal 原点。
-    const auto origin = *result.goal_origin;
-    cv::drawMarker(*frame, roundedPoint(origin), {255, 255, 255}, cv::MARKER_CROSS, 18, 2);
-  }
-
   // 再画转换后的点；预测的 soccer 点会使用更大的黄色点。
   for (const auto& point : result.points) {
     const auto color = colorForClass(point.class_name, point.predicted);
@@ -256,15 +209,6 @@ void VideoDetectionPipeline::drawFrame(cv::Mat* frame, const FrameResult& result
                   cv::LINE_AA);
     }
   }
-}
-
-int VideoDetectionPipeline::classIdByName(const std::string& class_name) const {
-  const auto& names = detector_.classNames();
-  const auto found = std::find(names.begin(), names.end(), class_name);
-  if (found == names.end()) {
-    return -1;
-  }
-  return static_cast<int>(std::distance(names.begin(), found));
 }
 
 void VideoDetectionPipeline::writeJson(const VideoResult& result) const {

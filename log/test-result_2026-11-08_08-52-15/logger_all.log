@@ -1,0 +1,5 @@
+[0.078s] colcon DEBUG Command line arguments: ['/usr/bin/colcon', 'test-result', '--verbose']
+[0.078s] colcon DEBUG Parsed command line arguments: Namespace(all=False, delete=False, delete_yes=False, log_base=None, log_level=None, main=<bound method TestResultVerb.main of <colcon_test_result.verb.test_result.TestResultVerb object at 0x7f9c8c38dca0>>, mixin=None, mixin_files=None, mixin_verb=('test-result',), result_files_only=False, test_result_base='build', verb_extension=<colcon_test_result.verb.test_result.TestResultVerb object at 0x7f9c8c38dca0>, verb_name='test-result', verb_parser=<colcon_mixin.mixin.mixin_argument.MixinArgumentDecorator object at 0x7f9c8b9801f0>, verbose=True)
+[0.083s] colcon.colcon_test_result.test_result Level 1 get_test_results(ctest)
+[0.084s] colcon.colcon_test_result.test_result Level 1 get_test_results(xunit)
+[0.085s] colcon.colcon_test_result.test_result.xunit DEBUG Skipping 'build/football_navigation/Testing/20261108-0852/Test.xml': the root tag is neither 'testsuite' nor 'testsuites'

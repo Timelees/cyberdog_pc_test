@@ -54,7 +54,6 @@ endif()
 
 # 公共库包含检测器、视频管线、JSON 序列化和 TCP 客户端/服务端逻辑。
 add_library(dog_detector_lib
-  src/DataConfig.cpp
   src/DetectionClient.cpp
   src/DetectionServer.cpp
   src/ResultJson.cpp
@@ -104,6 +103,5 @@ install(TARGETS dog_detector_lib dog_detect dog_client visual_detection_node soc
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY include/ DESTINATION include)
 install(DIRECTORY models DESTINATION share/${PROJECT_NAME})
-install(FILES data.yaml DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY config/ DESTINATION share/${PROJECT_NAME}/config)
 ament_package()
